@@ -1,0 +1,177 @@
+def PLATFORMS = [ "cowbuilder", "mock", "windows" ]
+def DEFAULT_PLATFORM = PLATFORMS[0]
+
+pipeline {
+    agent none
+    stages {
+        stage('job valid?') {
+            when {
+                expression {
+                    return _INTERNAL_OK_.toBoolean() != true
+                }
+            }
+            steps {
+                error("Exiting early as not valid run")
+            }
+        }
+        stage('prepare and validate') {
+            agent { label "centos7||centos6" }
+            steps {
+                cleanWs()
+                shWithEcho("env")
+
+                dir("libcouchbase") {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    script {
+                        if (env.IS_RELEASE == true) {
+                            echo "This is release, not updating metadata"
+                        } else {
+                            echo "This is not release, updating metadata"
+                        }
+                    }
+                }
+
+                stash includes: 'libcouchbase/', name: 'libcouchbase', useDefaultExcludes: false
+            }
+        }
+        stage('build-and-test') {
+            agent { label 'master' }
+            steps {
+                cleanWs()
+                dir("lcbpackage") {
+                    checkout([$class: 'GitSCM', branches: [[name: 'master']], userRemoteConfigs: [[ url: 'http://github.com/couchbaselabs/lcbpackage.git', poll: false ]]])
+                }
+                
+                stash includes: 'lcbpackage/', name: 'lcbpackage'
+                buildsAndTests(PLATFORMS)
+            }
+        }
+    }
+}
+
+void shWithEcho(String command) {
+    echo sh (script: command, returnStdout: true)
+}
+
+void batWithEcho(String command) {
+    echo bat (script: command, returnStdout: true)
+}
+
+def buildsAndTests(PLATFORMS) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+
+        if (platform == "windows") {
+            // for (k in ["x86", "amd64"]) {
+            for (k in ["amd64"]) {
+                def ARCH = k
+                // for (l in [9, 10, 11, 14]) {
+                for (l in [14]) {
+                    def MSVCC_VER = l
+                    
+                    pairs[platform + "-" + ARCH + "-" + MSVCC_VER]= {
+                        node(platform) {
+                            def envStr = ["MSVCC_VER=${MSVCC_VER}", "ARCH=${ARCH}"]
+                            withEnv(envStr) {
+                                unstash 'libcouchbase'
+                                batWithEcho('''
+                                    echo PATH=%PATH%
+                                    echo MSVCC_VER=%MSVCC_VER%
+                                    echo ARCH=%ARCH%
+                                    
+                                    IF %MSVCC_VER% EQU 9 SET cmgen=Visual Studio 9 2008
+                                    IF %MSVCC_VER% EQU 10 SET cmgen=Visual Studio 10 2010
+                                    IF %MSVCC_VER% EQU 11 SET cmgen=Visual Studio 11 2012
+                                    IF %MSVCC_VER% EQU 14 SET cmgen=Visual Studio 14 2015
+                                    IF %ARCH% EQU amd64 SET cmgen=%cmgen% Win64
+                                    
+                                    RD /s /q BUILD
+                                    MKDIR BUILD
+                                    CD BUILD
+                                    
+                                    cmake -G"%cmgen%" -DLCB_NO_SSL=1 ..\\libcouchbase
+                                    
+                                    cmake --build .
+                                    cmake --build . --target package
+                                    rem cmake --build . --target alltests
+                                    rem ctest -C debug
+                                    '''
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            pairs[platform]= {
+                node(platform) {
+                    def envStr = []
+                    withEnv(envStr) {
+                        stage("build ${platform}") {
+                            cleanWs()
+                            unstash 'libcouchbase'
+                            unstash 'lcbpackage'
+                            
+                            shWithEcho("groups")
+                            shWithEcho("groups `whoami`")
+        
+                            dir("libcouchbase") {
+                                dir("build") {
+                                    shWithEcho("cmake ../ -DLCB_NO_PLUGINS=1") // TODO: NEED PLUGINS!
+                                }
+                            }
+                            println platform
+                            if (platform == "mock") {
+                                // dir("libcouchbase") {
+                                //     shWithEcho('''
+                                //         #!/bin/bash -xe
+                                //         export LCB_REPO_PREFIX=${WORKSPACE}/rpms
+                                //         sudo ../lcbpackage/rpm/build-rpms.sh --verbose
+                                //         echo rpmbuilt
+                                //         # ../lcbpackage/rpm/mk-localrepo.sh
+                                //     ''')
+                                // }
+                            } else if (platform == "cowbuilder") {
+                                //dir("distro") {
+                                //    shWithEcho("ls /usr/share/keyrings/ubuntu-archive-keyring.gpg")
+                                //    shWithEcho('''
+                                //        #!/bin/bash -xe
+                                //        cat > extra.sh <<EOF
+                                //        set -e
+                                //        set -x
+                                //        apt-get install -y libevent-dev libev-dev libssl-dev unzip curl wget debhelper
+                                //        (cd /opt; curl -kL https://cmake.org/files/v3.9/cmake-3.9.1-Linux-x86_64.tar.gz | tar zx)
+                                //        ln -sf /opt/cmake-3.9.1-Linux-x86_64/bin/cmake /usr/local/bin/cmake
+                                //        EOF
+                                //    ''')
+                                //    shWithEcho('''    
+                                //        #!/bin/bash -xe
+                                //        mkdir cows
+                                //        sudo cowbuilder --debug --create --distribution bionic --components 'main universe' --basepath cows/bionic-i386.cow --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --arch=i386 # --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                //        sudo cowbuilder --debug --execute --save --basepath cows/bionic-i386.cow -- extra.sh
+                                //    ''')
+                                //}
+                            } else {
+                                error("Platform not recognised for ${platform}")
+                            }
+    
+                            stash includes: 'libcouchbase/', name: "libcouchbase-build-${platform}", useDefaultExcludes: false
+                        }
+                       // stage("test ${platform}") {
+                            //cleanWs()
+                            //unstash("libcouchbase-build-${platform}")
+                            
+                            //if (platform == "windows") {
+                           // } else {
+                            //}
+                      //  }
+                    }
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
