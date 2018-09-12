@@ -119,7 +119,10 @@ def buildsAndTests(PLATFORMS) {
                             shWithEcho("groups")
                             shWithEcho("groups `whoami`")
 
+                            def version = "unknown"
                             dir("libcouchbase") {
+                                version = sh(script: 'git describe --long', returnStdout: true)
+                                println "libcouchbase version is <$version>"
                                 dir("build") {
                                     shWithEcho("cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 ..")
                                     shWithEcho("make dist")
@@ -129,6 +132,7 @@ def buildsAndTests(PLATFORMS) {
                             println platform
                             if (platform == "mock") {
                                 dir("libcouchbase") {
+
                                     shWithEcho('''
                                         set -x
                                         set -e
