@@ -121,7 +121,9 @@ def buildsAndTests(PLATFORMS) {
 
                             dir("libcouchbase") {
                                 dir("build") {
-                                    shWithEcho("cmake ../ -DLCB_NO_PLUGINS=1") // TODO: NEED PLUGINS!
+                                    shWithEcho("cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 ..")
+                                    shWithEcho("make dist")
+                                    archiveArtifacts artifacts: 'libcouchbase-*.tar.gz', fingerprint: true
                                 }
                             }
                             println platform
