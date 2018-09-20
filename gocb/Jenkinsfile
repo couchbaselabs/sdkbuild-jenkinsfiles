@@ -178,7 +178,12 @@ def builds(PLATFORMS) {
                         if (platform == "windows") {
                             batWithEcho("SET")
                             batWithEcho("cbdep install -d deps golang ${GO_VERSION}")
-                            batWithEcho("go version")
+        
+                            dir("src/github.com/couchbase/gocb") {
+                                batWithEcho("go version")
+                                batWithEcho("go get -t ./")
+                                batWithEcho("go build")
+                            }
                         } else {
                             shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
         
