@@ -3,6 +3,72 @@
 def PLATFORMS = [ "cowbuilder", "mock", "windows" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 
+class Version {
+    String gitVersion;
+
+    int major;
+    int minor;
+    int patch;
+    int commitCount;
+    String commitSha1;
+
+    Version(String gitVersion) {
+        this.gitVersion = gitVersion.trim();
+        parse()
+    }
+
+    @NonCPS
+    void parse() {
+        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(\d+)-g([0-9a-f]+))?$/)
+        res.find()
+        this.major = res.group(1) as Integer
+        this.minor = res.group(2) as Integer
+        this.patch = res.group(3) as Integer
+        if (res.group(5)) {
+            this.commitCount = res.group(5) as Integer
+        }
+        this.commitSha1 = res.group(6)
+    }
+
+    String tar() {
+        if (commitCount == null || commitCount == 0) {
+            return "${major}.${minor}.${patch}"
+        }
+        return gitVersion.replace("-", "_")
+    }
+
+    String[] rpm() {
+        def rel = "1"
+        if (commitCount) {
+            rel = "${commitCount + 1}.git${commitSha1}"
+
+        }
+        return ["${major}.${minor}.${patch}", rel]
+    }
+
+    String deb() {
+        def ver = "${major}.${minor}.${patch}"
+        if (commitCount) {
+            ver += "+r${commitCount}git${commitSha1}"
+        }
+        return ver
+    }
+}
+
+String shWithEcho(String command) {
+    def output = sh(script: command, returnStdout: true)
+    echo output
+    return output
+}
+
+String batWithEcho(String command) {
+    def output = bat(script: command, returnStdout: true)
+    echo output
+    return output
+}
+
+def VERSION = new Version("0.0.0");
+
 pipeline {
     agent none
     stages {
@@ -30,6 +96,7 @@ pipeline {
                         } else {
                             echo "This is not release, updating metadata"
                         }
+                        VERSION = new Version(shWithEcho('git describe --long'))
                     }
                 }
 
@@ -45,25 +112,16 @@ pipeline {
                 }
 
                 stash includes: 'lcbpackage/', name: 'lcbpackage'
-                buildsAndTests(PLATFORMS)
+                buildsAndTests(PLATFORMS, VERSION)
             }
         }
     }
 }
 
-void shWithEcho(String command) {
-    echo sh (script: command, returnStdout: true)
-}
-
-void batWithEcho(String command) {
-    echo bat (script: command, returnStdout: true)
-}
-
-def buildsAndTests(PLATFORMS) {
+def buildsAndTests(PLATFORMS, VERSION) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
-
 
         if (platform == "windows") {
             // for (k in ["x86", "amd64"]) {
@@ -119,14 +177,11 @@ def buildsAndTests(PLATFORMS) {
                             shWithEcho("groups")
                             shWithEcho("groups `whoami`")
 
-                            def version = "unknown"
                             dir("libcouchbase") {
-                                version = sh(script: 'git describe --long', returnStdout: true)
-                                println "libcouchbase version is <$version>"
                                 dir("build") {
                                     shWithEcho("cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 ..")
                                     shWithEcho("make dist")
-                                    archiveArtifacts artifacts: 'libcouchbase-*.tar.gz', fingerprint: true
+                                    archiveArtifacts artifacts: "libcouchbase-${VERSION.tar()}.tar.gz", fingerprint: true
                                 }
                             }
                             println platform
