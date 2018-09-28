@@ -234,7 +234,7 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                                 shWithEcho("""sudo mock -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath} --verbose""")
                                                 for (log in ['state.log', 'build.log', 'root.log']) {
                                                     if (fileExists("${resPath}/${log}")) {
-                                                        shWithEcho("rm ${resPath}/${log}")
+                                                        shWithEcho("rm -v ${resPath}/${log}")
                                                         // maybe archive as artifact or dump to log on error?
                                                     }
                                                 }
@@ -243,28 +243,87 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                             }
                                         }
                                     }
-//                                      # ../lcbpackage/rpm/mk-localrepo.sh
+                                        # ../lcbpackage/rpm/mk-localrepo.sh
                                 }
                             } else if (platform == "cowbuilder") {
-                                //dir("distro") {
-                                //    shWithEcho("ls /usr/share/keyrings/ubuntu-archive-keyring.gpg")
-                                //    shWithEcho('''
-                                //        #!/bin/bash -xe
-                                //        cat > extra.sh <<EOF
-                                //        set -e
-                                //        set -x
-                                //        apt-get install -y libevent-dev libev-dev libssl-dev unzip curl wget debhelper
-                                //        (cd /opt; curl -kL https://cmake.org/files/v3.9/cmake-3.9.1-Linux-x86_64.tar.gz | tar zx)
-                                //        ln -sf /opt/cmake-3.9.1-Linux-x86_64/bin/cmake /usr/local/bin/cmake
-                                //        EOF
-                                //    ''')
-                                //    shWithEcho('''
-                                //        #!/bin/bash -xe
-                                //        mkdir cows
-                                //        sudo cowbuilder --debug --create --distribution bionic --components 'main universe' --basepath cows/bionic-i386.cow --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --arch=i386 # --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-                                //        sudo cowbuilder --debug --execute --save --basepath cows/bionic-i386.cow -- extra.sh
-                                //    ''')
-                                //}
+                                // FIXME: https://github.com/couchbase/build-infra/pull/2
+                                shWithEcho('echo "USEDEVPTS=no\nUSEPROC=no\nUSEDEV=no" | sudo tee -a /etc/pbuilderrc')
+                                stage("prepare debian sources") {
+                                    dir("libcouchbase") {
+                                        dir("build") {
+                                            shWithEcho("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                            shWithEcho("tar -xf ${VERSION.tarName()}.tar.gz")
+                                            shWithEcho("cp -a ../packaging/deb ${VERSION.tarName()}/debian")
+                                            dir(VERSION.tarName()) {
+                                                shWithEcho("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                    --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                                """)
+                                                shWithEcho("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                            }
+                                        }
+                                    }
+                                }
+                                def dists = [
+                                    ['trusty', 'amd64', 'ubuntu1404'],
+                                    ['trusty', 'i386', 'ubuntu1404'],
+                                    ['xenial', 'amd64', 'ubuntu1604'],
+                                    ['xenial', 'i386', 'ubuntu1604'],
+                                    ['bionic', 'amd64', 'ubuntu1804'],
+                                    ['bionic', 'i386', 'ubuntu1804'],
+                                    ['jessie', 'amd64', 'debian8'],
+                                    ['jessie', 'i386', 'debian8'],
+                                    ['stretch', 'amd64', 'debian9'],
+                                    ['stretch', 'i386', 'debian9'],
+                                ]
+                                for (d in dists) {
+                                    dir("libcouchbase") {
+                                        dir("build") {
+                                            def (codename, arch, name) = d
+                                            if (fileExists("/var/cache/pbuilder/${codename}-${arch}.cow/etc/os-release")) {
+                                                stage("${codename}_${arch}: update cow") {
+                                                    shWithEcho("""
+                                                    sudo cowbuilder --update \
+                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow
+                                                    """)
+                                                }
+                                            } else {
+                                                stage("${codename}_${arch}: create cow") {
+                                                    def extra = "--components 'main'"
+                                                    if (name.contains("ubuntu")) {
+                                                        extra = """
+                                                            --components 'main universe' \
+                                                            --mirror http://ftp.ubuntu.com/ubuntu \
+                                                            --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                                        """
+                                                    }
+                                                    shWithEcho("""
+                                                    sudo cowbuilder --create \
+                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow \
+                                                        --distribution ${codename} \
+                                                        --debootstrapopts --arch=${arch} \
+                                                        ${extra}
+                                                    """)
+                                                }
+                                            }
+                                            stage("${codename}_${arch}: package") {
+                                                def resPath = "libcouchbase-${VERSION.deb()}_${name}_${codename}_${arch}"
+                                                shWithEcho("""
+                                                    sudo cowbuilder --build \
+                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow \
+                                                        --buildresult ${resPath} \
+                                                        --debbuildopts -j8 \
+                                                        --debbuildopts "-us -uc" \
+                                                        libcouchbase_${VERSION.deb()}-1.dsc
+                                                """)
+                                                shWithEcho("sudo chown couchbase:couchbase -R ${resPath}")
+                                                shWithEcho("rm -rfv ${resPath}/libcouchbase_${VERSION.deb()}*")
+                                                shWithEcho("tar cvf ${resPath}.tar ${resPath}")
+                                                archiveArtifacts(artifacts: "${resPath}.tar", fingerprint: true)
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 error("Platform not recognised for ${platform}")
                             }
