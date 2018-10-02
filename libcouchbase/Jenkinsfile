@@ -144,41 +144,60 @@ def buildsAndTests(PLATFORMS, VERSION) {
         def platform = j
 
         if (platform == "windows") {
-            // for (k in ["x86", "amd64"]) {
-            for (k in ["amd64"]) {
-                def ARCH = k
-                // for (l in [9, 10, 11, 14]) {
-                for (l in [14]) {
-                    def MSVCC_VER = l
-
-                    pairs[platform + "-" + ARCH + "-" + MSVCC_VER]= {
-                        node(platform) {
-                            def envStr = ["MSVCC_VER=${MSVCC_VER}", "ARCH=${ARCH}"]
-                            withEnv(envStr) {
-                                unstash 'libcouchbase'
-                                batWithEcho('''
-                                    echo PATH=%PATH%
-                                    echo MSVCC_VER=%MSVCC_VER%
-                                    echo ARCH=%ARCH%
-
-                                    IF %MSVCC_VER% EQU 9 SET cmgen=Visual Studio 9 2008
-                                    IF %MSVCC_VER% EQU 10 SET cmgen=Visual Studio 10 2010
-                                    IF %MSVCC_VER% EQU 11 SET cmgen=Visual Studio 11 2012
-                                    IF %MSVCC_VER% EQU 14 SET cmgen=Visual Studio 14 2015
-                                    IF %ARCH% EQU amd64 SET cmgen=%cmgen% Win64
-
-                                    RD /s /q BUILD
-                                    MKDIR BUILD
-                                    CD BUILD
-
-                                    cmake -G"%cmgen%" -DLCB_NO_SSL=1 ..\\libcouchbase
-
-                                    cmake --build .
-                                    cmake --build . --target package
-                                    rem cmake --build . --target alltests
-                                    rem ctest -C debug
-                                    '''
-                                )
+            def dists = [
+              //[9, 'amd64'],
+              //[9, 'x86'],
+              //[10, 'amd64'],
+              //[10, 'x86'],
+                [11, 'amd64'],
+                [11, 'x86'],
+                [14, 'amd64'],
+                [14, 'x86'],
+              //[15, 'amd64'],
+              //[15, 'x86'],
+            ]
+            for (d in dists) {
+                def (msvcc_ver, arch) = d
+                pairs[platform + "-" + arch + "-" + msvcc_ver]= {
+                    node(platform) {
+                        stage("build ${platform}_${arch}_${msvcc_ver}") {
+                            unstash 'libcouchbase'
+                            def cmdgen = null
+                            switch (msvcc_ver) {
+                                case 9:
+                                    cmdgen = "Visual Studio 9 2008"
+                                    break;
+                                case 10:
+                                    cmdgen = "Visual Studio 10 2010"
+                                    break;
+                                case 11:
+                                    cmdgen = "Visual Studio 11 2012"
+                                    break;
+                                case 14:
+                                    cmdgen = "Visual Studio 14 2015"
+                                    break;
+                                case 15:
+                                    cmdgen = "Visual Studio 15 2017"
+                                    break;
+                                default:
+                                    error("unknown MS VCC version: ${msvcc_ver}")
+                                    break;
+                            }
+                            if (arch == "amd64") {
+                                cmdgen += " Win64"
+                            }
+                            dir("build") {
+                                deleteDir()
+                                batWithEcho("""
+                                cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                cmake --build .
+                                """)
+                                batWithEcho("""
+                                cmake --build . --target alltests
+                                ctest -C debug
+                                """)
+                                batWithEcho('cmake --build . --target package')
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_${arch}_vc${msvcc_ver}.zip", fingerprint: true)
                             }
                         }
                     }
@@ -330,14 +349,6 @@ def buildsAndTests(PLATFORMS, VERSION) {
 
                             stash includes: 'libcouchbase/', name: "libcouchbase-build-${platform}", useDefaultExcludes: false
                         }
-                       // stage("test ${platform}") {
-                            //cleanWs()
-                            //unstash("libcouchbase-build-${platform}")
-
-                            //if (platform == "windows") {
-                           // } else {
-                            //}
-                      //  }
                     }
                 }
             }
