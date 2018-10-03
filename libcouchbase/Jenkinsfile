@@ -197,7 +197,7 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                 ctest -C debug
                                 """)
                                 batWithEcho('cmake --build . --target package')
-                                archiveArtifacts(artifacts: "${VERSION.tarName()}_${arch}_vc${msvcc_ver}.zip", fingerprint: true)
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
                             }
                         }
                     }
