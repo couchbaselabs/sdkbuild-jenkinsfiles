@@ -250,7 +250,7 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                             def (relno, arch) = d
                                             stage("centos${relno}_${arch}") {
                                                 def resPath = "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}"
-                                                shWithEcho("""sudo mock -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath} --verbose""")
+                                                shWithEcho("""sudo mock -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath}""")
                                                 for (log in ['state.log', 'build.log', 'root.log']) {
                                                     if (fileExists("${resPath}/${log}")) {
                                                         shWithEcho("rm -v ${resPath}/${log}")
@@ -262,11 +262,8 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                             }
                                         }
                                     }
-                                        # ../lcbpackage/rpm/mk-localrepo.sh
                                 }
                             } else if (platform == "cowbuilder") {
-                                // FIXME: https://github.com/couchbase/build-infra/pull/2
-                                shWithEcho('echo "USEDEVPTS=no\nUSEPROC=no\nUSEDEV=no" | sudo tee -a /etc/pbuilderrc')
                                 stage("prepare debian sources") {
                                     dir("libcouchbase") {
                                         dir("build") {
@@ -310,11 +307,7 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                                 stage("${codename}_${arch}: create cow") {
                                                     def extra = "--components 'main'"
                                                     if (name.contains("ubuntu")) {
-                                                        extra = """
-                                                            --components 'main universe' \
-                                                            --mirror http://ftp.ubuntu.com/ubuntu \
-                                                            --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-                                                        """
+                                                        extra = "--components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg"
                                                     }
                                                     shWithEcho("""
                                                     sudo cowbuilder --create \
