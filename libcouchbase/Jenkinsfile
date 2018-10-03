@@ -116,7 +116,7 @@ pipeline {
                         } else {
                             echo "This is not release, updating metadata"
                         }
-                        VERSION = new Version(shWithEcho('git describe --long'))
+                        VERSION = new Version(shWithEcho('git describe --long --abbrev=10'))
                     }
                 }
 
