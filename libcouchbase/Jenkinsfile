@@ -127,11 +127,6 @@ pipeline {
             agent { label 'master' }
             steps {
                 cleanWs()
-                dir("lcbpackage") {
-                    checkout([$class: 'GitSCM', branches: [[name: 'master']], userRemoteConfigs: [[ url: 'http://github.com/couchbaselabs/lcbpackage.git', poll: false ]]])
-                }
-
-                stash includes: 'lcbpackage/', name: 'lcbpackage'
                 buildsAndTests(PLATFORMS, VERSION)
             }
         }
@@ -211,7 +206,6 @@ def buildsAndTests(PLATFORMS, VERSION) {
                         stage("build ${platform}") {
                             cleanWs()
                             unstash 'libcouchbase'
-                            unstash 'lcbpackage'
 
                             shWithEcho("groups")
                             shWithEcho("groups `whoami`")
