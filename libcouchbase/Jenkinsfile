@@ -250,11 +250,14 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                             def (relno, arch) = d
                                             stage("centos${relno}_${arch}") {
                                                 def resPath = "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}"
-                                                shWithEcho("""sudo mock -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath}""")
+                                                shWithEcho("""
+                                                sudo mock --old-chroot -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath} \
+                                                || (for log in ${resPath}/*.log; do echo "ERROR LOG: \$log"; cat \$log; done; exit 1)
+                                                """)
+                                                shWithEcho("sudo chown couchbase:couchbase -R ${resPath}")
                                                 for (log in ['state.log', 'build.log', 'root.log']) {
                                                     if (fileExists("${resPath}/${log}")) {
                                                         shWithEcho("rm -v ${resPath}/${log}")
-                                                        // maybe archive as artifact or dump to log on error?
                                                     }
                                                 }
                                                 shWithEcho("tar cvf ${resPath}.tar ${resPath}")
