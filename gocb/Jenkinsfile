@@ -25,9 +25,7 @@ pipeline {
                 shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
                 dir('src/github.com/couchbase/gocb') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
-                }
-                shWithEcho("go version")
-                dir("src/github.com/couchbase/gocb") {
+                    shWithEcho("go version")
                     shWithEcho("go get -t ./")
                     shWithEcho("make devsetup && make lint")
                     
@@ -119,6 +117,7 @@ pipeline {
                     {  return IS_RELEASE.toBoolean() == true } 
             }
             steps {
+                emailext body: "Jenkins: approval required for gocb -$BUILD_URL", subject: 'Jenkins: approval required for gocb', to: 'charles.dixon@couchbase.com'
                 input 'Publish?'
             }
         }
@@ -136,7 +135,12 @@ pipeline {
                     script {
                         def version = sh(script: 'grep goCbVersionStr constants.go | awk \'{print $3}\' | cut -d "\\"" -f 2 | tr -d "\\n"', returnStdout: true)
                         println version
-                        shWithEcho("git tag -am \"Release ${version}\" ${version}")
+                        shWithEcho("""
+                            git config user.name "Couchbase SDK Team"
+                            git config user.email "sdk_dev@couchbase.com"
+                            git config user.signingkey 7CD637BCC6326B4ED62959B8D21968C134100A58
+                            git tag -asm "Release $version" $version
+                        """)
                     }
                 }
             }
@@ -195,7 +199,6 @@ def builds(PLATFORMS) {
                         }
     
                         stash includes: 'src/github.com/couchbase/gocb/', name: "gocb-build-${platform}", useDefaultExcludes: false
-                        //archiveArtifacts artifacts: 'src/github.com/couchbase/gocb/', fingerprint: true, defaultExcludes: false
                     }
                 }
             }
