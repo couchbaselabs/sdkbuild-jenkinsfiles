@@ -1,0 +1,209 @@
+def PLATFORMS = [ "centos7", "macos", "windows" ]
+
+pipeline {
+    agent none
+    stages {
+        stage('job valid?') {
+            when {
+                expression {
+                    return _INTERNAL_OK_.toBoolean() != true
+                }
+            }
+            steps {
+                error("Exiting early as not valid run")
+            }
+        }
+        stage('prepare and validate') {
+            agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
+            environment {
+                GOPATH = "${WORKSPACE}"
+                GOROOT = "${GOPATH}" + "/deps/go"
+                PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
+            }
+            steps {
+                cleanWs()
+                shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+                dir('src/github.com/couchbase/gocbcore') {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+
+                    shWithEcho("go version")
+                    shWithEcho("go get -t ./")
+                    shWithEcho("make devsetup && make lint")
+                    
+                    script {
+                        if (env.IS_RELEASE.toBoolean() == true) {
+                            echo "This is release, not updating metadata"
+                        } else {
+                            echo "This is not release, updating metadata"
+                            def version = sh(script: 'grep goCbCoreVersionStr constants.go | awk \'{print $3}\' | cut -d "\\"" -f 2 | tr -d "\\n"', returnStdout: true)
+                            def buildNum = VersionNumber([projectStartDate: '', versionNumberString: '${BUILDS_ALL_TIME, XXXX}', versionPrefix: '', worstResultForIncrement: 'NOT_BUILT'])
+                            version = version + "." + buildNum
+                            println version
+                            shWithEcho("sed -i 's/\\(goCbCoreVersionStr = \\).*\$/\\1\"$version\"/' constants.go")
+                        }
+                    } 
+                }
+                
+                stash includes: 'src/github.com/couchbase/gocbcore/', name: 'gocbcore', useDefaultExcludes: false
+            }
+        }
+        stage('build') {
+            agent { label 'master' }
+            steps {
+                cleanWs()
+                builds(PLATFORMS)
+            }
+        }
+        stage('test') {
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            environment {
+                GOPATH = "${WORKSPACE}"
+                GOROOT = "${GOPATH}" + "/deps/go"
+                PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
+            }
+            steps {
+                cleanWs()
+                shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+                unstash "gocbcore-build-"+ PLATFORMS[0]
+                dir("src/github.com/couchbase/gocbcore") {
+                    shWithEcho("go version")
+                    shWithEcho("go get -t ./")
+                    shWithEcho("go test -race -coverprofile=$WORKSPACE/cover.out ./")
+                }
+            }
+        }
+        stage('package') {
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            when { 
+                expression 
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
+            }
+            steps {
+                cleanWs()
+                unstash "gocbcore-build-"+ PLATFORMS[0]
+                stash includes: 'src/github.com/couchbase/gocbcore/', name: "gocbcore-package", useDefaultExcludes: false
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'src/github.com/couchbase/gocbcore/', fingerprint: true
+                }
+            }
+        }
+        stage('test-integration') {
+            agent { label 'master' }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
+            }
+            steps {
+                cleanWs()
+                build job: "gocbcore-test-integration", parameters: [
+                ]
+            }
+        }
+        stage('quality') {
+            agent { label 'master' }
+            when {
+                expression 
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
+            }
+            steps {
+                cleanWs()
+            }
+        }
+        stage('approval') {
+            agent none
+            when { 
+                expression 
+                    {  return IS_RELEASE.toBoolean() == true } 
+            }
+            steps {
+                emailext body: "Jenkins: approval required for gocbcore -$BUILD_URL", subject: 'Jenkins: approval required for gocbcore', to: 'charles.dixon@couchbase.com'
+                input 'Publish?'
+            }
+        }
+        stage('publish') {
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            when { 
+                expression 
+                    {  return IS_RELEASE.toBoolean() == true } 
+            }
+            steps {
+                cleanWs()
+                unstash "gocbcore-package"
+                
+                dir("src/github.com/couchbase/gocbcore") {
+                    script {
+                        def version = sh(script: 'grep goCbCoreVersionStr constants.go | awk \'{print $3}\' | cut -d "\\"" -f 2 | tr -d "\\n"', returnStdout: true)
+                        println version
+                        shWithEcho("""
+                            git config user.name "Couchbase SDK Team"
+                            git config user.email "sdk_dev@couchbase.com"
+                            git config user.signingkey 7CD637BCC6326B4ED62959B8D21968C134100A58
+                            git tag -asm "Release $version" $version
+                        """)
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'src/github.com/couchbase/gocbcore/', fingerprint: true
+                }
+            }
+        }
+    }
+}
+
+void shWithEcho(String command) {
+    echo sh (script: command, returnStdout: true)
+}
+
+void batWithEcho(String command) {
+    echo bat (script: command, returnStdout: true)
+}
+
+def builds(PLATFORMS) {
+    def builds = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        builds[platform]= {
+            node(platform) {
+                def envStr = []
+                if (platform == "windows") {
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH;${WORKSPACE}/bin;${WORKSPACE}/deps/go/bin"]
+                } else {
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps/go/bin"]
+                }
+                withEnv(envStr) {
+                    stage("build ${platform}") {
+                        cleanWs()
+                        unstash 'gocbcore'
+    
+                        if (platform == "windows") {
+                            batWithEcho("SET")
+                            batWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+                            
+                            dir("src/github.com/couchbase/gocbcore") {
+                                batWithEcho("go version")
+                                batWithEcho("go get -t ./")
+                                batWithEcho("go build")
+                            }
+                        } else {
+                            shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+                            dir("src/github.com/couchbase/gocbcore") {
+                                shWithEcho("go version")
+                                shWithEcho("go get -t ./")
+                                shWithEcho("go build")
+                            }
+                        }
+    
+                        stash includes: 'src/github.com/couchbase/gocbcore/', name: "gocbcore-build-${platform}", useDefaultExcludes: false
+                    }
+                }
+            }
+        }
+    }
+
+    parallel builds
+}
