@@ -181,7 +181,7 @@ def buildsAndTests(PLATFORMS, VERSION) {
                             if (arch == "amd64") {
                                 cmdgen += " Win64"
                             }
-                            dir("build") {
+                            dir("build_${platform}_${arch}_${msvcc_ver}") {
                                 deleteDir()
                                 batWithEcho("""
                                 cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
