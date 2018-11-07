@@ -194,7 +194,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     node(platform) {
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
-                        def win_arch=[x86:'Win32',x64,'Win64'][arch]
+                        def win_arch=[x86:'Win32',x64:'Win64'][arch]
 
                         if (platform.contains("windows")) {
                             envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
