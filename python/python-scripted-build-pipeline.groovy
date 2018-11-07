@@ -201,6 +201,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                         withEnv(envStr) {
                             stage("build ${platform}_${pyversion}_${arch}") {
+                                def plat_build_dir="build_${platform}_${pyversion}_${arch}"
+                                def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
+                                def dist_dir="${plat_build_dir}/dist"
                                 timestamps {
                                     cleanWs()
                                     unstash 'couchbase-python-client'
@@ -219,7 +222,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("libcouchbase") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
-                                        dir("build") {
+                                        
+                                        dir("${libcouchbase_build_dir}") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
                                                     cmake ..\\libcouchbase -DLCB_NO_SSL=1
@@ -240,11 +244,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
 
                                         dir("couchbase-python-client") {
-                                            batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated install")
+                                            batWithEcho("copy ${libcouchbase_build_dir}\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${libcouchbase_build_dir}\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${libcouchbase_build_dir}\\generated install")
                                             batWithEcho("pip install wheel")
-                                            batWithEcho("python setup.py bdist_wheel")
-                                            batWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}\\dist")
+                                            batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
+                                            batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                         archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
                                         //archiveArtifacts artifacts: '${WORKSPACE}\\dist', fingerprint: true, onlyIfSuccessful: false
@@ -271,12 +275,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                            shWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}/dist")
+                                            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
 
-                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                    stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: '${dist_dir}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: '${libcouchbase_build_dir}/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
                             }
