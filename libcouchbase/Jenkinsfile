@@ -156,23 +156,25 @@ def buildsAndTests(PLATFORMS, VERSION) {
                 pairs[platform + "-" + arch + "-" + msvcc_ver]= {
                     node("msvc-${msvs_ver}") {
                         stage("build ${platform}_${arch}_${msvcc_ver}") {
-                            unstash 'libcouchbase'
-                            def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
-                            if (arch == "amd64") {
-                                cmdgen += " Win64"
-                            }
-                            dir("build_${platform}_${arch}_${msvcc_ver}") {
-                                deleteDir()
-                                batWithEcho("""
-                                cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                cmake --build .
-                                """)
-                                batWithEcho("""
-                                cmake --build . --target alltests
-                                ctest -C debug
-                                """)
-                                batWithEcho('cmake --build . --target package')
-                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
+                            dir("ws_${platform}_${arch}_${msvcc_ver}") {
+                                unstash 'libcouchbase'
+                                def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
+                                if (arch == "amd64") {
+                                    cmdgen += " Win64"
+                                }
+                                dir("build") {
+                                    deleteDir()
+                                    batWithEcho("""
+                                    cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                    cmake --build .
+                                    """)
+                                    batWithEcho("""
+                                    cmake --build . --target alltests
+                                    ctest -C debug
+                                    """)
+                                    batWithEcho('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
+                                }
                             }
                         }
                     }
