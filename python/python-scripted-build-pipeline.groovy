@@ -201,7 +201,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                         withEnv(envStr) {
                             stage("build ${platform}_${pyversion}_${arch}") {
-                                def plat_build_dir="build_${platform}_${pyversion}_${arch}"
+                                def plat_build_dir="${WORKSPACE}/build_${platform}_${pyversion}_${arch}"
                                 def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
                                 def dist_dir="${plat_build_dir}/dist"
                                 timestamps {
