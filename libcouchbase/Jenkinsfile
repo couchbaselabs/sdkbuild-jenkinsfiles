@@ -144,55 +144,37 @@ def buildsAndTests(PLATFORMS, VERSION) {
               //[9, 'x86'],
               //[10, 'amd64'],
               //[10, 'x86'],
-              //[11, 'amd64'],
-              //[11, 'x86'],
-                [14, 'amd64'],
-                [14, 'x86'],
-              //[15, 'amd64'],
-              //[15, 'x86'],
+                [2012, 11, 'amd64'],
+                [2012, 11, 'x86'],
+                [2015, 14, 'amd64'],
+                [2015, 14, 'x86'],
+                [2017, 15, 'amd64'],
+                [2017, 15, 'x86'],
             ]
             for (d in dists) {
-                def (msvcc_ver, arch) = d
+                def (msvs_ver, msvcc_ver, arch) = d
                 pairs[platform + "-" + arch + "-" + msvcc_ver]= {
-                    node(platform) {
+                    node("msvc-${msvs_ver}") {
                         stage("build ${platform}_${arch}_${msvcc_ver}") {
-                            unstash 'libcouchbase'
-                            def cmdgen = null
-                            switch (msvcc_ver) {
-                                case 9:
-                                    cmdgen = "Visual Studio 9 2008"
-                                    break;
-                                case 10:
-                                    cmdgen = "Visual Studio 10 2010"
-                                    break;
-                                case 11:
-                                    cmdgen = "Visual Studio 11 2012"
-                                    break;
-                                case 14:
-                                    cmdgen = "Visual Studio 14 2015"
-                                    break;
-                                case 15:
-                                    cmdgen = "Visual Studio 15 2017"
-                                    break;
-                                default:
-                                    error("unknown MS VCC version: ${msvcc_ver}")
-                                    break;
-                            }
-                            if (arch == "amd64") {
-                                cmdgen += " Win64"
-                            }
-                            dir("build") {
-                                deleteDir()
-                                batWithEcho("""
-                                cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                cmake --build .
-                                """)
-                                batWithEcho("""
-                                cmake --build . --target alltests
-                                ctest -C debug
-                                """)
-                                batWithEcho('cmake --build . --target package')
-                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
+                            dir("ws_${platform}_${arch}_${msvcc_ver}") {
+                                unstash 'libcouchbase'
+                                def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
+                                if (arch == "amd64") {
+                                    cmdgen += " Win64"
+                                }
+                                dir("build") {
+                                    deleteDir()
+                                    batWithEcho("""
+                                    cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                    cmake --build .
+                                    """)
+                                    batWithEcho("""
+                                    cmake --build . --target alltests
+                                    ctest -C debug
+                                    """)
+                                    batWithEcho('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
+                                }
                             }
                         }
                     }
