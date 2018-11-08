@@ -205,7 +205,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}/libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}/${libcouchbase_build_dir_rel}"
                         def dist_dir_rel="${plat_build_dir}/dist"
-                        def dist_dir="${WORKSAPCE}/${dist_dir_rel}"
+                        def dist_dir="${WORKSPACE}/${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
 
                         if (platform.contains("windows")) {
