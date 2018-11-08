@@ -1,9 +1,7 @@
 def PLATFORMS = [ "centos7", "windows-2012" ]
-//def PLATFORMS = [ "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = [ "2.7.15", "3.7.0" ] // 3.7.0 is failing tests
-//def PY_ARCHES = [ "x64" ] //, "x86" ]
-def PY_ARCHES = [ "x64" , "x86" ]
+def PY_ARCHES = [ "x64", "x86" ]
 def DEFAULT_PY_VERSION = PY_ARCHES[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
@@ -201,7 +199,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def win_arch=[x86:'Win32',x64:'Win64'][arch]
                         def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
                         def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
-                        //build_${platform}_${pyversion}_${arch}"
                         def sep = "/"
                         if (platform.contains("windows")) {
                             sep = "\\"
@@ -215,7 +212,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         if (platform.contains("windows")) {
                             envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include;${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]
                         } else {
-                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "libcouchbase_build_dir=${libcouchbase_build_dir}","LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated", "dist_dir=${dist_dir}","LD_LIBRARY_PATH=${libcouchbase_build_dir}/lib:\$LD_LIBRARY_PATH"]
+                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "dist_dir=${dist_dir}", "libcouchbase_build_dir=${libcouchbase_build_dir}"]
                         }
                         withEnv(envStr) {
                             stage("build ${platform}_${pyversion}_${arch}") {
