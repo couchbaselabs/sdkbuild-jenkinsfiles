@@ -250,7 +250,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                                         dir("couchbase-python-client") {
                                             batWithEcho("copy ${libcouchbase_build_dir}\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${libcouchbase_build_dir}\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${libcouchbase_build_dir}\\generated install")
+                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${libcouchbase_build_dir}\\lib\\RelWithDebInfo --include-dirs ${LCB_PATH}\\include;${libcouchbase_build_dir}\\generated install")
                                             batWithEcho("pip install wheel")
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -269,9 +269,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             shWithEcho("git checkout ${LCB_VERSION}")
                                             dir("build") {
                                                 if (IS_RELEASE == "true") {
-                                                    shWithEcho("cmake ../")
+                                                    shWithEcho("cmake ${LCB_PATH}")
                                                 } else {
-                                                    shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                                    shWithEcho("cmake ${LCB_PATH} -DCMAKE_BUILD_TYPE=DEBUG")
                                                 }
                                                 shWithEcho("make")
                                             }
