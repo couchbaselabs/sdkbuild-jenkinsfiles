@@ -174,7 +174,9 @@ void shWithEcho(String command) {
 void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
-
+String prefixWorkspace(String path){
+    return "${WORKSPACE}/${path}"
+}
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
     def pairs = [:]
     for (j in PLATFORMS) {
@@ -197,9 +199,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                         def win_arch=[x86:'Win32',x64:'Win64'][arch]
-                        def plat_build_dir="${WORKSPACE}/build_${platform}_${pyversion}_${arch}"
-                        def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
-                        def dist_dir="${plat_build_dir}/dist"
+                        def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
+                        def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
+                        //build_${platform}_${pyversion}_${arch}"
+                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}/libcouchbase"
+                        def libcouchbase_build_dir="${WORKSPACE}/${libcouchbase_build_dir_rel}"
+                        def dist_dir_rel="${plat_build_dir}/dist"
+                        def dist_dir="${WORKSAPCE}/${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
 
                         if (platform.contains("windows")) {
@@ -287,11 +293,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     {
                                     shWithEcho("""echo stashing dist  ${dist_dir}
                                     ls -al .""")
-                                        stash includes: '.', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     }
+                                    stash includes: "${dist_dir_rel}", name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     shWithEcho("""echo stashing libcouchbase ${libcouchbase_build_dir}
                                     ls -al ${libcouchbase_build_dir}""")
-                                    stash includes: '${libcouchbase_build_dir}/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: "${libcouchbase_build_dir_rel}/", name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     shWithEcho("""echo stashing couchbase-python-client
                                     ls -al couchbase-python-client""")
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
