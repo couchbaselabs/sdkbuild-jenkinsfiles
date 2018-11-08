@@ -202,11 +202,15 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
                         def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
                         //build_${platform}_${pyversion}_${arch}"
-                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}/libcouchbase"
-                        def libcouchbase_build_dir="${WORKSPACE}/${libcouchbase_build_dir_rel}"
-                        def dist_dir_rel="${plat_build_dir}/dist"
-                        def dist_dir="${WORKSPACE}/${dist_dir_rel}"
-                        def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
+                        def sep = "/"
+                        if (platform.contains("windows")) {
+                            def sep = "\\"
+                        }
+                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
+                        def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
+                        def dist_dir_rel="${plat_build_dir}${sep}dist"
+                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
+                        def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
 
                         if (platform.contains("windows")) {
                             envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include;${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]
