@@ -166,11 +166,11 @@ void installPythonDows(String platform, String version, String pyshort, String p
 }
 
 void shWithEcho(String command) {
-    echo "[$STAGE_NAME]"+ sh (script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
 }
 
 void batWithEcho(String command) {
-    echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ bat (script: command, returnStdout: true)
 }
 
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
@@ -194,7 +194,18 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     node(platform) {
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
+                        def win_arch=[x86:'Win32',x64:'Win64'][arch]
+                        def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
+                        def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
+                        def sep = "/"
                         if (platform.contains("windows")) {
+                            sep = "\\"
+                        }
+                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
+                        def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
+                        def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
+                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
+                        def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
                             envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
                             envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
@@ -222,13 +233,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("build") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake ..\\libcouchbase -DLCB_NO_SSL=1
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G"Visual Studio 14 2015 Win64" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             }
