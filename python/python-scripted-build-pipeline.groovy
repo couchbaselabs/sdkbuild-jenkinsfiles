@@ -283,7 +283,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
-                                    dir("${dist_dir"})
+                                    dir("${dist_dir}")
                                     {
                                     shWithEcho("""echo stashing dist  ${dist_dir}
                                     ls -al .""")
