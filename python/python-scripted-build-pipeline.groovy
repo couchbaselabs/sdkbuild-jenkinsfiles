@@ -265,16 +265,16 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         shWithEcho("pip --version")
 
                                         shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("${libcouchbase_build_dir}") {
+                                        dir("${LCB_PATH}"){
                                             shWithEcho("git checkout ${LCB_VERSION}")
-                                            dir("build") {
-                                                if (IS_RELEASE == "true") {
-                                                    shWithEcho("cmake ${LCB_PATH}")
-                                                } else {
-                                                    shWithEcho("cmake ${LCB_PATH} -DCMAKE_BUILD_TYPE=DEBUG")
-                                                }
-                                                shWithEcho("make")
+                                        }
+                                        dir("${libcouchbase_build_dir}") {
+                                            if (IS_RELEASE == "true") {
+                                                shWithEcho("cmake ${LCB_PATH}")
+                                            } else {
+                                                shWithEcho("cmake ${LCB_PATH} -DCMAKE_BUILD_TYPE=DEBUG")
                                             }
+                                            shWithEcho("make")
                                         }
 
                                         dir("couchbase-python-client") {
