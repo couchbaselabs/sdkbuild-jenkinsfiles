@@ -204,7 +204,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         //build_${platform}_${pyversion}_${arch}"
                         def sep = "/"
                         if (platform.contains("windows")) {
-                            def sep = "\\"
+                            sep = "\\"
                         }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
