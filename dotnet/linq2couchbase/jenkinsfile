@@ -23,14 +23,14 @@ pipeline {
             agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
             steps {
                 cleanWs()
-                dir('couchbase-net-client') {
+                dir('linq2couchbase') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
 
-                stash includes: 'couchbase-net-client/', name: 'couchbase-net-client', useDefaultExcludes: false
+                stash includes: 'linq2couchbase/', name: 'linq2couchbase', useDefaultExcludes: false
             }
         }
         stage('build-and-test') {
@@ -48,12 +48,12 @@ pipeline {
             }
             steps {
                 cleanWs()
-                unstash "couchbase-net-client-build"
-                stash includes: 'couchbase-net-client/', name: "couchbase-net-client-package", useDefaultExcludes: false
+                unstash "linq2couchbase-build"
+                stash includes: 'linq2couchbase/', name: "linq2couchbase-package", useDefaultExcludes: false
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+                    archiveArtifacts artifacts: 'linq2couchbase/', fingerprint: true
                 }
             }
         }
@@ -65,7 +65,7 @@ pipeline {
             }
             steps {
                 cleanWs()
-                // build job: "couchbase-net-client-test-integration", parameters: [
+                // build job: "linq2couchbase-test-integration", parameters: [
                 // ]
             }
         }
@@ -108,12 +108,12 @@ pipeline {
             }
             steps {
                 cleanWs()
-                unstash "couchbase-net-client-package"
+                unstash "linq2couchbase-package"
                 // TODO: PUBLISH!
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+                    archiveArtifacts artifacts: 'linq2couchbase/', fingerprint: true
                 }
             }
         }
@@ -137,39 +137,39 @@ def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
             node(platform) {
                 stage("build ${platform}") {
                     cleanWs()
-                    unstash 'couchbase-net-client'
+                    unstash 'linq2couchbase'
 
                     if (platform.contains("windows")) {
                         batWithEcho('SET')
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
-                        dir("couchbase-net-client") {
+                        dir("linq2couchbase") {
                             // TODO: set version suffix
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase\\Couchbase.csproj -c Release")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.Linq\\Couchbase.Linq.csproj -c Release")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release")
                         }
-                        stash includes: 'couchbase-net-client/', name: "couchbase-net-client-build", useDefaultExcludes: false
+                        stash includes: 'linq2couchbase/', name: "linq2couchbase-build", useDefaultExcludes: false
                     } else {
                         shWithEcho('env')
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
-                        dir("couchbase-net-client") {
+                        dir("linq2couchbase") {
                             // TODO: set version suffix
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase/Couchbase.csproj -c Release")
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release")
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.Linq/Couchbase.Linq.csproj -c Release")
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -c Release")
                         }
                     }
                 }
                 stage("test ${platform}") {
-                    dir("couchbase-net-client") {
+                    dir("linq2couchbase") {
                         if (platform.contains("windows")) {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f net452 --no-build")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f net452 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
 
                             // BUG: vstest process hangs
-                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
+                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
                         } else {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.Linq.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
 
                             // BUG: vstest process hangs
                             //batWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
