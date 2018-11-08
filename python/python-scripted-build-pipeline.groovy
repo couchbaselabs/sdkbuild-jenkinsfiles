@@ -283,9 +283,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
+                                    dir("${dist_dir"})
+                                    {
                                     shWithEcho("""echo stashing dist  ${dist_dir}
-                                    ls -al ${dist_dir}""")
-                                    stash includes: '${dist_dir}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    ls -al .""")
+                                        stash includes: '.', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    }
                                     shWithEcho("""echo stashing libcouchbase ${libcouchbase_build_dir}
                                     ls -al ${libcouchbase_build_dir}""")
                                     stash includes: '${libcouchbase_build_dir}/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
