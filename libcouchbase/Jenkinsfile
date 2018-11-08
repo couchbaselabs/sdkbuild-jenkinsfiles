@@ -140,10 +140,6 @@ def buildsAndTests(PLATFORMS, VERSION) {
 
         if (platform == "windows") {
             def dists = [
-              //[9, 'amd64'],
-              //[9, 'x86'],
-              //[10, 'amd64'],
-              //[10, 'x86'],
                 [2012, 11, 'amd64'],
                 [2012, 11, 'x86'],
                 [2015, 14, 'amd64'],
