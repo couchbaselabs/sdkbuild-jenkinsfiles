@@ -197,18 +197,18 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                         def win_arch=[x86:'Win32',x64:'Win64'][arch]
+                        def plat_build_dir="${WORKSPACE}/build_${platform}_${pyversion}_${arch}"
+                        def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
+                        def dist_dir="${plat_build_dir}/dist"
+                        def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
 
                         if (platform.contains("windows")) {
-                            envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                            envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
-                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated", "dist_dir=${dist_dir}","LD_LIBRARY_PATH=${libcouchbase_build_dir}/lib:\$LD_LIBRARY_PATH"]
                         }
                         withEnv(envStr) {
                             stage("build ${platform}_${pyversion}_${arch}") {
-                                def plat_build_dir="${WORKSPACE}/build_${platform}_${pyversion}_${arch}"
-                                def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
-                                def dist_dir="${plat_build_dir}/dist"
-                                def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
                                 timestamps {
                                     cleanWs()
                                     unstash 'couchbase-python-client'
@@ -223,7 +223,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${libcouchbase_checkout}")
+                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${LCB_PATH}")
                                         dir("libcouchbase") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
@@ -231,13 +231,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("${libcouchbase_build_dir}") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${libcouchbase_checkout}
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${libcouchbase_checkout}
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
                                                     cmake --build .
                                                 """)
                                             }
@@ -265,7 +265,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         shWithEcho("pip --version")
 
                                         shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("libcouchbase") {
+                                        dir("${libcouchbase_build_dir") {
                                             shWithEcho("git checkout ${LCB_VERSION}")
                                             dir("build") {
                                                 if (IS_RELEASE == "true") {
