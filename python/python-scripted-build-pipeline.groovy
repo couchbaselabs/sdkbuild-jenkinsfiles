@@ -168,11 +168,11 @@ void installPythonDows(String platform, String version, String pyshort, String p
 }
 
 void shWithEcho(String command) {
-    echo "[$STAGE_NAME]"+ sh (script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
 }
 
 void batWithEcho(String command) {
-    echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ bat (script: command, returnStdout: true)
 }
 String prefixWorkspace(String path){
     return "${WORKSPACE}/${path}"
