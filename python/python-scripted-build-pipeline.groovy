@@ -265,7 +265,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         shWithEcho("pip --version")
 
                                         shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("${libcouchbase_build_dir") {
+                                        dir("${libcouchbase_build_dir}") {
                                             shWithEcho("git checkout ${LCB_VERSION}")
                                             dir("build") {
                                                 if (IS_RELEASE == "true") {
