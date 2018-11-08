@@ -208,7 +208,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
-                        def dist_dir_rel="${plat_build_dir}${sep}dist"
+                        def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
                         def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
 
