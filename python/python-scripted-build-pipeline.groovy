@@ -233,21 +233,20 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${LCB_PATH}")
-                                        dir("${LCB_PATH}") {
+                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
+                                        dir("libcouchbase") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
-                                        
-                                        dir("${libcouchbase_build_dir}") {
+                                        dir("build") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             }
@@ -259,11 +258,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
 
                                         dir("couchbase-python-client") {
-                                            batWithEcho("copy ${libcouchbase_build_dir}\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${libcouchbase_build_dir}\\lib\\RelWithDebInfo --include-dirs ${LCB_PATH}\\include;${libcouchbase_build_dir}\\generated install")
+                                            batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated install")
                                             batWithEcho("pip install wheel")
-                                            batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
-                                            batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                                            batWithEcho("python setup.py bdist_wheel")
+                                            batWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}\\dist")
                                         }
                                         //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
                                         //archiveArtifacts artifacts: '${WORKSPACE}\\dist', fingerprint: true, onlyIfSuccessful: false
@@ -275,36 +274,28 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         shWithEcho("pip --version")
 
                                         shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("${LCB_PATH}"){
+                                        dir("libcouchbase") {
                                             shWithEcho("git checkout ${LCB_VERSION}")
-                                        }
-                                        dir("${libcouchbase_build_dir}") {
-                                            if (IS_RELEASE == "true") {
-                                                shWithEcho("cmake ${LCB_PATH}")
-                                            } else {
-                                                shWithEcho("cmake ${LCB_PATH} -DCMAKE_BUILD_TYPE=DEBUG")
+                                            dir("build") {
+                                                if (IS_RELEASE == "true") {
+                                                    shWithEcho("cmake ../")
+                                                } else {
+                                                    shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                                }
+                                                shWithEcho("make")
                                             }
-                                            shWithEcho("make")
                                         }
 
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                                            shWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}/dist")
                                         }
                                     }
-                                    dir("${dist_dir}")
-                                    {
-                                    shWithEcho("""echo stashing dist  ${dist_dir}
-                                    ls -al .""")
-                                    }
-                                    stash includes: "${dist_dir}", name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
-                                    shWithEcho("""echo stashing libcouchbase ${libcouchbase_build_dir}
-                                    ls -al ${libcouchbase_build_dir}""")
-                                    stash includes: "${libcouchbase_build_dir_rel}/", name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
-                                    shWithEcho("""echo stashing couchbase-python-client
-                                    ls -al couchbase-python-client""")
-                                    stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
+
+                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
                             }
                             stage("test ${platform}_${pyversion}_${arch}") {
