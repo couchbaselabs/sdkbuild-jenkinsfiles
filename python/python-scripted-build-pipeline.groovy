@@ -224,7 +224,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("pip --version")
 
                                         batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${LCB_PATH}")
-                                        dir("libcouchbase") {
+                                        dir("${LCB_PATH}") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
                                         
