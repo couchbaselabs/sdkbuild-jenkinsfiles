@@ -203,7 +203,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
 
                         if (platform.contains("windows")) {
-                            envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                            envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include;${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]
                         } else {
                             envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated", "dist_dir=${dist_dir}","LD_LIBRARY_PATH=${libcouchbase_build_dir}/lib:\$LD_LIBRARY_PATH"]
                         }
@@ -255,7 +255,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
-                                        archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
+                                        //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
                                         //archiveArtifacts artifacts: '${WORKSPACE}\\dist', fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
