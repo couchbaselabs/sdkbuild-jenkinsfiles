@@ -294,13 +294,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     shWithEcho("""echo stashing dist  ${dist_dir}
                                     ls -al .""")
                                     }
-                                    stash includes: "${dist_dir_rel}", name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: "${dist_dir}", name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
                                     shWithEcho("""echo stashing libcouchbase ${libcouchbase_build_dir}
                                     ls -al ${libcouchbase_build_dir}""")
-                                    stash includes: "${libcouchbase_build_dir_rel}/", name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: "${libcouchbase_build_dir_rel}/", name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
                                     shWithEcho("""echo stashing couchbase-python-client
                                     ls -al couchbase-python-client""")
-                                    stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false, allowEmpty: true
                                 }
                             }
                             stage("test ${platform}_${pyversion}_${arch}") {
