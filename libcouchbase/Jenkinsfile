@@ -151,14 +151,14 @@ def buildsAndTests(PLATFORMS, VERSION) {
                 def (msvs_ver, msvcc_ver, arch) = d
                 pairs[platform + "-" + arch + "-" + msvcc_ver]= {
                     node("msvc-${msvs_ver}") {
-                        stage("build ${platform}_${arch}_${msvcc_ver}") {
-                            dir("ws_${platform}_${arch}_${msvcc_ver}") {
-                                unstash 'libcouchbase'
-                                def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
-                                if (arch == "amd64") {
-                                    cmdgen += " Win64"
-                                }
-                                dir("build") {
+                        dir("ws_${platform}_${arch}_${msvcc_ver}") {
+                            dir("build") {
+                                stage("build ${platform}_${arch}_${msvcc_ver}") {
+                                    unstash 'libcouchbase'
+                                    def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
+                                    if (arch == "amd64") {
+                                        cmdgen += " Win64"
+                                    }
                                     deleteDir()
                                     batWithEcho("""
                                     cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
@@ -168,6 +168,13 @@ def buildsAndTests(PLATFORMS, VERSION) {
                                     cmake --build . --target alltests
                                     ctest -C debug
                                     """)
+                                }
+                                stage("package ${platform}_${arch}_${msvcc_ver}") {
+                                    when {
+                                        expression {
+                                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                                        }
+                                    }
                                     batWithEcho('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
                                 }
