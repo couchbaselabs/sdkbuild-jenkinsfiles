@@ -294,11 +294,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             }
                             stage("test ${platform}_${pyversion}_${arch}") {
                                 timestamps {
-                                    if (!platform.contains("windows")){
-                                        sh 'chmod -R u+w .git'
-                                    }
-                                    unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
-                                    unstash "dist-${platform}-${pyversion}-${arch}"
+                                    //if (!platform.contains("windows")){
+                                    //    sh 'chmod -R u+w .git'
+                                    //}
+                                    //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
+                                    //unstash "dist-${platform}-${pyversion}-${arch}"
                                     //unstash "lcb-${platform}-${pyversion}-${arch}"
                                     // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                                     // USING THE PACKAGE(S) CREATED ABOVE
