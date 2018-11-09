@@ -1,0 +1,484 @@
+<% # vim: ft=eruby et ts=4 sw=4 sts=4
+windows_dists = [
+#   [2012, 11, 64],
+#   [2012, 11, 32],
+    [2015, 14, 64],
+    [2015, 14, 32],
+    [2017, 15, 64],
+    [2017, 15, 32],
+]
+centos_dists = [
+    [7, 'x86_64', 64],
+#   [6, 'x86_64', 64],
+#   [6, 'i386', 32]
+]
+
+ubuntu_dists = [
+    ['bionic', 'amd64', 'ubuntu1804', 64],
+    ['bionic', 'i386', 'ubuntu1804', 32],
+    ['stretch', 'amd64', 'debian9', 64],
+    ['stretch', 'i386', 'debian9', 32],
+#   ['jessie', 'amd64', 'debian8', 64],
+#   ['jessie', 'i386', 'debian8', 32],
+#   ['xenial', 'amd64', 'ubuntu1604', 64],
+#   ['xenial', 'i386', 'ubuntu1604', 32],
+#   ['trusty', 'amd64', 'ubuntu1404', 64],
+#   ['trusty', 'i386', 'ubuntu1404', 32],
+]
+
+linux_test_builds = [
+    ['debian9', 'debian', 9],
+    ['centos7', 'centos', 7]
+]
+
+integration_enabled = true
+%>
+// DO NOT EDIT: this file was generated from Jenkinsfile.erb
+class Version {
+    String gitVersion;
+
+    int major;
+    int minor;
+    int patch;
+    int commitCount;
+    String commitSha1;
+
+    Version(String gitVersion) {
+        this.gitVersion = gitVersion.trim();
+        parse()
+    }
+
+    @NonCPS
+    void parse() {
+        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(\d+)-g([0-9a-f]+))?$/)
+        res.find()
+        this.major = res.group(1) as Integer
+        this.minor = res.group(2) as Integer
+        this.patch = res.group(3) as Integer
+        if (res.group(5)) {
+            this.commitCount = res.group(5) as Integer
+        }
+        this.commitSha1 = res.group(6)
+    }
+
+    String version() {
+        return "${major}.${minor}.${patch}"
+    }
+
+    String tar() {
+        if (commitCount == null || commitCount == 0) {
+            return version()
+        }
+        return gitVersion.replace("-", "_")
+    }
+
+    String tarName() {
+        return "libcouchbase-${tar()}"
+    }
+
+    String rpmVer() {
+        return version()
+    }
+
+    String rpmRel() {
+        def rel = "1"
+        if (commitCount) {
+            rel = "${commitCount + 1}.git${commitSha1}"
+
+        }
+        return rel
+    }
+
+    String srpmGlob() {
+        return "libcouchbase-${version()}-${rpmRel()}*.src.rpm"
+    }
+
+    String[] rpm() {
+        return [version(), rpmRel()]
+    }
+
+    String deb() {
+        def ver = version()
+        if (commitCount) {
+            ver += "+r${commitCount}git${commitSha1}"
+        }
+        return ver
+    }
+}
+
+def VERSION = new Version('0.0.0')
+
+class DynamicCluster {
+    String id = null;
+    String connstr = null;
+
+    boolean isAllocated() {
+        return !(id == null || id == "")
+    }
+
+    String inspect() {
+        return "Cluster(id: ${id}, connstr: ${connstr})"
+    }
+}
+
+def CLUSTER = new DynamicCluster()
+
+pipeline {
+    agent none
+    stages {
+        stage('prepare and validate') {
+            agent { label 'centos7||centos6' }
+            steps {
+                cleanWs()
+                script {
+                    if (IS_GERRIT_TRIGGER.toBoolean()) {
+                        currentBuild.displayName = "cv-${BUILD_NUMBER}"
+                    } else {
+                        currentBuild.displayName = "full-${BUILD_NUMBER}"
+                    }
+                }
+
+                dir('libcouchbase') {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    script {
+                        VERSION = new Version(sh(script: 'git describe --long --abbrev=10', returnStdout: true))
+                        echo "Building ${VERSION.gitVersion}, gerrit: ${IS_GERRIT_TRIGGER}, release: ${IS_RELEASE}"
+                    }
+                }
+
+                stash includes: 'libcouchbase/', name: 'libcouchbase', useDefaultExcludes: false
+
+                dir('libcouchbase') {
+                    dir('build') {
+                        sh('cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
+                        sh('make dist')
+                        archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
+                        stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
+                    }
+                }
+            }
+        }
+
+        stage('build and test') {
+            parallel {
+
+<% linux_test_builds.each do |(label, dist, relno)| %>
+                stage('<%= label %> mock') {
+                    agent { label '<%= label %>' }
+                    stages {
+                        stage('<%= dist[0..2] %><%= relno %>') {
+                            steps {
+                                dir('ws_<%= label %>_x64') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_<%= label %>_x64') {
+                                    dir('build') {
+                                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG ../libcouchbase')
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                                    }
+                                }
+                                stash includes: 'ws_<%= label %>_x64/', name: '<%= label %>_build', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_<%= label %>_x64/build') {
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+<% end %>
+<% windows_dists.each do |(msvs_ver, msvcc_ver, arch)| %>
+                stage('win<%= arch %> vc<%= msvcc_ver %>') {
+                    agent { label 'msvc-<%= msvs_ver %>' }
+                    stages {
+                        stage('w<%= arch %>v<%= msvcc_ver %>') {
+                            steps {
+                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 %>" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win<%= arch %>_vc<%= msvcc_ver %>/', name: 'ws-vs<%= msvs_ver %>-w<%= arch %>', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('ctest --parallel=2 -C debug')
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+<% end %>
+            }
+        }
+<% if integration_enabled %>
+        stage('integration test') {
+            agent { label 'sdk-integration-test-linux' }
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            post {
+                always {
+                    script {
+                        if (CLUSTER.isAllocated()) {
+                            sh("cbdyncluster rm ${CLUSTER.id}")
+                        }
+                    }
+                }
+            }
+            stages {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=2 --server-version=${CB_SERVER_VERSION}", returnStdout: true).trim()
+                            CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.id}", returnStdout: true).trim()
+                        }
+                        echo "Allocated ${CLUSTER.inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql --node=kv,index,n1ql --bucket=default")
+                    }
+                }
+                stage('test') {
+                    post {
+                        failure {
+                            sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                            archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                        }
+                    }
+                    environment {
+                        LCB_TEST_CLUSTER_CONF="${CLUSTER.connstr.replaceAll(',', ';')},default,Administrator,password"
+                    }
+                    steps {
+                        unstash('centos7_build')
+                        dir('ws_centos7_x64/build') {
+                            sleep(20)
+                            sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                        }
+                    }
+                }
+            }
+        }
+<% end %>
+<% if (centos_dists + ubuntu_dists).any? %>
+        stage('linux package') {
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            parallel {
+<% centos_dists.each do |(relno, arch, bits)| %>
+                stage('pkg centos<%= relno %> <%= arch %>') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('c<%= bits %>v<%= relno %>') {
+                            steps {
+                                dir('ws_centos<%= bits %>_v<%= relno %>') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
+                                    archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos<%= bits %>_v<%= relno %>/build') {
+                                    unstash 'tarball'
+                                    sh("""
+                                        sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+                                        < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
+                                    """.stripIndent())
+                                    sh("""
+                                        sudo mock --buildsrpm -r epel-<%= relno %>-<%= arch %> --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
+                                        --resultdir="libcouchbase-${VERSION.tar()}_centos<%= relno %>_srpm"
+                                    """.stripIndent())
+                                }
+                            }
+                        }
+                        stage('rpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
+                                    archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos<%= bits %>_v<%= relno %>/build') {
+                                    sh("""
+                                        sudo mock --rebuild -r epel-<%= relno %>-<%= arch %> --resultdir="libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>" --old-chroot \
+                                        libcouchbase-${VERSION.tar()}_centos<%= relno %>_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el<%= relno %>.src.rpm
+                                    """.stripIndent())
+                                    sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>")
+                                    sh("rm -rf libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>/*.log")
+                                    sh("tar cf libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>.tar libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>")
+                                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>.tar", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+<% end %>
+<% ubuntu_dists.each do |(codename, arch, name, bits)| %>
+                    stage('pkg <%= name %> <%= arch %>') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('<%= name[0] %><%= bits %>v<%= name[/(\d{1,2})/, 1] %>') {
+                                steps {
+                                    dir('ws_<%= name %>_<%= arch %>') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow \
+                                        --distribution <%= codename %> \
+                                        --debootstrapopts --arch=<%= arch %> \
+                                        <% if name =~ /ubuntu/ %>--components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg<% else %> --components 'main'<% end %>
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
+                                        archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_<%= name %>_<%= arch %>/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
+                                        archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_<%= name %>_<%= arch %>/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %> \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>.tar libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+<% end %>
+            }
+        }
+<% end %>
+    }
+}

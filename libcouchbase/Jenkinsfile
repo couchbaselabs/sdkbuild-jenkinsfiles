@@ -1,8 +1,5 @@
-// vim: ft=groovy et ts=4 sw=4 sts=4
 
-def PLATFORMS = [ "cowbuilder", "mock", "windows" ]
-def DEFAULT_PLATFORM = PLATFORMS[0]
-
+// DO NOT EDIT: this file was generated from Jenkinsfile.erb
 class Version {
     String gitVersion;
 
@@ -75,260 +72,874 @@ class Version {
     }
 }
 
-String shWithEcho(String command) {
-    def output = sh(script: command, returnStdout: true)
-    echo output
-    return output
+def VERSION = new Version('0.0.0')
+
+class DynamicCluster {
+    String id = null;
+    String connstr = null;
+
+    boolean isAllocated() {
+        return !(id == null || id == "")
+    }
+
+    String inspect() {
+        return "Cluster(id: ${id}, connstr: ${connstr})"
+    }
 }
 
-String batWithEcho(String command) {
-    def output = bat(script: command, returnStdout: true)
-    echo output
-    return output
-}
-
-def VERSION = new Version("0.0.0");
+def CLUSTER = new DynamicCluster()
 
 pipeline {
     agent none
     stages {
-        stage('job valid?') {
-            when {
-                expression {
-                    return _INTERNAL_OK_.toBoolean() != true
-                }
-            }
-            steps {
-                error("Exiting early as not valid run")
-            }
-        }
         stage('prepare and validate') {
-            agent { label "centos7||centos6" }
+            agent { label 'centos7||centos6' }
             steps {
                 cleanWs()
-                shWithEcho("env")
+                script {
+                    if (IS_GERRIT_TRIGGER.toBoolean()) {
+                        currentBuild.displayName = "cv-${BUILD_NUMBER}"
+                    } else {
+                        currentBuild.displayName = "full-${BUILD_NUMBER}"
+                    }
+                }
 
-                dir("libcouchbase") {
+                dir('libcouchbase') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script {
-                        if (env.IS_RELEASE == true) {
-                            echo "This is release, not updating metadata"
-                        } else {
-                            echo "This is not release, updating metadata"
-                        }
-                        VERSION = new Version(shWithEcho('git describe --long --abbrev=10'))
+                        VERSION = new Version(sh(script: 'git describe --long --abbrev=10', returnStdout: true))
+                        echo "Building ${VERSION.gitVersion}, gerrit: ${IS_GERRIT_TRIGGER}, release: ${IS_RELEASE}"
                     }
                 }
 
                 stash includes: 'libcouchbase/', name: 'libcouchbase', useDefaultExcludes: false
+
+                dir('libcouchbase') {
+                    dir('build') {
+                        sh('cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
+                        sh('make dist')
+                        archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
+                        stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
+                    }
+                }
             }
         }
-        stage('build-and-test') {
-            agent { label 'master' }
-            steps {
-                cleanWs()
-                buildsAndTests(PLATFORMS, VERSION)
-            }
-        }
-    }
-}
 
-def buildsAndTests(PLATFORMS, VERSION) {
-    def pairs = [:]
-    for (j in PLATFORMS) {
-        def platform = j
+        stage('build and test') {
+            parallel {
 
-        if (platform == "windows") {
-            def dists = [
-                [2012, 11, 'amd64'],
-                [2012, 11, 'x86'],
-                [2015, 14, 'amd64'],
-                [2015, 14, 'x86'],
-                [2017, 15, 'amd64'],
-                [2017, 15, 'x86'],
-            ]
-            for (d in dists) {
-                def (msvs_ver, msvcc_ver, arch) = d
-                pairs[platform + "-" + arch + "-" + msvcc_ver]= {
-                    node("msvc-${msvs_ver}") {
-                        dir("ws_${platform}_${arch}_${msvcc_ver}") {
-                            dir("build") {
-                                stage("build ${platform}_${arch}_${msvcc_ver}") {
-                                    unstash 'libcouchbase'
-                                    def cmdgen = "Visual Studio ${msvcc_ver} ${msvs_ver}"
-                                    if (arch == "amd64") {
-                                        cmdgen += " Win64"
-                                    }
+
+                stage('debian9 mock') {
+                    agent { label 'debian9' }
+                    stages {
+                        stage('deb9') {
+                            steps {
+                                dir('ws_debian9_x64') {
                                     deleteDir()
-                                    batWithEcho("""
-                                    cmake -G"${cmdgen}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                    cmake --build .
-                                    """)
-                                    batWithEcho("""
-                                    cmake --build . --target alltests
-                                    ctest -C debug
-                                    """)
+                                    unstash 'libcouchbase'
                                 }
-                                stage("package ${platform}_${arch}_${msvcc_ver}") {
-                                    when {
-                                        expression {
-                                            return IS_GERRIT_TRIGGER.toBoolean() == false
-                                        }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_debian9_x64') {
+                                    dir('build') {
+                                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG ../libcouchbase')
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
-                                    batWithEcho('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${msvcc_ver}_${arch}.zip", fingerprint: true)
+                                }
+                                stash includes: 'ws_debian9_x64/', name: 'debian9_build', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_debian9_x64/build') {
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
                     }
                 }
+
+                stage('centos7 mock') {
+                    agent { label 'centos7' }
+                    stages {
+                        stage('cen7') {
+                            steps {
+                                dir('ws_centos7_x64') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos7_x64') {
+                                    dir('build') {
+                                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG ../libcouchbase')
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                                    }
+                                }
+                                stash includes: 'ws_centos7_x64/', name: 'centos7_build', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos7_x64/build') {
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                stage('win64 vc14') {
+                    agent { label 'msvc-2015' }
+                    stages {
+                        stage('w64v14') {
+                            steps {
+                                dir('ws_win64_vc14') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc14/build') {
+                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win64_vc14/', name: 'ws-vs2015-w64', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc14/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('ctest --parallel=2 -C debug')
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc14/build') {
+                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('win32 vc14') {
+                    agent { label 'msvc-2015' }
+                    stages {
+                        stage('w32v14') {
+                            steps {
+                                dir('ws_win32_vc14') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14/build') {
+                                    bat('cmake -G"Visual Studio 14 2015" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win32_vc14/', name: 'ws-vs2015-w32', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('ctest --parallel=2 -C debug')
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14/build') {
+                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('win64 vc15') {
+                    agent { label 'msvc-2017' }
+                    stages {
+                        stage('w64v15') {
+                            steps {
+                                dir('ws_win64_vc15') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win64_vc15/', name: 'ws-vs2017-w64', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('ctest --parallel=2 -C debug')
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('win32 vc15') {
+                    agent { label 'msvc-2017' }
+                    stages {
+                        stage('w32v15') {
+                            steps {
+                                dir('ws_win32_vc15') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15/build') {
+                                    bat('cmake -G"Visual Studio 15 2017" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win32_vc15/', name: 'ws-vs2017-w32', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('ctest --parallel=2 -C debug')
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15/build') {
+                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
             }
-        } else {
-            pairs[platform]= {
-                node(platform) {
-                    def envStr = []
-                    withEnv(envStr) {
-                        stage("build ${platform}") {
-                            cleanWs()
-                            unstash 'libcouchbase'
+        }
 
-                            shWithEcho("groups")
-                            shWithEcho("groups `whoami`")
-
-                            dir("libcouchbase") {
-                                dir("build") {
-                                    shWithEcho("cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 ..")
-                                    shWithEcho("make dist")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
-                                }
-                            }
-                            println platform
-                            if (platform == "mock") {
-                                dir("libcouchbase") {
-                                    dir("build") {
-                                        shWithEcho("""
-                                        sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
-                                             < ../packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
-                                        """)
-                                        shWithEcho("""
-                                        rpmbuild -bs --nodeps \
-                                                 --define "_source_filedigest_algorithm md5" \
-                                                 --define "_binary_filedigest_algorithm md5" \
-                                                 --define "_topdir ${pwd()}" \
-                                                 --define "_sourcedir ${pwd()}" \
-                                                 --define "_srcrpmdir ${pwd()}" libcouchbase.spec
-                                        """)
-
-                                        def srpmPath = findFiles(glob: VERSION.srpmGlob())[0].path
-                                        def dists = [
-                                            [7, 'x86_64'],
-                                            [6, 'i386'],
-                                            [6, 'x86_64'],
-                                        ]
-                                        for (d in dists) {
-                                            def (relno, arch) = d
-                                            stage("centos${relno}_${arch}") {
-                                                def resPath = "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}"
-                                                shWithEcho("""
-                                                sudo mock --old-chroot -r epel-${relno}-${arch} --rebuild --resultdir="${resPath}" ${srpmPath} \
-                                                || (for log in ${resPath}/*.log; do echo "ERROR LOG: \$log"; cat \$log; done; exit 1)
-                                                """)
-                                                shWithEcho("sudo chown couchbase:couchbase -R ${resPath}")
-                                                for (log in ['state.log', 'build.log', 'root.log']) {
-                                                    if (fileExists("${resPath}/${log}")) {
-                                                        shWithEcho("rm -v ${resPath}/${log}")
-                                                    }
-                                                }
-                                                shWithEcho("tar cvf ${resPath}.tar ${resPath}")
-                                                archiveArtifacts(artifacts: "${resPath}.tar", fingerprint: true)
-                                            }
-                                        }
-                                    }
-                                }
-                            } else if (platform == "cowbuilder") {
-                                stage("prepare debian sources") {
-                                    dir("libcouchbase") {
-                                        dir("build") {
-                                            shWithEcho("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
-                                            shWithEcho("tar -xf ${VERSION.tarName()}.tar.gz")
-                                            shWithEcho("cp -a ../packaging/deb ${VERSION.tarName()}/debian")
-                                            dir(VERSION.tarName()) {
-                                                shWithEcho("""
-                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
-                                                    --create "Release package for libcouchbase ${VERSION.deb()}-1"
-                                                """)
-                                                shWithEcho("dpkg-buildpackage -rfakeroot -d -S -sa")
-                                            }
-                                        }
-                                    }
-                                }
-                                def dists = [
-                                    ['trusty', 'amd64', 'ubuntu1404'],
-                                    ['trusty', 'i386', 'ubuntu1404'],
-                                    ['xenial', 'amd64', 'ubuntu1604'],
-                                    ['xenial', 'i386', 'ubuntu1604'],
-                                    ['bionic', 'amd64', 'ubuntu1804'],
-                                    ['bionic', 'i386', 'ubuntu1804'],
-                                    ['jessie', 'amd64', 'debian8'],
-                                    ['jessie', 'i386', 'debian8'],
-                                    ['stretch', 'amd64', 'debian9'],
-                                    ['stretch', 'i386', 'debian9'],
-                                ]
-                                for (d in dists) {
-                                    dir("libcouchbase") {
-                                        dir("build") {
-                                            def (codename, arch, name) = d
-                                            if (fileExists("/var/cache/pbuilder/${codename}-${arch}.cow/etc/os-release")) {
-                                                stage("${codename}_${arch}: update cow") {
-                                                    shWithEcho("""
-                                                    sudo cowbuilder --update \
-                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow
-                                                    """)
-                                                }
-                                            } else {
-                                                stage("${codename}_${arch}: create cow") {
-                                                    def extra = "--components 'main'"
-                                                    if (name.contains("ubuntu")) {
-                                                        extra = "--components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg"
-                                                    }
-                                                    shWithEcho("""
-                                                    sudo cowbuilder --create \
-                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow \
-                                                        --distribution ${codename} \
-                                                        --debootstrapopts --arch=${arch} \
-                                                        ${extra}
-                                                    """)
-                                                }
-                                            }
-                                            stage("${codename}_${arch}: package") {
-                                                def resPath = "libcouchbase-${VERSION.deb()}_${name}_${codename}_${arch}"
-                                                shWithEcho("""
-                                                    sudo cowbuilder --build \
-                                                        --basepath /var/cache/pbuilder/${codename}-${arch}.cow \
-                                                        --buildresult ${resPath} \
-                                                        --debbuildopts -j8 \
-                                                        --debbuildopts "-us -uc" \
-                                                        libcouchbase_${VERSION.deb()}-1.dsc
-                                                """)
-                                                shWithEcho("sudo chown couchbase:couchbase -R ${resPath}")
-                                                shWithEcho("rm -rfv ${resPath}/libcouchbase_${VERSION.deb()}*")
-                                                shWithEcho("tar cvf ${resPath}.tar ${resPath}")
-                                                archiveArtifacts(artifacts: "${resPath}.tar", fingerprint: true)
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                error("Platform not recognised for ${platform}")
-                            }
-
-                            stash includes: 'libcouchbase/', name: "libcouchbase-build-${platform}", useDefaultExcludes: false
+        stage('integration test') {
+            agent { label 'sdk-integration-test-linux' }
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            post {
+                always {
+                    script {
+                        if (CLUSTER.isAllocated()) {
+                            sh("cbdyncluster rm ${CLUSTER.id}")
+                        }
+                    }
+                }
+            }
+            stages {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=2 --server-version=${CB_SERVER_VERSION}", returnStdout: true).trim()
+                            CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.id}", returnStdout: true).trim()
+                        }
+                        echo "Allocated ${CLUSTER.inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql --node=kv,index,n1ql --bucket=default")
+                    }
+                }
+                stage('test') {
+                    post {
+                        failure {
+                            sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                            archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                        }
+                    }
+                    environment {
+                        LCB_TEST_CLUSTER_CONF="${CLUSTER.connstr.replaceAll(',', ';')},default,Administrator,password"
+                    }
+                    steps {
+                        unstash('centos7_build')
+                        dir('ws_centos7_x64/build') {
+                            sleep(20)
+                            sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                         }
                     }
                 }
             }
         }
-    }
 
-    parallel pairs
+
+        stage('linux package') {
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            parallel {
+
+                stage('pkg centos7 x86_64') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('c64v7') {
+                            steps {
+                                dir('ws_centos64_v7') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
+                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos64_v7/build') {
+                                    unstash 'tarball'
+                                    sh("""
+                                        sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+                                        < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
+                                    """.stripIndent())
+                                    sh("""
+                                        sudo mock --buildsrpm -r epel-7-x86_64 --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
+                                        --resultdir="libcouchbase-${VERSION.tar()}_centos7_srpm"
+                                    """.stripIndent())
+                                }
+                            }
+                        }
+                        stage('rpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
+                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos64_v7/build') {
+                                    sh("""
+                                        sudo mock --rebuild -r epel-7-x86_64 --resultdir="libcouchbase-${VERSION.tar()}_centos7_x86_64" --old-chroot \
+                                        libcouchbase-${VERSION.tar()}_centos7_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el7.src.rpm
+                                    """.stripIndent())
+                                    sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos7_x86_64")
+                                    sh("rm -rf libcouchbase-${VERSION.tar()}_centos7_x86_64/*.log")
+                                    sh("tar cf libcouchbase-${VERSION.tar()}_centos7_x86_64.tar libcouchbase-${VERSION.tar()}_centos7_x86_64")
+                                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos7_x86_64.tar", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                    stage('pkg ubuntu1804 amd64') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('u64v18') {
+                                steps {
+                                    dir('ws_ubuntu1804_amd64') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/bionic-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/bionic-amd64.cow \
+                                        --distribution bionic \
+                                        --debootstrapopts --arch=amd64 \
+                                        --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/bionic-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/bionic-amd64.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu1804_amd64/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu1804_amd64/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/bionic-amd64.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64 \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    stage('pkg ubuntu1804 i386') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('u32v18') {
+                                steps {
+                                    dir('ws_ubuntu1804_i386') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/bionic-i386.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/bionic-i386.cow \
+                                        --distribution bionic \
+                                        --debootstrapopts --arch=i386 \
+                                        --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/bionic-i386.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/bionic-i386.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu1804_i386.tar ws_ubuntu1804_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_i386.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu1804_i386/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu1804_i386.tar ws_ubuntu1804_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_i386.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu1804_i386/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/bionic-i386.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386 \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    stage('pkg debian9 amd64') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('d64v9') {
+                                steps {
+                                    dir('ws_debian9_amd64') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/stretch-amd64.cow \
+                                        --distribution stretch \
+                                        --debootstrapopts --arch=amd64 \
+                                         --components 'main'
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/stretch-amd64.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_debian9_amd64/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_debian9_amd64/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/stretch-amd64.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_debian9_stretch_amd64 \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_amd64/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    stage('pkg debian9 i386') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('d32v9') {
+                                steps {
+                                    dir('ws_debian9_i386') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/stretch-i386.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/stretch-i386.cow \
+                                        --distribution stretch \
+                                        --debootstrapopts --arch=i386 \
+                                         --components 'main'
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/stretch-i386.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/stretch-i386.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_debian9_i386.tar ws_debian9_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_debian9_i386.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_debian9_i386/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_debian9_i386.tar ws_debian9_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_debian9_i386.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_debian9_i386/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/stretch-i386.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_debian9_stretch_i386 \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_i386/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+            }
+        }
+
+    }
 }
