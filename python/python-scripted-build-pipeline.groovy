@@ -220,13 +220,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 version[l] = [:]
             }          
         }
-    } */
+    } 
 
 
     def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
     if (!SKIP_PACKAGING){
         combis[PACKAGE_PLATFORM][PACKAGE_PY_VERSION][PACKAGE_PY_ARCH]=True
-    }
+    }*/
     
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
