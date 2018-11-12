@@ -211,11 +211,13 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     def plat = combis.get(PLATFORM,null)
     if (!plat)
     {
+        plat =[:]
         combis[PLATFORM]=plat
     }
     def version = plat.get(PY_VERSION,null)
     if (!version)
     {
+        version = [:]
         plat[PY_VERSION]=version
     }
     version[PY_ARCH]=version.get(PY_ARCH,null)
