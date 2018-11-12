@@ -238,13 +238,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("build") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             }
