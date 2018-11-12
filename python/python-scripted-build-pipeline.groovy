@@ -208,9 +208,10 @@ String prefixWorkspace(String path){
 }
 def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 {
-    def plat = combis[PLATFORM]=combis.get(PLATFORM,[:])
-    def version = plat[PY_VERSION]=plat.get(PY_VERSION,[:])
-    version[PY_ARCH]=version.get(PY_ARCH,[:])
+    def plat = combis.get(PLATFORM,[:])
+    //combis[PLATFORM]=plat
+    //def version = plat[PY_VERSION]=plat.get(PY_VERSION,[:])
+    //version[PY_ARCH]=version.get(PY_ARCH,[:])
     return combis
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
@@ -226,7 +227,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
             plat[k] = version
             for (l in PY_ARCHES)
             {
-                version[l] = [:]
+                combis=addCombi(combis,j,k,l)
             }          
         }
     } 
