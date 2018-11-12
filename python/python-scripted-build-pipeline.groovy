@@ -10,6 +10,21 @@ def booleanOr(String line, Boolean fallBack = False)
     return line.toBoolean()
 } */
 
+void installPython(String platform, String version, String pyshort, String path, String arch) {
+    def cmd = "cbdep install python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+    shWithEcho(cmd)
+}
+
+void installPythonDows(String platform, String version, String pyshort, String path, String arch) {
+    def cmd = "cbdep install python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+    batWithEcho(cmd)
+}
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
 echo "Got platforms ${PLATFORMS}"
 def DEFAULT_PLATFORM = PLATFORMS[0]
@@ -165,21 +180,6 @@ pipeline {
     }
 }
 
-void installPython(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
-    }
-    shWithEcho(cmd)
-}
-
-void installPythonDows(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
-    }
-    batWithEcho(cmd)
-}
 
 void shWithEcho(String command) {
     echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
