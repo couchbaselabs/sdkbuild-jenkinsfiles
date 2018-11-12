@@ -15,10 +15,10 @@ def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 
+def PACKAGE_PLATFORM = "centos7"
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
-def PACKAGE_PLATFORM = "centos7"
 
 echo "Got platforms ${PLATFORMS}"
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
@@ -71,7 +71,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_VERSION}", "${PACKAGE_ARCH}")
             }
         }
         stage('package') {
@@ -214,7 +214,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     //version[PY_ARCH]=version.get(PY_ARCH,[:])
     return combis
 }
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_VERSION, PACKAGE_ARCH) {
     def pairs = [:]
     
     def combis = [:]
