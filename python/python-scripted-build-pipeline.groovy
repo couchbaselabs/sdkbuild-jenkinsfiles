@@ -246,14 +246,14 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
             combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
         }
     }
-    
+    echo "Got combis ${combis}"
     for (j in combis) {
         for (k in j.value) {
             for (l in k.value) {
                 def platform = j.key
                 def pyversion = k.key
                 def arch = l.key
-
+                echo "got ${platform} ${pyversion} ${arch}"
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
                 }
