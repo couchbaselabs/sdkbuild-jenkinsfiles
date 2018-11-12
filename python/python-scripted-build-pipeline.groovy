@@ -196,7 +196,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     node(platform) {
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
-                        def win_arch=[x86:'',x64:'Win64'][arch]
+                        def win_arch=[x86:[],x64:['Win64']][arch]
                         def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
                         def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
                         def sep = "/"
@@ -233,16 +233,18 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("libcouchbase") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
+                                        cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
+                                        
                                         dir("build") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015 ${win_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "Visual Studio 14 2015${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G "Visual Studio 14 2015 ${win_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "Visual Studio 14 2015${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                     cmake --build .
                                                 """)
                                             }
