@@ -10,12 +10,12 @@ def booleanOr(String line, Boolean fallBack = False)
     return line.toBoolean()
 } */
 
-def PLATFORMS =  "${PLATFORMS}".split(/\s*/) || [ "centos7", "windows-2012" ]
+def PLATFORMS =  "${PLATFORMS}".split(/\s*/) ?: [ "centos7", "windows-2012" ]
 echo "Got platforms ${PLATFORMS}"
 def DEFAULT_PLATFORM = PLATFORMS[0]
-def PY_VERSIONS = "${PY_VERSIONS}".split(/\s*/) || [ "2.7.15", "3.7.0" ]
+def PY_VERSIONS = "${PY_VERSIONS}".split(/\s*/) ?: [ "2.7.15", "3.7.0" ]
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
-def PY_ARCHES = "${PY_ARCHES}".split(/\s*/) || [ "x64", "x86" ]
+def PY_ARCHES = "${PY_ARCHES}".split(/\s*/) ?: [ "x64", "x86" ]
 echo "Got PY_ARCHES ${PY_ARCHES}"
 def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
