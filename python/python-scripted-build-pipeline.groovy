@@ -87,8 +87,11 @@ pipeline {
                 //installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
                 installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
                 //installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
-
-                shWithEcho("pip install --verbose Twisted gevent")
+                echo "My path:${PATH}"
+                shWithEcho("""
+export PATH=${WORKSPACE}/python${DEFAULT_VERSION}:${WORKSPACE}/python${DEFAULT_VERSION}/bin:${PATH}
+echo "Path:${PATH}"
+pip install --verbose Twisted gevent""")
                 unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 dir("couchbase-python-client") {
                     shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
