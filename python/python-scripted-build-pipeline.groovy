@@ -28,7 +28,7 @@ def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
-
+def WIN_PY_DEFAULT_VERSION = "3.7.0"
 
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
@@ -206,10 +206,18 @@ void batWithEcho(String command) {
 String prefixWorkspace(String path){
     return "${WORKSPACE}/${path}"
 }
+def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
+{
+    def plat = combis[PLATFORM]=combis.get(PLATFORM,[:])
+    def version = plat[PY_VERSION]=plat.get(PY_VERSION,[:])
+    version[PY_ARCH]=version.get(PY_ARCH,[:])
+    return combis
+}
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
     def pairs = [:]
     
-   /*  def combis = [:].withDefault { key -> [:]}
+    def combis = [:]
+    //.withDefault { key -> [:]}
     for (j in PLATFORMS) {
         def plat = []
         combis[j]=plat
@@ -226,15 +234,23 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
     def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
     if (!SKIP_PACKAGING){
-        combis[PACKAGE_PLATFORM][PACKAGE_PY_VERSION][PACKAGE_PY_ARCH]=True
-    }*/
+        combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
+    }
+    def PLATFORM_LIST=[]
+    if (PLATFORMS.contains("windows") && !PLATFORM_LIST.findResult{it.startsWith('3.')}
+    {
+        for (arch in PY_ARCHES)
+        {
+            combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
+        }
+    }
     
-    for (j in PLATFORMS) {
-        for (k in PY_VERSIONS) {
-            for (l in PY_ARCHES) {
-                def platform = j//.key
-                def pyversion = k//.key
-                def arch = l//.key
+    for (j in combis) {
+        for (k in j) {
+            for (l in k) {
+                def platform = j.key
+                def pyversion = k.key
+                def arch = l.key
 
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
@@ -317,8 +333,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             batWithEcho("python setup.py bdist_wheel")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
-                                        archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        //archiveArtifacts artifacts: '${dist_dir}', fingerprint: true, onlyIfSuccessful: false
+                                        //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
+                                        archiveArtifacts artifacts: '${dist_dir_rel}', fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
                                         installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
