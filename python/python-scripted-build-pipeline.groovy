@@ -260,14 +260,14 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
     def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
     if (!SKIP_PACKAGING){
-        combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
+    //    combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
     }
     def PLATFORM_LIST=[]
     if (hasWindows && !hasWinDefaultPlat)
     {
         for (arch in PY_ARCHES)
         {
-            combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
+    //        combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
         }
     }
     echo "Got combis ${combis}"
@@ -280,6 +280,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 echo "got ${platform} ${pyversion} ${arch}"
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(platform) {
+                        if (platform.contains("windows") && (pyversion.contains("2.7"))) {
+                            continue
+                        }
+
+                        if (!platform.contains("windows") && arch == "x86") {
+                            continue
+                        }
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                         def win_arch=[x86:[],x64:['Win64']][arch]
