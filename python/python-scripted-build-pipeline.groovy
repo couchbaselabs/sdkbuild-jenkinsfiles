@@ -209,17 +209,17 @@ String prefixWorkspace(String path){
 def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 {
     def plat = combis.get(PLATFORM,null)
-    if (!plat)
+    if (plat==null)
     {
         plat =[:]
     }
     def version = plat.get(PY_VERSION,null)
-    if (!version)
+    if (version==null)
     {
         version = [:]
     }
     arch=version.get(PY_ARCH,null)
-    if (!arch)
+    if (arch==null)
     {
         version[PY_ARCH]=true
         plat[PY_VERSION]=version
@@ -228,7 +228,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     return combis
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
-    def pairs = [:] as Map
+    def pairs = [:] 
     
     def combis = [:]
     //.withDefault { key -> [:]}
