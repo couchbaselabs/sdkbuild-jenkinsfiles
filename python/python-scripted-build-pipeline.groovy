@@ -1,5 +1,5 @@
-def parseEnvList(String line){
-    return String(line).split(/\s*/)
+/* def parseEnvList(String line){
+    return String(line).split("\s*")
 }
 
 def booleanOr(String line, Boolean fallBack = False)
@@ -8,16 +8,16 @@ def booleanOr(String line, Boolean fallBack = False)
         return fallBack
     }
     return line.toBoolean()
-}
+} */
 
-def PLATFORMS =  parseEnvList("${PLATFORMS}") || [ "centos7", "windows-2012" ]
+def PLATFORMS =  "${PLATFORMS}".split(/\s*/) || [ "centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
-def PY_VERSIONS = parseEnvList("${PY_VERSIONS}") || [ "2.7.15", "3.7.0" ]
-def PY_ARCHES = parseEnvList("${PY_ARCHES}") || [ "x64", "x86" ]
+def PY_VERSIONS = "${PY_VERSIONS}".split(/\s*/) || [ "2.7.15", "3.7.0" ]
+def PY_ARCHES = "${PY_ARCHES}".split(/\s*/) || [ "x64", "x86" ]
 def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
-def PARALLEL_PAIRS = booleanOr("${PARALLEL_PAIRS}",True)
+def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 pipeline {
     agent none
     stages {
