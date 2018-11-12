@@ -224,9 +224,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
-                        def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
-                        //def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
-                        def dist_dir="${WORKSPACE}${sep}dist"
+                        //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
+                        def dist_dir_rel="dist"
+                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
                         if (platform.contains("windows")) { 
                             batWithEcho("md ${dist_dir}")
@@ -313,7 +313,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
                                     }
 
-                                    stash includes: '${dist_dir}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: '${dist_dir_rel}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
