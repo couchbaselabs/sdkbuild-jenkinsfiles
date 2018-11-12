@@ -271,12 +271,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         }
     }
     echo "Got combis ${combis}"
-    for (j in combis) {
-        for (k in j.value) {
-            for (l in k.value) {
-                def platform = j.key
-                def pyversion = k.key
-                def arch = l.key
+    for (j in PLATFORMS) {
+        for (k in PY_VERSIONS) {
+            for (l in PY_ARCHES) {
+                def platform = j//.key
+                def pyversion = k//.key
+                def arch = l//.key
                 echo "got ${platform} ${pyversion} ${arch}"
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(platform) {
