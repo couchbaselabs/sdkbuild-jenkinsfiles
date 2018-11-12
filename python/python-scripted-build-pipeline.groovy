@@ -10,21 +10,32 @@ def booleanOr(String line, Boolean fallBack = False)
     return line.toBoolean()
 } */
 
-def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
-echo "Got platforms ${PLATFORMS}"
+def PLATFORMS_BASE =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
-def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
-echo "Got PY_VERSIONS ${PY_VERSIONS}"
-def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-echo "Got PY_ARCHES ${PY_ARCHES}"
-def DEFAULT_PY_VERSION = PY_VERSIONS[0]
-def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
-def DEFAULT_PY_ARCH = PY_ARCHES[0]
-def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
+def PY_VERSIONS_BASE = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
+def PY_ARCHES_BASE = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
+
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
 def PACKAGE_PLATFORM = "centos7"
+
+def SKIP_PACKAGING = "${SKIP_PACKAGING}".toBoolean() || IS_GERRIT_TRIGGER.toBoolean()
+def PLATFORMS = (PLATFORMS_BASE as Set) + SKIP_PACKAGING?[]:PACKAGE_PLATFORM
+def PY_VERSIONS = (PY_VERSIONS_BASE as Set) + SKIP_PACKAGING?[]:PACKAGE_PY_VERSION
+def PY_ARCHES = (PY_ARCHES_BASE as Set) + SKIP_PACKAGING?[]:PACKAGE_PY_ARCH
+
+echo "Got platforms ${PLATFORMS}"
+echo "Got PY_VERSIONS ${PY_VERSIONS}"
+echo "Got PY_ARCHES ${PY_ARCHES}"
+
+def DEFAULT_PY_VERSION = PY_VERSIONS[0]
+def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
+def DEFAULT_PY_ARCH = PY_ARCHES[0]
+def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
+
+
+def P
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
