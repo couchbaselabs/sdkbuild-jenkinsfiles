@@ -86,7 +86,7 @@ pipeline {
                 LCB_LIB="${WORKSPACE}/libcouchbase/build/lib"
                 LCB_INC="${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated"
                 LD_LIBRARY_PATH="${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"
-                PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}/bin:$PATH"
+                PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION}/bin:$PATH"
             }
             steps {
                 cleanWs()
@@ -95,8 +95,7 @@ pipeline {
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
-                export PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}/bin:$PATH"
-            
+                
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
