@@ -208,6 +208,15 @@ String prefixWorkspace(String path){
 }
 def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 {
+
+    if (PLATFORM.contains("windows") && (PY_VERSION.contains("2.7"))) {
+        return combis
+    }
+
+    if (!PLATFORM.contains("windows") && PY_ARCH == "x86") {
+        return combis
+    }
+
     echo "adding ${PLATFORM}/${PY_VERSION}/${PY_ARCH} to ${combis}"
     def plat = combis.get("${PLATFORM}",null)
     if (plat==null)
@@ -269,14 +278,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 def pyversion = k.key
                 def arch = l.key
                 echo "got ${platform} ${pyversion} ${arch}"
-                if (platform.contains("windows") && (pyversion.contains("2.7"))) {
-                    continue
-                }
-
-                if (!platform.contains("windows") && arch == "x86") {
-                    continue
-                }
-
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(platform) {
                         def envStr = []
