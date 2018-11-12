@@ -277,16 +277,16 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 def platform = j//.key
                 def pyversion = k//.key
                 def arch = l//.key
+                if (platform.contains("windows") && (pyversion.contains("2.7"))) {
+                    continue
+                }
+
+                if (!platform.contains("windows") && arch == "x86") {
+                    continue
+                }
                 echo "got ${platform} ${pyversion} ${arch}"
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(platform) {
-                        if (platform.contains("windows") && (pyversion.contains("2.7"))) {
-                            continue
-                        }
-
-                        if (!platform.contains("windows") && arch == "x86") {
-                            continue
-                        }
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                         def win_arch=[x86:[],x64:['Win64']][arch]
