@@ -285,8 +285,21 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     continue
                 }
                 echo "got ${platform} ${pyversion} ${arch}"
+                def label = platform
+                if (platform =="windows")
+                {
+                    //pytuple = pyversion.tokenize(".")
+                    if (pyversion>="3.5")
+                    {
+                        label = "msvc-2015"
+                    }
+                    else if (pyversion>="3.3")
+                    {
+                        label = "msvc-2010"
+                    }
+                }                
                 pairs[platform + "_" + pyversion + "_" + arch]= {
-                    node(platform) {
+                    node(label) {
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                         def win_arch=[x86:[],x64:['Win64']][arch]
