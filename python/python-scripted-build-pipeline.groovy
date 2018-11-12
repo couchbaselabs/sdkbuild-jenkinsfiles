@@ -10,20 +10,15 @@ def booleanOr(String line, Boolean fallBack = False)
     return line.toBoolean()
 } */
 
-def PLATFORMS_BASE =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
+def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
-def PY_VERSIONS_BASE = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
-def PY_ARCHES_BASE = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
+def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
+def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
 def PACKAGE_PLATFORM = "centos7"
-
-def SKIP_PACKAGING = "${SKIP_PACKAGING}".toBoolean() || IS_GERRIT_TRIGGER.toBoolean()
-def PLATFORMS = (PLATFORMS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PLATFORM)
-def PY_VERSIONS = (PY_VERSIONS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_VERSION)
-def PY_ARCHES = (PY_ARCHES_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_ARCH)
 
 echo "Got platforms ${PLATFORMS}"
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
@@ -81,7 +76,7 @@ pipeline {
             }
         }
         stage('package') {
-            agent { label "${DEFAULT_PLATFORM}" }
+            agent { label "${PACKAGE_PLATFORM}" }
             when {
                 expression
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
@@ -96,9 +91,9 @@ pipeline {
             }
             steps {
                 cleanWs()
-                unstash "lcb-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
-                unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
-                installPython("${DEFAULT_PLATFORM}", "${PACKAGE_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
+                unstash "lcb-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                unstash "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
 echo "Path:${PATH}"
@@ -106,7 +101,7 @@ echo "Pip is:"
 echo `which pip`
 
 pip install --verbose Twisted gevent""")
-                unstash "dist-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
                     shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
                     shWithEcho("python setup.py build_sphinx")
@@ -213,6 +208,12 @@ String prefixWorkspace(String path){
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
     def pairs = [:]
+    
+    def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
+    def PLATFORMS = (PLATFORMS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PLATFORM)
+    def PY_VERSIONS = (PY_VERSIONS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_VERSION)
+    def PY_ARCHES = (PY_ARCHES_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_ARCH)
+
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
