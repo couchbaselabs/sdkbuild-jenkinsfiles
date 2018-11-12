@@ -88,7 +88,7 @@ pipeline {
                 installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
                 //installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
 
-                shPython("pip install --verbose Twisted gevent")
+                shWithEcho("pip install --verbose Twisted gevent")
                 unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 dir("couchbase-python-client") {
                     shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
@@ -225,11 +225,14 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
                         def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
-                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
+                        //def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
+                        def dist_dir="${WORKSPACE}${sep}${dist}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
                         if (platform.contains("windows")) { 
+                            batWithEcho("md ${dist_dir}")
                             envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
+                            shWithEcho("mkdir -p ${dist_dir}")
                             envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
                         }
                         withEnv(envStr) {
@@ -279,10 +282,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated install")
                                             batWithEcho("pip install wheel")
                                             batWithEcho("python setup.py bdist_wheel")
-                                            batWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}\\dist")
+                                            batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
-                                        archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        //archiveArtifacts artifacts: '${WORKSPACE}\\dist', fingerprint: true, onlyIfSuccessful: false
+                                        //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
+                                        archiveArtifacts artifacts: '${dist_dir}', fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
                                         installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
@@ -306,11 +309,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                            shWithEcho("python setup.py sdist --dist-dir ${WORKSPACE}/dist")
+                                            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
 
-                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: '${dist_dir}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
