@@ -289,17 +289,17 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 if (platform =="windows")
                 {
                     //pytuple = pyversion.tokenize(".")
-                    if (true || pyversion>="3.5")
+                    //if (true || pyversion>="3.5")
                     {
                         label = "msvc-2015"
                     }
-                    else if (pyversion>="3.3")
+/*                    else if (pyversion>="3.3")
                     {
                         label = "msvc-2010"
                     }
                     else{
                         continue
-                    }
+                    }*/
                 }                
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(label) {
