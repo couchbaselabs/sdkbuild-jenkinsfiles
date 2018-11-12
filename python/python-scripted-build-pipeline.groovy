@@ -91,6 +91,9 @@ pipeline {
                 shWithEcho("""
 export PATH=${WORKSPACE}/python${DEFAULT_VERSION}:${WORKSPACE}/python${DEFAULT_VERSION}/bin:${PATH}
 echo "Path:${PATH}"
+echo "Pip is:"
+echo `which pip`
+
 pip install --verbose Twisted gevent""")
                 unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 dir("couchbase-python-client") {
