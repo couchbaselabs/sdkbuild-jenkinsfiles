@@ -224,7 +224,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     {
         version.set(PY_ARCH,true)
         plat.set(PY_VERSION,version)
-        combis.set(PLATFORM],plat)
+        combis.set(PLATFORM,plat)
     }
     echo "added, got ${combis}"
     return combis
