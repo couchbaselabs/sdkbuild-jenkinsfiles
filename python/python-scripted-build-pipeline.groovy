@@ -95,7 +95,7 @@ echo "Pip is:"
 echo `which pip`
 
 pip install --verbose Twisted gevent""")
-                unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                unstash "dist-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 dir("couchbase-python-client") {
                     shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
                     shWithEcho("python setup.py build_sphinx")
