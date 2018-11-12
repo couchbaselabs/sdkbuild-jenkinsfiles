@@ -220,11 +220,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     def combis = [:]
     //.withDefault { key -> [:]}
     for (j in PLATFORMS) {
-        def plat = []
-        combis[j]=plat
         for (k in PY_VERSIONS) {
-            def version = [:]
-            plat[k] = version
             for (l in PY_ARCHES)
             {
                 combis=addCombi(combis,j,k,l)
