@@ -208,7 +208,7 @@ String prefixWorkspace(String path){
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
     def pairs = [:]
     
-    def combis = [:].withDefault { key -> [:]}
+   /*  def combis = [:].withDefault { key -> [:]}
     for (j in PLATFORMS) {
         def plat = []
         combis[j]=plat
@@ -220,7 +220,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 version[l] = [:]
             }          
         }
-    }
+    } */
 
 
     def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
@@ -228,12 +228,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         combis[PACKAGE_PLATFORM][PACKAGE_PY_VERSION][PACKAGE_PY_ARCH]=True
     }
     
-    for (j in combis) {
-        for (k in j) {
-            for (l in k) {
-                def platform = j.key
-                def pyversion = k.key
-                def arch = l.key
+    for (j in PLATFORMS) {
+        for (k in PY_VERSIONS) {
+            for (l in PY_ARCHES) {
+                def platform = j//.key
+                def pyversion = k//.key
+                def arch = l//.key
 
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
