@@ -219,8 +219,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     
     def combis = [:]
     //.withDefault { key -> [:]}
-    def hasWindows = False
-    def hasWinDefaultPlat = False
+    def hasWindows = false
+    def hasWinDefaultPlat = false
     for (j in PLATFORMS) {
         hasWindows|=j.startsWith("windows")
         for (k in PY_VERSIONS) {
