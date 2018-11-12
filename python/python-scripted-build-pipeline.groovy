@@ -237,7 +237,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
     }
     def PLATFORM_LIST=[]
-    if (PLATFORMS.contains("windows") && !PLATFORM_LIST.findResult{it.startsWith('3.')}
+    if (PLATFORMS.contains("windows") && !PLATFORM_LIST.findResult{it.startsWith('3.')})
     {
         for (arch in PY_ARCHES)
         {
@@ -246,8 +246,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     }
     
     for (j in combis) {
-        for (k in j) {
-            for (l in k) {
+        for (k in j.value) {
+            for (l in k.value) {
                 def platform = j.key
                 def pyversion = k.key
                 def arch = l.key
