@@ -85,7 +85,8 @@ pipeline {
                 unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 //installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "${DEFAULT_PY_ARCH}", "deps")
                 //installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
-                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "deps")
+                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
+                //installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
 
                 shPython("pip install --verbose Twisted gevent")
                 unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
