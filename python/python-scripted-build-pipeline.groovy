@@ -10,21 +10,6 @@ def booleanOr(String line, Boolean fallBack = False)
     return line.toBoolean()
 } */
 
-void installPython(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
-    }
-    shWithEcho(cmd)
-}
-
-void installPythonDows(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
-    }
-    batWithEcho(cmd)
-}
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
 echo "Got platforms ${PLATFORMS}"
 def DEFAULT_PLATFORM = PLATFORMS[0]
@@ -98,7 +83,9 @@ pipeline {
                 cleanWs()
                 unstash "lcb-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
-                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "${DEFAULT_PY_ARCH}", "deps", true)
+                //installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "${DEFAULT_PY_ARCH}", "deps")
+                //installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
+                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "deps")
 
                 shPython("pip install --verbose Twisted gevent")
                 unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
@@ -180,6 +167,21 @@ pipeline {
     }
 }
 
+void installPython(String platform, String version, String pyshort, String path, String arch) {
+    def cmd = "cbdep install python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+    if (platform.contains("windows"))
+    {
+        batWithEcho(cmd)
+    }
+    else
+    {
+        shWithEcho(cmd)
+    }
+}
+
 
 void shWithEcho(String command) {
     echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
@@ -239,7 +241,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     if (platform.contains("windows")) {
                                         batWithEcho("SET")
                                         dir("deps") {
-                                            installPythonDows("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
+                                            installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
                                         }
 
                                         batWithEcho("python --version")
