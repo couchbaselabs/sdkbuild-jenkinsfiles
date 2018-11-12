@@ -77,7 +77,7 @@ pipeline {
                 LCB_LIB="${WORKSPACE}/libcouchbase/build/lib"
                 LCB_INC="${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated"
                 LD_LIBRARY_PATH="${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"
-                PATH="${WORKSPACE}/deps/python${DEFAULT_VERSION}:${WORKSPACE}/deps/python${DEFAULT_VERSION}/bin:$PATH"
+                PATH="${WORKSPACE}/python${DEFAULT_VERSION}:${WORKSPACE}/python${DEFAULT_VERSION}/bin:$PATH"
             }
             steps {
                 cleanWs()
