@@ -21,6 +21,10 @@ def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
+def PACKAGE_PY_VERSION = "2.7.15"
+def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
+def PACKAGE_PY_ARCH = "x64"
+def PACKAGE_PLATFORM = "centos7"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -77,19 +81,15 @@ pipeline {
                 LCB_LIB="${WORKSPACE}/libcouchbase/build/lib"
                 LCB_INC="${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated"
                 LD_LIBRARY_PATH="${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"
-                PATH="${WORKSPACE}/python/python${DEFAULT_PY_VERSION}:${WORKSPACE}/python/python${DEFAULT_PY_VERSION}/bin:$PATH"
+                PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}/bin:$PATH"
             }
             steps {
                 cleanWs()
-                unstash "lcb-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
-                unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
-                //installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "${DEFAULT_PY_ARCH}", "deps")
-                //installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
-                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
-                //installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
+                unstash "lcb-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                installPython("${DEFAULT_PLATFORM}", "${PACKAGE_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "python", "${DEFAULT_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
-export PATH=${WORKSPACE}/python/python${DEFAULT_PY_VERSION}:${WORKSPACE}/python/python${DEFAULT_PY_VERSION}/bin:${PATH}
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
