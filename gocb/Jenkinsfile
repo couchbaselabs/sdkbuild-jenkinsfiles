@@ -19,7 +19,7 @@ pipeline {
             agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
             environment {
                 GOPATH = "${WORKSPACE}"
-                GOROOT = "${GOPATH}" + "/deps/go"
+                GOROOT = "${GOPATH}" + "/deps/go${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
             steps {
@@ -30,7 +30,7 @@ pipeline {
                     shWithEcho("go version")
                     shWithEcho("go get -t ./")
                     shWithEcho("make devsetup && make lint")
-
+                    
                     script {
                         if (env.IS_RELEASE.toBoolean() == true) {
                             echo "This is release, not updating metadata"
@@ -42,9 +42,9 @@ pipeline {
                             println version
                             shWithEcho("sed -i 's/\\(goCbVersionStr = \\).*\$/\\1\"$version\"/' constants.go")
                         }
-                    }
+                    } 
                 }
-
+                
                 stash includes: 'src/github.com/couchbase/gocb/', name: 'gocb', useDefaultExcludes: false
             }
         }
@@ -59,7 +59,7 @@ pipeline {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             environment {
                 GOPATH = "${WORKSPACE}"
-                GOROOT = "${GOPATH}" + "/deps/go"
+                GOROOT = "${GOPATH}" + "/deps/go${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
             steps {
@@ -75,9 +75,9 @@ pipeline {
         }
         stage('package') {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+            when { 
+                expression 
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
             }
             steps {
                 cleanWs()
@@ -94,19 +94,20 @@ pipeline {
             agent { label 'master' }
             when {
                 expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
             }
             steps {
                 cleanWs()
                 build job: "gocb-test-integration", parameters: [
+                    string(name: "GO_VERSION", value: GO_VERSION)
                 ]
             }
         }
         stage('quality') {
             agent { label 'master' }
             when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+                expression 
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false } 
             }
             steps {
                 cleanWs()
@@ -114,9 +115,9 @@ pipeline {
         }
         stage('approval') {
             agent none
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == true }
+            when { 
+                expression 
+                    {  return IS_RELEASE.toBoolean() == true } 
             }
             steps {
                 emailext body: "Jenkins: approval required for gocb -$BUILD_URL", subject: 'Jenkins: approval required for gocb', to: 'charles.dixon@couchbase.com'
@@ -125,14 +126,14 @@ pipeline {
         }
         stage('publish') {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == true }
+            when { 
+                expression 
+                    {  return IS_RELEASE.toBoolean() == true } 
             }
             steps {
                 cleanWs()
                 unstash "gocb-package"
-
+                
                 dir("src/github.com/couchbase/gocb") {
                     script {
                         def version = sh(script: 'grep goCbVersionStr constants.go | awk \'{print $3}\' | cut -d "\\"" -f 2 | tr -d "\\n"', returnStdout: true)
@@ -172,19 +173,19 @@ def builds(PLATFORMS) {
             node(platform) {
                 def envStr = []
                 if (platform == "windows") {
-                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH;${WORKSPACE}/bin;${WORKSPACE}/deps/go/bin"]
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go${GO_VERSION}","PATH=$PATH;${WORKSPACE}/bin;${WORKSPACE}/deps/go${GO_VERSION}/bin"]
                 } else {
-                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps/go/bin"]
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go${GO_VERSION}","PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps/go${GO_VERSION}/bin"]
                 }
                 withEnv(envStr) {
                     stage("build ${platform}") {
                         cleanWs()
                         unstash 'gocb'
-
+    
                         if (platform == "windows") {
                             batWithEcho("SET")
                             batWithEcho("cbdep install -d deps golang ${GO_VERSION}")
-
+        
                             dir("src/github.com/couchbase/gocb") {
                                 batWithEcho("go version")
                                 batWithEcho("go get -t ./")
@@ -192,14 +193,14 @@ def builds(PLATFORMS) {
                             }
                         } else {
                             shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
-
+        
                             dir("src/github.com/couchbase/gocb") {
                                 shWithEcho("go version")
                                 shWithEcho("go get -t ./")
                                 shWithEcho("go build")
                             }
                         }
-
+    
                         stash includes: 'src/github.com/couchbase/gocb/', name: "gocb-build-${platform}", useDefaultExcludes: false
                     }
                 }

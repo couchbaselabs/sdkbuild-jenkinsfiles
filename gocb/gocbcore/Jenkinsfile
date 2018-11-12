@@ -1,4 +1,4 @@
-def PLATFORMS = [ "centos7", "macos", "windows" ]
+def PLATFORMS = [ "ubuntu16", "macos", "windows" ]
 
 pipeline {
     agent none
@@ -17,7 +17,7 @@ pipeline {
             agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
             environment {
                 GOPATH = "${WORKSPACE}"
-                GOROOT = "${GOPATH}" + "/deps/go"
+                GOROOT = "${GOPATH}" + "/deps/go${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
             steps {
@@ -26,7 +26,6 @@ pipeline {
                 dir('src/github.com/couchbase/gocbcore') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
 
-                    shWithEcho("go version")
                     shWithEcho("go get -t ./")
                     shWithEcho("make devsetup && make lint")
                     
@@ -58,7 +57,7 @@ pipeline {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             environment {
                 GOPATH = "${WORKSPACE}"
-                GOROOT = "${GOPATH}" + "/deps/go"
+                GOROOT = "${GOPATH}" + "/deps/go${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
             steps {
@@ -68,7 +67,8 @@ pipeline {
                 dir("src/github.com/couchbase/gocbcore") {
                     shWithEcho("go version")
                     shWithEcho("go get -t ./")
-                    shWithEcho("go test -race -coverprofile=$WORKSPACE/cover.out ./")
+                    //shWithEcho("sed -E 's/for time.Now\\(\\).Sub\\(start\\) <= 1\\*time.Second/for time.Now\\(\\).Sub\\(start\\) <= 10\\*time.Second/' agent_test.go")
+                    shWithEcho("go test -race -v -coverprofile=$WORKSPACE/cover.out ./")
                 }
             }
         }
@@ -98,6 +98,7 @@ pipeline {
             steps {
                 cleanWs()
                 build job: "gocbcore-test-integration", parameters: [
+                    string(name: "GO_VERSION", value: GO_VERSION)
                 ]
             }
         }
@@ -171,9 +172,9 @@ def builds(PLATFORMS) {
             node(platform) {
                 def envStr = []
                 if (platform == "windows") {
-                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH;${WORKSPACE}/bin;${WORKSPACE}/deps/go/bin"]
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go${GO_VERSION}","PATH=$PATH;${WORKSPACE}/bin;${WORKSPACE}/deps/go${GO_VERSION}/bin"]
                 } else {
-                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go","PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps/go/bin"]
+                    envStr = ["GOPATH=${WORKSPACE}","GOROOT=${WORKSPACE}/deps/go${GO_VERSION}","PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps/go${GO_VERSION}/bin"]
                 }
                 withEnv(envStr) {
                     stage("build ${platform}") {
@@ -199,6 +200,7 @@ def builds(PLATFORMS) {
                         }
     
                         stash includes: 'src/github.com/couchbase/gocbcore/', name: "gocbcore-build-${platform}", useDefaultExcludes: false
+                        //archiveArtifacts artifacts: 'src/github.com/couchbase/gocb/', fingerprint: true, defaultExcludes: false
                     }
                 }
             }
