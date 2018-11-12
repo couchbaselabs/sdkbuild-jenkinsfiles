@@ -30,7 +30,6 @@ def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 
 
-def P
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -209,17 +208,32 @@ String prefixWorkspace(String path){
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
     def pairs = [:]
     
-    def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
-    def PLATFORMS = (PLATFORMS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PLATFORM)
-    def PY_VERSIONS = (PY_VERSIONS_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_VERSION)
-    def PY_ARCHES = (PY_ARCHES_BASE as Set) + (SKIP_PACKAGING?[]:PACKAGE_PY_ARCH)
-
+    def combis = [:].withDefault { key -> [:]}
     for (j in PLATFORMS) {
+        def plat = []
+        combis[j]=plat
         for (k in PY_VERSIONS) {
-            for (l in PY_ARCHES) {
-                def platform = j
-                def pyversion = k
-                def arch = l
+            def version = [:]
+            plat[k] = version
+            for (l in PY_ARCHES)
+            {
+                version[l] = [:]
+            }          
+        }
+    }
+
+
+    def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
+    if (!SKIP_PACKAGING){
+        combis[PACKAGE_PLATFORM][PACKAGE_PY_VERSION][PACKAGE_PY_ARCH]=True
+    }
+    
+    for (j in combis) {
+        for (k in j) {
+            for (l in k) {
+                def platform = j.key
+                def pyversion = k.key
+                def arch = l.key
 
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
