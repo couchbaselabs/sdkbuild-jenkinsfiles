@@ -284,8 +284,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             batWithEcho("python setup.py bdist_wheel")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
-                                        //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        archiveArtifacts artifacts: '${dist_dir}', fingerprint: true, onlyIfSuccessful: false
+                                        archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
+                                        //archiveArtifacts artifacts: '${dist_dir}', fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
                                         installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
@@ -313,7 +313,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
                                     }
 
-                                    stash includes: '${dist_dir_rel}', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
