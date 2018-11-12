@@ -95,6 +95,8 @@ pipeline {
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
+                export PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION_SHORT}/bin:$PATH"
+            
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
