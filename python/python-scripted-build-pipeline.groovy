@@ -218,9 +218,13 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     {
         version = [:]
     }
-    version[PY_ARCH]=version.get(PY_ARCH,null)
-    plat[PY_VERSION]=version
-    combis[PLATFORM]=plat
+    arch=version.get(PY_ARCH,null)
+    if (!arch)
+    {
+        version[PY_ARCH]=true
+        plat[PY_VERSION]=version
+        combis[PLATFORM]=plat
+    }
     return combis
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
