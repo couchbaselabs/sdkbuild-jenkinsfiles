@@ -284,15 +284,14 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 if (!platform.contains("windows") && arch == "x86") {
                     continue
                 }
-                echo "got ${platform} ${pyversion} ${arch}"
                 def label = platform
                 if (platform =="windows")
                 {
                     //pytuple = pyversion.tokenize(".")
                     //if (true || pyversion>="3.5")
-                    {
+                    //{
                         label = "msvc-2015"
-                    }
+                    //}
 /*                    else if (pyversion>="3.3")
                     {
                         label = "msvc-2010"
@@ -301,6 +300,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         continue
                     }*/
                 }                
+                echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
+
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(label) {
                         def envStr = []
