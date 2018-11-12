@@ -71,7 +71,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}")
             }
         }
         stage('package') {
@@ -214,13 +214,17 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     //version[PY_ARCH]=version.get(PY_ARCH,[:])
     return combis
 }
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
     def pairs = [:]
     
     def combis = [:]
     //.withDefault { key -> [:]}
+    def hasWindows = False
+    def hasWinDefaultPlat = False
     for (j in PLATFORMS) {
+        hasWindows|=j.startsWith("windows")
         for (k in PY_VERSIONS) {
+            hasWinDefaultPlat|=k.startsWith("${WIN_PY_DEFAULT_VERSION}")
             for (l in PY_ARCHES)
             {
                 combis=addCombi(combis,j,k,l)
@@ -234,7 +238,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
     }
     def PLATFORM_LIST=[]
-    if (PLATFORMS.contains("windows") && !PLATFORM_LIST.findResult{it.startsWith('3.')})
+    if (hasWindows && !hasWinDefaultPlat)
     {
         for (arch in PY_ARCHES)
         {
