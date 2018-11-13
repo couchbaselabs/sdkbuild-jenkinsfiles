@@ -1,36 +1,13 @@
-/* def parseEnvList(String line){
-    return String(line).split("\s*")
-}
-
-def booleanOr(String line, Boolean fallBack = False)
-{
-    if (!line.size()){
-        return fallBack
-    }
-    return line.toBoolean()
-} */
-
-def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
+def PLATFORMS = [ "centos7", "windows-2012" ]
+//def PLATFORMS = [ "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
-def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
-def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-
-def PACKAGE_PLATFORM = "centos7"
-def PACKAGE_PY_VERSION = "2.7.15"
-def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
-def PACKAGE_PY_ARCH = "x64"
-
-echo "Got platforms ${PLATFORMS}"
-echo "Got PY_VERSIONS ${PY_VERSIONS}"
-echo "Got PY_ARCHES ${PY_ARCHES}"
-
-def DEFAULT_PY_VERSION = PY_VERSIONS[0]
+def PY_VERSIONS = [ "2.7.15", "3.7.0" ] // 3.7.0 is failing tests
+//def PY_ARCHES = [ "x64" ] //, "x86" ]
+def PY_ARCHES = [ "x64" , "x86" ]
+def DEFAULT_PY_VERSION = PY_ARCHES[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
-def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
-def WIN_PY_DEFAULT_VERSION = "3.7.0"
 
-echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
     stages {
@@ -71,11 +48,11 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}")
             }
         }
         stage('package') {
-            agent { label "${PACKAGE_PLATFORM}" }
+            agent { label "${DEFAULT_PLATFORM}" }
             when {
                 expression
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
@@ -86,22 +63,16 @@ pipeline {
                 LCB_LIB="${WORKSPACE}/libcouchbase/build/lib"
                 LCB_INC="${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated"
                 LD_LIBRARY_PATH="${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"
-                PATH="${WORKSPACE}/python/python${PACKAGE_PY_VERSION}:${WORKSPACE}/python/python${PACKAGE_PY_VERSION}/bin:$PATH"
+                PATH="${WORKSPACE}/deps/python${DEFAULT_VERSION}:${WORKSPACE}/deps/python${DEFAULT_VERSION}/bin:$PATH"
             }
             steps {
                 cleanWs()
-                unstash "lcb-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
-                unstash "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
-                installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
-                echo "My path:${PATH}"
-                shWithEcho("""
-                
-echo "Path:${PATH}"
-echo "Pip is:"
-echo `which pip`
+                unstash "lcb-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                unstash "couchbase-python-client-build-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
+                installPython("${DEFAULT_PLATFORM}", "${DEFAULT_PY_VERSION}", "${DEFAULT_VERSION_SHORT}", "${DEFAULT_PY_ARCH}", "deps", true)
 
-pip install --verbose Twisted gevent""")
-                unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                shPython("pip install --verbose Twisted gevent")
+                unstash "dist-" + DEFAULT_PLATFORM + "-" + DEFAULT_PY_VERSION + "-" + DEFAULT_PY_ARCH
                 dir("couchbase-python-client") {
                     shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
                     shWithEcho("python setup.py build_sphinx")
@@ -117,13 +88,13 @@ pip install --verbose Twisted gevent""")
             }
         }
         stage('test-integration-server') {
-            agent { label 'sdk-integration-test-linux' }
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             when {
                 expression
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration()
+                cleanWs()
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -185,161 +156,34 @@ void installPython(String platform, String version, String pyshort, String path,
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
-    if (platform.contains("windows"))
-    {
-        batWithEcho(cmd)
-    }
-    else
-    {
-        shWithEcho(cmd)
-    }
+    shWithEcho(cmd)
 }
 
+void installPythonDows(String platform, String version, String pyshort, String path, String arch) {
+    def cmd = "cbdep install python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+    batWithEcho(cmd)
+}
 
 void shWithEcho(String command) {
-    echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
+    echo "[$STAGE_NAME]"+ sh (script: command, returnStdout: true)
 }
 
 void batWithEcho(String command) {
-    echo "[$STAGE_NAME]:${command}:"+ bat (script: command, returnStdout: true)
-}
-String prefixWorkspace(String path){
-    return "${WORKSPACE}/${path}"
-}
-def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
-{
-
-    if (PLATFORM.contains("windows") && (PY_VERSION.contains("2.7"))) {
-        return combis
-    }
-
-    if (!PLATFORM.contains("windows") && PY_ARCH == "x86") {
-        return combis
-    }
-
-    echo "adding ${PLATFORM}/${PY_VERSION}/${PY_ARCH} to ${combis}"
-    def plat = combis.get("${PLATFORM}",null)
-    if (plat==null)
-    {
-        plat =[:]
-    }
-    def version = plat.get("${PY_VERSION}",null)
-    if (version==null)
-    {
-        version = [:]
-    }
-    arch=version.get("${PY_ARCH}",null)
-    if (arch==null)
-    {
-        version.put("${PY_ARCH}","True")
-        plat.put("${PY_VERSION}",version)
-        combis.put("${PLATFORM}",plat)
-    }
-    echo "added, got ${combis}"
-    return combis
+    echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def getEnvStr(String platform)
-{
-    if (platform.contains("windows")) { 
-                            //batWithEcho("md ${dist_dir}")
-                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
-                        } else {
-                            //shWithEcho("mkdir -p ${dist_dir}")
-                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
-                        }
-                        return envStr
-}
-
-def doIntegration()
-{
-    unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
-                unstash "dist-${platform}-${pyversion}-${arch}"
-                unstash "lcb-${platform}-${pyversion}-${arch}"
-                cleanWs()
-                envStr=getEnvStr("linux")
-                withEnv(envStr)
-                {
-                shWithEcho('''
-export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
-
-
-
-
-
-
-##################### Provisioning a cluster #################
-CLUSTER_ID=$(cbdyncluster allocate --num-nodes=1 --server-version=${CB_SERVER_VERSION})
-if [ $? -ne 0 ]
-then
-	echo "Could not allocate CLUSTER_ID: " + $CLUSTER_ID
-    exit 1
-fi
-CB_NODE_FOR_CENTOS=$(cbdyncluster ips $CLUSTER_ID)
-
-
-cbdyncluster setup $CLUSTER_ID --node=kv,index,n1ql --bucket=default
-###############################################################
-
-
-
-
-
-############################ start testing ####################
-
-pushd .
-popd
-################################################################
-
-
-
-
-######################### tear down the cluster ################
-cbdyncluster rm ${CLUSTER_ID}
-################################################################
-
-''')
-                }
-}
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
-    def pairs = [:] 
-    
-    def combis = [:]
-    // as HashMap<String,Map>
-    //.withDefault { key -> [:]}
-    def hasWindows = false
-    def hasWinDefaultPlat = false
-    for (j in PLATFORMS) {
-        hasWindows|=j.startsWith("windows")
-        for (k in PY_VERSIONS) {
-            hasWinDefaultPlat|=k.startsWith("${WIN_PY_DEFAULT_VERSION}")
-            for (l in PY_ARCHES)
-            {
-                combis=addCombi(combis,j,k,l)
-            }          
-        }
-    } 
-
-
-    def SKIP_PACKAGING = IS_GERRIT_TRIGGER.toBoolean()
-    if (!SKIP_PACKAGING){
-    //    combis=addCombi(combis,PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
-    }
-    def PLATFORM_LIST=[]
-    if (hasWindows && !hasWinDefaultPlat)
-    {
-        for (arch in PY_ARCHES)
-        {
-    //        combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
-        }
-    }
-    echo "Got combis ${combis}"
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE) {
+    def pairs = [:]
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
-                def platform = j//.key
-                def pyversion = k//.key
-                def arch = l//.key
+                def platform = j
+                def pyversion = k
+                def arch = l
+
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
                 }
@@ -347,6 +191,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 if (!platform.contains("windows") && arch == "x86") {
                     continue
                 }
+<<<<<<< HEAD
+=======
                 def label = platform
                 if (platform =="windows")
                 {
@@ -362,30 +208,22 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     }
                 }                
                 echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
+>>>>>>> a6aa908... Avoid TreeMap as Jenkins doesn't like it
 
                 pairs[platform + "_" + pyversion + "_" + arch]= {
-                    node(label) {
+                    node(platform) {
                         def envStr = []
                         def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
-                        def win_arch=[x86:[],x64:['Win64']][arch]
-                        def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
-                        def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
-                        def sep = "/"
+                        def win_arch=[x86:'Win32',x64:'Win64'][arch]
+                        def plat_build_dir="${WORKSPACE}/build_${platform}_${pyversion}_${arch}"
+                        def libcouchbase_build_dir="${plat_build_dir}/libcouchbase"
+                        def dist_dir="${plat_build_dir}/dist"
+                        def libcouchbase_checkout="${WORKSPACE}/libcouchbase"
+
                         if (platform.contains("windows")) {
-                            sep = "\\"
-                        }
-                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
-                        def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
-                        //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
-                        def dist_dir_rel="dist"
-                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
-                        def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
-                        if (platform.contains("windows")) { 
-                            //batWithEcho("md ${dist_dir}")
-                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                            envStr = ["win_arch=${win_arch}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include;${libcouchbase_build_dir}/generated","dist_dir=${dist_dir}"]
                         } else {
-                            //shWithEcho("mkdir -p ${dist_dir}")
-                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "libcouchbase_build_dir=${libcouchbase_build_dir}","LCB_PATH=${libcouchbase_checkout}", "LCB_BUILD=${libcouchbase_build_dir}", "LCB_LIB=${libcouchbase_build_dir}/lib", "LCB_INC=${libcouchbase_checkout}/include:${libcouchbase_build_dir}/generated", "dist_dir=${dist_dir}","LD_LIBRARY_PATH=${libcouchbase_build_dir}/lib:\$LD_LIBRARY_PATH"]
                         }
                         withEnv(envStr) {
                             stage("build ${platform}_${pyversion}_${arch}") {
@@ -397,28 +235,27 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     if (platform.contains("windows")) {
                                         batWithEcho("SET")
                                         dir("deps") {
-                                            installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
+                                            installPythonDows("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
                                         }
 
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
-                                        dir("libcouchbase") {
+                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${LCB_PATH}")
+                                        dir("${LCB_PATH}") {
                                             batWithEcho("git checkout ${LCB_VERSION}")
                                         }
-                                        cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
                                         
-                                        dir("build") {
+                                        dir("${libcouchbase_build_dir}") {
                                             if (IS_RELEASE == "true") {
                                                 batWithEcho("""
-                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
                                                     cmake --build .
                                                 """)
                                             } else {
                                                 // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                                                 batWithEcho("""
-                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                    cmake -G "Visual Studio 14 2015" -A ${win_arch} -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ${LCB_PATH}
                                                     cmake --build .
                                                 """)
                                             }
@@ -430,14 +267,14 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
 
                                         dir("couchbase-python-client") {
-                                            batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated install")
+                                            batWithEcho("copy ${libcouchbase_build_dir}\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${libcouchbase_build_dir}\\lib\\RelWithDebInfo --include-dirs ${LCB_PATH}\\include;${libcouchbase_build_dir}\\generated install")
                                             batWithEcho("pip install wheel")
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                         //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
+                                        //archiveArtifacts artifacts: '${WORKSPACE}\\dist', fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
                                         installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
@@ -446,16 +283,16 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         shWithEcho("pip --version")
 
                                         shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("libcouchbase") {
+                                        dir("${LCB_PATH}"){
                                             shWithEcho("git checkout ${LCB_VERSION}")
-                                            dir("build") {
-                                                if (IS_RELEASE == "true") {
-                                                    shWithEcho("cmake ../")
-                                                } else {
-                                                    shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
-                                                }
-                                                shWithEcho("make")
+                                        }
+                                        dir("${libcouchbase_build_dir}") {
+                                            if (IS_RELEASE == "true") {
+                                                shWithEcho("cmake ${LCB_PATH}")
+                                            } else {
+                                                shWithEcho("cmake ${LCB_PATH} -DCMAKE_BUILD_TYPE=DEBUG")
                                             }
+                                            shWithEcho("make")
                                         }
 
                                         dir("couchbase-python-client") {
@@ -464,19 +301,24 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
-
-                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                    stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    dir("${dist_dir}")
+                                    {
+                                    shWithEcho("""echo stashing dist  ${dist_dir}
+                                    ls -al .""")
+                                        stash includes: '.', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    }
+                                    shWithEcho("""echo stashing libcouchbase ${libcouchbase_build_dir}
+                                    ls -al ${libcouchbase_build_dir}""")
+                                    stash includes: '${libcouchbase_build_dir}/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    shWithEcho("""echo stashing couchbase-python-client
+                                    ls -al couchbase-python-client""")
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
                             }
                             stage("test ${platform}_${pyversion}_${arch}") {
                                 timestamps {
-                                    //if (!platform.contains("windows")){
-                                    //    sh 'chmod -R u+w .git'
-                                    //}
-                                    //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
-                                    //unstash "dist-${platform}-${pyversion}-${arch}"
+                                    unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
+                                    unstash "dist-${platform}-${pyversion}-${arch}"
                                     //unstash "lcb-${platform}-${pyversion}-${arch}"
                                     // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                                     // USING THE PACKAGE(S) CREATED ABOVE
@@ -578,8 +420,6 @@ EOF
             }
         }
     }
-    if (PARALLEL_PAIRS)
-    {
-        parallel pairs
-    }
+
+    parallel pairs
 }
