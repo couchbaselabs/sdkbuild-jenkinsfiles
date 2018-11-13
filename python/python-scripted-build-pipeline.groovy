@@ -412,7 +412,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "lcb-${platform}-${pyversion}-${arch}"
     cleanWs()
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
-    shWithEcho("pip install ${WORKSPACE}/dist/couchbase*.tar.gz")
+    shWithEcho("pip install ${WORKSPACE}/dist/couchbase-2.5.1.tar.gz")
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
