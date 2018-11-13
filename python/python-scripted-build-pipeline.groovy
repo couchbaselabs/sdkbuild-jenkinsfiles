@@ -259,7 +259,7 @@ def doIntegration()
                 cleanWs()
                 withEnv(getEnvStr("linux"))
                 {
-                shWithEcho("""
+                shWithEcho('''
 export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
 
 
@@ -297,7 +297,7 @@ popd
 cbdyncluster rm ${CLUSTER_ID}
 ################################################################
 
-""")
+''')
                 }
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
