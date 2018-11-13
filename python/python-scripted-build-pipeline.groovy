@@ -123,7 +123,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}","${PACKAGE_PY_ARCH}",SERVER_VERSIONS)
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}","${PACKAGE_PY_ARCH}","${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -251,7 +251,157 @@ def getEnvStr(String platform, String pyversion, String arch, String server_vers
                         return envStr
 }
 
-def doIntegration(String platform, String pyversion, String arch, SERVER_VERSIONS)
+def doTests(String ip, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
+{
+    timestamps {
+        //if (!platform.contains("windows")){
+        //    sh 'chmod -R u+w .git'
+        //}
+        //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
+        //unstash "dist-${platform}-${pyversion}-${arch}"
+        //unstash "lcb-${platform}-${pyversion}-${arch}"
+        // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
+        // USING THE PACKAGE(S) CREATED ABOVE
+        try {
+            if (platform.contains("windows")) {
+                dir("couchbase-python-client") {
+                    batWithEcho('''
+                        echo try: > "updateTests.py"
+                        echo     from configparser import ConfigParser >> "updateTests.py"
+                        echo except: >> "updateTests.py"
+                        echo     from ConfigParser import ConfigParser >> "updateTests.py"
+                        echo import os >> "updateTests.py"
+                        echo fp = open("tests.ini.sample", "r") >> "updateTests.py"
+                        echo template = ConfigParser() >> "updateTests.py"
+                        echo template.readfp(fp) >> "updateTests.py"
+                        echo template.set("realserver", "enabled", "False") >> "updateTests.py"
+                        echo if os.path.exists("tests.ini"): >> "updateTests.py"
+                        echo     raise Exception("tests.ini already exists") >> "updateTests.py"
+                        echo with open("tests.ini", "w") as fp: >> "updateTests.py"
+                        echo     template.write(fp) >> "updateTests.py"
+                    ''')
+                    batWithEcho("python updateTests.py")
+                    batWithEcho("pip install -r dev_requirements.txt")
+                    batWithEcho("nosetests --with-xunit -v")
+                }
+            } else {
+                shWithEcho("python --version")
+                shWithEcho("pip --version")
+                if (PYCBC_VALGRIND != "") {
+                    shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
+                    shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
+                    shWithEcho("mkdir deps && mkdir deps/valgrind")
+                    dir("valgrind-3.13.0") {
+                        shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
+                        shWithEcho("make && make install")
+                    }
+                }
+
+                dir("couchbase-python-client") {
+                    shWithEcho("pip install configparser")
+                    shWithEcho(""""
+                        cat > updateTests.py <<EOF
+try:
+    from configparser import ConfigParser
+except:
+    from ConfigParser import ConfigParser
+
+import os
+fp = open("tests.ini.sample", "r")
+template = ConfigParser()
+template.readfp(fp)
+template.set("realserver", "enabled", "True")
+template.set("mock", "enabled", "False")
+template.set("realserver", "host", "${ip}")
+template.set("realserver", "admin_username", "Administrator")
+template.set("realserver", "admin_password", "password")
+if os.path.exists("tests.ini"):
+    raise Exception("tests.ini already exists")
+    with open("tests.ini", "w") as fp:
+        template.write(fp)
+EOF
+                    """)
+                    shWithEcho("python updateTests.py")
+                    shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+
+                    if (PYCBC_VALGRIND != "") {
+                        shWithEcho("""
+                            export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
+                            mkdir -p \$VALGRIND_REPORT_DIR
+                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${PYCBC_VALGRIND}" > build/valgrind.txt""")
+                            //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
+                            // TODO: NEED PUBLISH VALGRIND
+                    }
+
+                    if (PYCBC_DEBUG_SYMBOLS == "") {
+                        shWithEcho("which nosetests")
+                        shWithEcho("nosetests --with-xunit -v")
+                    } else {
+                        shWithEcho("""
+                        export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
+                        echo "trying to write to: ["
+                        echo "\$TMPCMDS"
+                        echo "]"
+                        echo "run `which nosetests` -v --with-xunit" > "\$TMPCMDS"
+                        echo "bt" >>"\$TMPCMDS"
+                        echo "py-bt" >>"\$TMPCMDS"
+                        echo "quit" >>"\$TMPCMDS"
+                        gdb -batch -x "\$TMPCMDS" `which python`""")
+                    }
+                }
+            }
+        } catch (Exception e) {
+            echo "Caught an error"
+            throw e
+        } finally {
+            junit 'couchbase-python-client/nosetests.xml'
+        }
+    }
+}
+
+void testAgainstServer(String serverVersion, testActor) {
+    // Note this must be run inside a script {} block to allow try/finally
+    def clusterId = null
+    try {
+
+        // For debugging, what clusters are open
+        shWithEcho("cbdyncluster ps -a")
+
+        // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
+        // shWithEcho("cbdyncluster rm -f 3d023261")
+        // shWithEcho("cbdyncluster rm e38dffd3")
+
+        // Allocate the cluster.  3 KV nodes.
+        clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + serverVersion, returnStdout: true)
+        echo "Got cluster ID " + clusterId
+
+        // Find the cluster IP
+        def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
+        echo "Got raw cluster IPs " + ips
+        def ip = ips.tokenize(',')[0]
+        echo "Got cluster IP http://" + ip + ":8091"
+
+        // Create the cluster
+        shWithEcho("cbdyncluster --node kv --node kv --node kv --bucket default setup " + clusterId)
+
+        // Make the bucket flushable
+        shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+
+        // The transactions tests check for this environment property
+
+        testActor(ip)
+        
+    }
+    finally {
+        if (clusterId != null) {
+            // Easy to run out of resources during iterating, so cleanup even
+            // though cluster will be auto-removed after a time
+            shWithEcho(script: "cbdyncluster rm " + clusterId)
+        }
+        junit 'couchbase-python-client/nosetests.xml'
+    }
+}
+def doIntegration(String platform, String pyversion, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
     unstash "dist-${platform}-${pyversion}-${arch}"
@@ -262,7 +412,10 @@ def doIntegration(String platform, String pyversion, String arch, SERVER_VERSION
         envStr=getEnvStr(platform,pyversion,arch,server_version)
         withEnv(envStr)
         {
-            shWithEcho('''
+            script{
+                testAgainstServer(server_version, {ip->doTests(ip,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+            }
+/*             shWithEcho('''
 export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
 
 
@@ -300,7 +453,7 @@ popd
 cbdyncluster rm ${CLUSTER_ID}
 ################################################################
 
-''')
+''') */
         }
     }
 }
