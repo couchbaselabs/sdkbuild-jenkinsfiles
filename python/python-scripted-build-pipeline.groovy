@@ -315,8 +315,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
-                        //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
-                        def dist_dir_rel="dist"
+                        def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
+                        //def dist_dir_rel="dist"
                         def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
                         if (platform.contains("windows")) { 
@@ -376,7 +376,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                         //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        archiveArtifacts artifacts: "${dist_dir}", fingerprint: true, onlyIfSuccessful: false
+                                        archiveArtifacts artifacts: "${dist_dir_rel}", fingerprint: true, onlyIfSuccessful: false
                                     } else {
                                         shWithEcho('env')
                                         installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
