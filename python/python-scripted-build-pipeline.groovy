@@ -239,7 +239,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     return combis
 }
 
-def getEnvStr(String platform)
+def getEnvStr(String platform, String pyversion, String arch)
 {
     if (platform.contains("windows")) { 
                             //batWithEcho("md ${dist_dir}")
@@ -257,7 +257,7 @@ def doIntegration(String platform, String pyversion, String arch)
                 unstash "dist-${platform}-${pyversion}-${arch}"
                 unstash "lcb-${platform}-${pyversion}-${arch}"
                 cleanWs()
-                envStr=getEnvStr("linux")
+                envStr=getEnvStr(platform,pyversion,arch)
                 withEnv(envStr)
                 {
                 shWithEcho('''
