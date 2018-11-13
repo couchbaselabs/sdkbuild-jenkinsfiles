@@ -117,13 +117,13 @@ pip install --verbose Twisted gevent""")
             }
         }
         stage('test-integration-server') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            agent { label 'sdk-integration-test-linux' }
             when {
                 expression
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                cleanWs()
+                doIntegration()
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -237,6 +237,68 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     }
     echo "added, got ${combis}"
     return combis
+}
+
+def getEnvStr(platform)
+{
+    if (platform.contains("windows")) { 
+                            //batWithEcho("md ${dist_dir}")
+                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                        } else {
+                            //shWithEcho("mkdir -p ${dist_dir}")
+                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+                        }
+                        return envStr
+}
+
+def doIntegration()
+{
+    unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
+                unstash "dist-${platform}-${pyversion}-${arch}"
+                unstash "lcb-${platform}-${pyversion}-${arch}"
+                cleanWs()
+                withEnv(getEnvStr("linux"))
+                {
+                shWithEcho("""
+export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
+
+
+
+
+
+
+##################### Provisioning a cluster #################
+CLUSTER_ID=$(cbdyncluster allocate --num-nodes=1 --server-version=${CB_SERVER_VERSION})
+if [ $? -ne 0 ]
+then
+	echo "Could not allocate CLUSTER_ID: " + $CLUSTER_ID
+    exit 1
+fi
+CB_NODE_FOR_CENTOS=$(cbdyncluster ips $CLUSTER_ID)
+
+
+cbdyncluster setup $CLUSTER_ID --node=kv,index,n1ql --bucket=default
+###############################################################
+
+
+
+
+
+############################ start testing ####################
+
+pushd .
+popd
+################################################################
+
+
+
+
+######################### tear down the cluster ################
+cbdyncluster rm ${CLUSTER_ID}
+################################################################
+
+""")
+                }
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
     def pairs = [:] 
