@@ -351,7 +351,7 @@ EOF
                 }
             }
         } catch (Exception e) {
-            echo "Caught an error"
+            echo "Caught an error in doTests: ${e}"
             throw e
         } finally {
             junit 'couchbase-python-client/nosetests.xml'
@@ -726,7 +726,7 @@ EOF
                                             }
                                         }
                                     } catch (Exception e) {
-                                        echo "Caught an error"
+                                        echo "Caught an error in test bit: ${e}"
                                         throw e
                                     } finally {
                                         junit 'couchbase-python-client/nosetests.xml'
