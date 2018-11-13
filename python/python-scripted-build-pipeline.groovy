@@ -15,7 +15,7 @@ def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 
-def PACKAGE_PLATFORM = "centos7"
+def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
