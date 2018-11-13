@@ -389,8 +389,12 @@ void testAgainstServer(String serverVersion, testActor) {
 
         // The transactions tests check for this environment property
 
-        testActor(ip)
+        testActor.call(ip)
         
+    }
+    catch (e)
+    {
+        echo "Caught an error: ${e}"
     }
     finally {
         if (clusterId != null) {
