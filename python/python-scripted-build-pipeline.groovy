@@ -123,7 +123,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}","${PACKAGE_PY_ARCH}","${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -359,7 +359,7 @@ EOF
     }
 }
 
-void testAgainstServer(String serverVersion, testActor) {
+void testAgainstServer(String serverVersion, String envStr, testActor) {
     // Note this must be run inside a script {} block to allow try/finally
     def clusterId = null
     try {
@@ -388,9 +388,9 @@ void testAgainstServer(String serverVersion, testActor) {
         shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
 
         // The transactions tests check for this environment property
-
-        testActor.call(ip)
-        
+        withEnv(envStr){
+            testActor.call(ip)
+        }
     }
     catch (e)
     {
@@ -405,59 +405,22 @@ void testAgainstServer(String serverVersion, testActor) {
         junit 'couchbase-python-client/nosetests.xml'
     }
 }
-def doIntegration(String platform, String pyversion, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     cleanWs()
+    installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
         withEnv(envStr)
         {
             script{
-                testAgainstServer(server_version, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                testAgainstServer(server_version, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
             }
-/*             shWithEcho('''
-export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
 
-
-
-
-
-
-##################### Provisioning a cluster #################
-CLUSTER_ID=$(cbdyncluster allocate --num-nodes=1 --server-version=${CB_SERVER_VERSION})
-if [ $? -ne 0 ]
-then
-	echo "Could not allocate CLUSTER_ID: " + $CLUSTER_ID
-    exit 1
-fi
-CB_NODE_FOR_CENTOS=$(cbdyncluster ips $CLUSTER_ID)
-
-
-cbdyncluster setup $CLUSTER_ID --node=kv,index,n1ql --bucket=default
-###############################################################
-
-
-
-
-
-############################ start testing ####################
-
-pushd .
-popd
-################################################################
-
-
-
-
-######################### tear down the cluster ################
-cbdyncluster rm ${CLUSTER_ID}
-################################################################
-
-''') */
         }
     }
 }
