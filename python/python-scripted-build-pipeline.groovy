@@ -251,7 +251,7 @@ def getEnvStr(String platform, String pyversion, String arch, String server_vers
                         return envStr
 }
 
-def doTests(String ip, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
+def doTests(String ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -417,7 +417,7 @@ def doIntegration(String platform, String pyversion, String arch, PYCBC_VALGRIND
         withEnv(envStr)
         {
             script{
-                testAgainstServer(server_version, {ip->doTests(ip,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                testAgainstServer(server_version, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
             }
 /*             shWithEcho('''
 export PATH=$PATH:${WORKSPACE}/bin:${WORKSPACE}/deps
