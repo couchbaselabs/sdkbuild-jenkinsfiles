@@ -98,7 +98,12 @@ pipeline {
             steps {
                 cleanWs()
                 build job: "gocbcore-test-integration", parameters: [
-                    string(name: "GO_VERSION", value: GO_VERSION)
+                    string(name: "GO_VERSION", value: GO_VERSION),
+                    string(name: "CB_SERVER_VERSION", value: "5.5.2")
+                ]
+                build job: "gocbcore-test-integration", parameters: [
+                    string(name: "GO_VERSION", value: GO_VERSION),
+                    string(name: "CB_SERVER_VERSION", value: "6.0.0")
                 ]
             }
         }
