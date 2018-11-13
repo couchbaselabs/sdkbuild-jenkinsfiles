@@ -112,7 +112,7 @@ pip install --verbose Twisted gevent""")
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
+                    //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
                 }
             }
         }
@@ -173,7 +173,7 @@ pip install --verbose Twisted gevent""")
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
+                    //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
                 }
             }
         }
