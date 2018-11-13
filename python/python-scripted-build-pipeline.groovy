@@ -123,7 +123,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration()
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}","${PACKAGE_PY_ARCH}")
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -251,7 +251,7 @@ def getEnvStr(String platform)
                         return envStr
 }
 
-def doIntegration()
+def doIntegration(String platform, String pyversion, String arch)
 {
     unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
                 unstash "dist-${platform}-${pyversion}-${arch}"
