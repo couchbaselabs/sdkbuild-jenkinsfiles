@@ -110,11 +110,11 @@ pip install --verbose Twisted gevent""")
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
-            post {
+            /* post {
                 always {
-                    //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
+                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
                 }
-            }
+            } */
         }
         stage('test-integration-server') {
             agent { label 'sdk-integration-test-linux' }
@@ -171,11 +171,11 @@ pip install --verbose Twisted gevent""")
                 unstash "couchbase-python-client-package"
                 // TODO: PUBLISH!
             }
-            post {
+/*             post {
                 always {
-                    //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
+                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
                 }
-            }
+            } */
         }
     }
 }
