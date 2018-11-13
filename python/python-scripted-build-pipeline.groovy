@@ -287,9 +287,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 def label = platform
                 if (platform =="windows")
                 {
-                    x=['3.5':'msvc-2015','3.3':'msvc-2010','3.2':null] as TreeMap
-                    label = x.floorEntry(pyversion).value
-                    if (!label)
+                    if (pyversion>="3.5"){
+                        label="msvc-2015"
+                    }
+                    else if (pyversion>="3.3"){
+                        label="msvc-2010"
+                    }
+                    else
                     {
                         continue
                     }
