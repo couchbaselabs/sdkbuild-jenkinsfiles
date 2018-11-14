@@ -385,57 +385,59 @@ EOF
 }
 
 void testAgainstServer(String serverVersion, String platform, String envStr, testActor) {
-    // Note this must be run inside a script {} block to allow try/finally
-    def clusterId = null
-    try {
-        /* def my_plat = null
-        if (platform.contains("Windows"))
+    script{
+        // Note this must be run inside a script {} block to allow try/finally
+        def clusterId = null
+        try {
+            /* def my_plat = null
+            if (platform.contains("Windows"))
+            {
+                my_plat = new Windows()
+            }
+            else
+            {
+                my_plat = new Unix()
+            } */
+            // For debugging, what clusters are open
+            shWithEcho("cbdyncluster ps -a")
+
+            // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
+            // shWithEcho("cbdyncluster rm -f 3d023261")
+            // shWithEcho("cbdyncluster rm e38dffd3")
+
+            // Allocate the cluster.  3 KV nodes.
+            clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + serverVersion, returnStdout: true)
+            echo "Got cluster ID " + clusterId
+
+            // Find the cluster IP
+            def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
+            echo "Got raw cluster IPs " + ips
+            def ip = ips.tokenize(',')[0]
+            echo "Got cluster IP http://" + ip + ":8091"
+
+            // Create the cluster
+            shWithEcho("cbdyncluster --node kv --node kv --node kv --bucket default setup " + clusterId)
+
+            // Make the bucket flushable
+            shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+
+            // The transactions tests check for this environment property
+            withEnv(envStr){
+                testActor.call(ip)
+            }
+        }
+        catch (e)
         {
-            my_plat = new Windows()
+            echo "Caught an error: ${e}"
         }
-        else
-        {
-            my_plat = new Unix()
-        } */
-        // For debugging, what clusters are open
-        shWithEcho("cbdyncluster ps -a")
-
-        // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
-        // shWithEcho("cbdyncluster rm -f 3d023261")
-        // shWithEcho("cbdyncluster rm e38dffd3")
-
-        // Allocate the cluster.  3 KV nodes.
-        clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + serverVersion, returnStdout: true)
-        echo "Got cluster ID " + clusterId
-
-        // Find the cluster IP
-        def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
-        echo "Got raw cluster IPs " + ips
-        def ip = ips.tokenize(',')[0]
-        echo "Got cluster IP http://" + ip + ":8091"
-
-        // Create the cluster
-        shWithEcho("cbdyncluster --node kv --node kv --node kv --bucket default setup " + clusterId)
-
-        // Make the bucket flushable
-        shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
-
-        // The transactions tests check for this environment property
-        withEnv(envStr){
-            testActor.call(ip)
+        finally {
+            if (clusterId != null) {
+                // Easy to run out of resources during iterating, so cleanup even
+                // though cluster will be auto-removed after a time
+                shWithEcho(script: "cbdyncluster rm " + clusterId)
+            }
+            junit 'couchbase-python-client/nosetests.xml'
         }
-    }
-    catch (e)
-    {
-        echo "Caught an error: ${e}"
-    }
-    finally {
-        if (clusterId != null) {
-            // Easy to run out of resources during iterating, so cleanup even
-            // though cluster will be auto-removed after a time
-            shWithEcho(script: "cbdyncluster rm " + clusterId)
-        }
-        junit 'couchbase-python-client/nosetests.xml'
     }
 }
 def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
@@ -451,10 +453,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         envStr=getEnvStr(platform,pyversion,arch,server_version)
         withEnv(envStr)
         {
-            script{
                 testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
-            }
-
         }
     }
 }
