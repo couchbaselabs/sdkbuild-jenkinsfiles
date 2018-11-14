@@ -479,10 +479,13 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
-    installReqs(platform)
-    shWithEcho("pip uninstall -y couchbase")
-    shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
-    
+    envStr=getEnvStr(platform,pyversion,arch,"5.5.0")
+    withEnv(envStr)
+    {
+        installReqs(platform)
+        shWithEcho("pip uninstall -y couchbase")
+        shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
+    }    
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
