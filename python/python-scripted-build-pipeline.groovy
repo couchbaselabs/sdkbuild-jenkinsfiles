@@ -483,7 +483,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     withEnv(envStr)
     {
         installReqs(platform)
-        shWithEcho("pip uninstall -y couchbase")
+        shWithEcho("pip uninstall -y couchbase || true")
         shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
     }    
     for (server_version in SERVER_VERSIONS)
