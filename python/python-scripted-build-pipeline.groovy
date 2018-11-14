@@ -224,17 +224,23 @@ void installPython(String platform, String version, String pyshort, String path,
     //plat_class.shell(cmd)
 }
 ​
-void shWithEcho(String command) {
-    echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
+def shWithEcho(String command) {
+    result=sh(script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ result
+    return result
 }
 
 void batWithEcho(String command) {
-    echo "[$STAGE_NAME]:${command}:"+ bat (script: command, returnStdout: true)
+    result=bat(script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ result
+    return result
 }
 
 def installReqs(platform)
 {
-    if (platform.contains("Windows")){}
+    if (platform.contains("Windows")){
+        batWithEcho("pip install -r dev_requirements.txt")
+    }
     else
     {
         shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
@@ -474,7 +480,8 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
     installReqs(platform)
-    shWithEcho("pip install couchbase --no-index --find-links ${WORKSPACE}/dist")
+    shWithEcho("pip remove couchbase")
+    shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
     
     for (server_version in SERVER_VERSIONS)
     {
