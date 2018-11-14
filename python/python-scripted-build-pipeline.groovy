@@ -236,7 +236,7 @@ def batWithEcho(String command) {
     return result
 }
 
-def cmdWithEcho(platform, String command, boolean quiet = false)
+def cmdWithEcho(platform, command, quiet)
 {
     try{
         if (platform.contains("windows")){
@@ -500,7 +500,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 def installClient(platform, dist_dir = null)
 {
     script{
-        cmdWithEcho(platform,"pip uninstall -y couchbase",quiet:true)
+        cmdWithEcho(platform,"pip uninstall -y couchbase"true)
         if (platform.contains("windows")){
             batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
         }
