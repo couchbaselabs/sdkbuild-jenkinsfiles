@@ -416,7 +416,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             } */
             // For debugging, what clusters are open
             clusters_running=shWithEcho("cbdyncluster ps -a")
-            
+            echo "got clusters_running: ${clusters_running}"
             for (cluster in clusters_running.split('\n')){
                 // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
                 if (cluster.contains("node_")){
