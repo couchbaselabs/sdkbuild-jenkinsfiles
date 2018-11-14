@@ -525,7 +525,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
-    envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_DEBUG_SYMBOLS, PYCBC_VALGRIND)
+    envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
         installClient(platform)
