@@ -450,7 +450,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     shWithEcho("pip install couchbase --no-index --find-links ${WORKSPACE}/dist")
     for (server_version in SERVER_VERSIONS)
     {
-        envStr=getEnvStr(platform,pyversion,arch,server_version)
+        String envStr=getEnvStr(platform,pyversion,arch,server_version)
         withEnv(envStr)
         {
                 testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
