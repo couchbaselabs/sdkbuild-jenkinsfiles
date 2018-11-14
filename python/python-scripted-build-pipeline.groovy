@@ -179,6 +179,7 @@ pip install --verbose Twisted gevent""")
         }
     }
 }
+/*
 trait Platform
 {
     void shell(String command, boolean returnStdout = true )
@@ -202,7 +203,7 @@ class Unix implements Platform
    String real_shell(Map args){
         return sh(args)
     }
-}
+}*/
 
 void installPython(String platform, String version, String pyshort, String path, String arch) {
     def cmd = "cbdep install python ${version} -d ${path}"
@@ -212,15 +213,15 @@ void installPython(String platform, String version, String pyshort, String path,
     def plat_class = null
     if (platform.contains("windows"))
     {
-        plat_class = Windows()
-        //batWithEcho(cmd)
+        //plat_class = Windows()
+        batWithEcho(cmd)
     }
     else
     {
-        plat_class = Unix()
-        //shWithEcho(cmd)
+        //plat_class = Unix()
+        shWithEcho(cmd)
     }
-    plat_class.shell(cmd)
+    //plat_class.shell(cmd)
 }
 ​
 void shWithEcho(String command) {
@@ -387,7 +388,7 @@ void testAgainstServer(String serverVersion, String platform, String envStr, tes
     // Note this must be run inside a script {} block to allow try/finally
     def clusterId = null
     try {
-        def my_plat = null
+        /* def my_plat = null
         if (platform.contains("Windows"))
         {
             my_plat = new Windows()
@@ -395,9 +396,9 @@ void testAgainstServer(String serverVersion, String platform, String envStr, tes
         else
         {
             my_plat = new Unix()
-        }
+        } */
         // For debugging, what clusters are open
-        my_plat.shell("cbdyncluster ps -a")
+        shWithEcho("cbdyncluster ps -a")
 
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
         // shWithEcho("cbdyncluster rm -f 3d023261")
