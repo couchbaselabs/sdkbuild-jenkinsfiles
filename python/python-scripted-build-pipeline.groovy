@@ -309,7 +309,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     return combis
 }
 
-def getEnvStr( platform,  pyversion,  arch,  server_version)
+def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
     if (platform.contains("windows")) { 
                             //batWithEcho("md ${dist_dir}")
@@ -525,20 +525,20 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
-    envStr=getEnvStr(platform,pyversion,arch,"5.5.0")
+    envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_DEBUG_SYMBOLS, PYCBC_VALGRIND)
     withEnv(envStr)
     {
         installClient(platform)
         installReqs(platform)
-        dir("couchbase-python-client")
+    }
+    dir("couchbase-python-client")
+    {
+        for (server_version in SERVER_VERSIONS)
         {
-            for (server_version in SERVER_VERSIONS)
+            envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
+            withEnv(envStr)
             {
-                envStr=getEnvStr(platform,pyversion,arch,server_version)
-                withEnv(envStr)
-                {
-                    testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
-                }
+                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
             }
         }
     }
