@@ -238,12 +238,15 @@ void batWithEcho(String command) {
 
 def installReqs(platform)
 {
-    if (platform.contains("Windows")){
-        batWithEcho("pip install -r dev_requirements.txt")
-    }
-    else
+    dir("${WORKSPACE}/couchbase-python-client")
     {
-        shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+        if (platform.contains("Windows")){
+            batWithEcho("pip install -r dev_requirements.txt")
+        }
+        else
+        {
+            shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+        }
     }
 }
 
@@ -471,6 +474,23 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
+def installClient(platform)
+{
+    if (platform.contains("windows")){
+        batWithEcho("pip uninstall -y couchbase || true")
+        batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
+    }
+    else
+    {
+        dir("${WORKSPACE}/couchbase-python-client") {
+            shWithEcho("pip uninstall -y couchbase || true")
+            shWithEcho("pip install cython")
+            shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+        }
+    }
+
+}
 
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
@@ -482,23 +502,21 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0")
     withEnv(envStr)
     {
-        shWithEcho("pip uninstall -y couchbase || true")
-        shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
-    }    
-    dir("couchbase-python-client")
-    {
+        installClient(platform)
         installReqs(platform)
-        for (server_version in SERVER_VERSIONS)
+        dir("couchbase-python-client")
         {
-            envStr=getEnvStr(platform,pyversion,arch,server_version)
-            withEnv(envStr)
+            for (server_version in SERVER_VERSIONS)
             {
-                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                envStr=getEnvStr(platform,pyversion,arch,server_version)
+                withEnv(envStr)
+                {
+                    testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                }
             }
         }
     }
 }
-
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
     def pairs = [:] 
     
