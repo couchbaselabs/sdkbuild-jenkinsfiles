@@ -323,7 +323,7 @@ def doTests(ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 
                 dir("couchbase-python-client") {
                     shWithEcho("pip install configparser")
-                    shWithEcho(""""
+                    shWithEcho("""
                         cat > updateTests.py <<EOF
 try:
     from configparser import ConfigParser
@@ -345,6 +345,8 @@ if os.path.exists("tests.ini"):
         template.write(fp)
 EOF
                     """)
+
+                    
                     shWithEcho("python updateTests.py")
 
                     if (PYCBC_VALGRIND != "") {
