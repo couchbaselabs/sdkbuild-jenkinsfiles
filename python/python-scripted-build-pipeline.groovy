@@ -480,7 +480,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
     installReqs(platform)
-    shWithEcho("pip uninstall couchbase")
+    shWithEcho("pip uninstall -y couchbase")
     shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
     
     for (server_version in SERVER_VERSIONS)
