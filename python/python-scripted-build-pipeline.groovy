@@ -270,13 +270,13 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 def getEnvStr( platform,  pyversion,  arch,  server_version)
 {
     if (platform.contains("windows")) { 
-        //batWithEcho("md ${dist_dir}")
-        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "CB_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
-    } else {
-        //shWithEcho("mkdir -p ${dist_dir}")
-        envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "CB_SERVER_VERSION=${server_version}"]
-    }
-    return envStr
+                            //batWithEcho("md ${dist_dir}")
+                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "CB_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                        } else {
+                            //shWithEcho("mkdir -p ${dist_dir}")
+                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "CB_SERVER_VERSION=${server_version}"]
+                        }
+                        return envStr
 }
 
 def doTests(ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
@@ -441,13 +441,11 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     cleanWs()
-    unstash "couchbase-python-client"
+    //unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
     shWithEcho("pip install couchbase --no-index --find-links ${WORKSPACE}/dist")
-    shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
-
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
@@ -654,6 +652,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                     echo     template.write(fp) >> "updateTests.py"
                                                 ''')
                                                 batWithEcho("python updateTests.py")
+                                                batWithEcho("pip install -r dev_requirements.txt")
                                                 batWithEcho("nosetests --with-xunit -v")
                                             }
                                         } else {
@@ -690,6 +689,7 @@ with open("tests.ini", "w") as fp:
 EOF
                                                 ''')
                                                 shWithEcho("python updateTests.py")
+                                                shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
 
                                                 if (PYCBC_VALGRIND != "") {
                                                     shWithEcho("""
