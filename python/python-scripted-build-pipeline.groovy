@@ -499,23 +499,23 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 }
 def installClient(platform, dist_dir = null)
 {
-
-    cmdWithEcho(platform,"pip uninstall -y couchbase",quiet:true)
-    if (platform.contains("windows")){
-        batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
-    }
-    else
-    {
-        dir("${WORKSPACE}/couchbase-python-client") {
-            shWithEcho("pip install cython")
-            shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
-            if (dist_dir)
-            {
-                shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+    script{
+        cmdWithEcho(platform,"pip uninstall -y couchbase",quiet:true)
+        if (platform.contains("windows")){
+            batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
+        }
+        else
+        {
+            dir("${WORKSPACE}/couchbase-python-client") {
+                shWithEcho("pip install cython")
+                shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
+                if (dist_dir)
+                {
+                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                }
             }
         }
     }
-
 }
 
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
