@@ -267,7 +267,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     return combis
 }
 
-def getEnvStr(String platform, String pyversion, String arch, String server_version)
+def getEnvStr( platform,  pyversion,  arch,  server_version)
 {
     if (platform.contains("windows")) { 
                             //batWithEcho("md ${dist_dir}")
