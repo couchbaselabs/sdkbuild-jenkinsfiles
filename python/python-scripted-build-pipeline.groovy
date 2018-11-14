@@ -399,11 +399,23 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 my_plat = new Unix()
             } */
             // For debugging, what clusters are open
-            shWithEcho("cbdyncluster ps -a")
+            clusters_running=shWithEcho("cbdyncluster ps -a")
+            
+            for (cluster in clusters_running.split('\n')){
+                // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
+                if (cluster.contains("node_")){
+                    continue
+                }
+                if (cluster.contains("qe-slave1"))
+                {
+                    cluster_id = cluster.split(/\s+/)[0]
 
-            // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
-            // shWithEcho("cbdyncluster rm -f 3d023261")
-            // shWithEcho("cbdyncluster rm e38dffd3")
+                    echo "killing cluster ${cluster_id}"
+                    
+                    shWithEcho("cbdyncluster rm ${cluster_id}")
+                }                    
+            }
+
 
             // Allocate the cluster.  3 KV nodes.
             clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + serverVersion, returnStdout: true)
