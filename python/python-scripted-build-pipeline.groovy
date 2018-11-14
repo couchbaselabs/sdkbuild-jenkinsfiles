@@ -236,7 +236,7 @@ def batWithEcho(String command) {
     return result
 }
 
-def cmdWithEcho(platform, String command, boolean quiet = false)
+def cmdWithEcho(platform, command, boolean quiet = false)
 {
     try{
         if (platform.contains("windows")){
