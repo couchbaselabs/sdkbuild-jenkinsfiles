@@ -500,7 +500,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 def installClient(platform, dist_dir = null)
 {
     script{
-        cmdWithEcho(platform,"pip uninstall -y couchbase"true)
+        cmdWithEcho(platform,"pip uninstall -y couchbase", true)
         if (platform.contains("windows")){
             batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
         }
