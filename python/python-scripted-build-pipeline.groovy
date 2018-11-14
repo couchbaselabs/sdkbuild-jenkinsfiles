@@ -230,10 +230,20 @@ def shWithEcho(String command) {
     return result
 }
 
-void batWithEcho(String command) {
+def batWithEcho(String command) {
     result=bat(script: command, returnStdout: true)
     echo "[$STAGE_NAME]:${command}:"+ result
     return result
+}
+
+def cmdWithEcho(platform, String command, boolean quiet = false)
+{
+    if (platform.contains("windows")){
+        return batWithEcho(command)
+    }
+    else{
+        return shWithEcho(command)
+    }
 }
 
 def installReqs(platform)
@@ -476,14 +486,14 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 }
 def installClient(platform, dist_dir = null)
 {
+
+    cmdWithEcho(platform,"pip uninstall -y couchbase",quiet:true)
     if (platform.contains("windows")){
-        batWithEcho("pip uninstall -y couchbase || true")
         batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
     }
     else
     {
         dir("${WORKSPACE}/couchbase-python-client") {
-            shWithEcho("pip uninstall -y couchbase || true")
             shWithEcho("pip install cython")
             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
             if (dist_dir)
