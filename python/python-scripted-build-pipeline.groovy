@@ -103,7 +103,7 @@ echo `which pip`
 pip install --verbose Twisted gevent""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
-                    shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+                    installReqs(PACKAGE_PLATFORM)
                     shWithEcho("python setup.py build_sphinx")
                     shWithEcho("mkdir dist")
                 }
@@ -231,6 +231,16 @@ void shWithEcho(String command) {
 void batWithEcho(String command) {
     echo "[$STAGE_NAME]:${command}:"+ bat (script: command, returnStdout: true)
 }
+
+def installReqs(platform)
+{
+    if (platform.contains("Windows")){}
+    else
+    {
+        shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+    }
+}
+
 String prefixWorkspace(String path){
     return "${WORKSPACE}/${path}"
 }
@@ -455,6 +465,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
+
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     cleanWs()
@@ -462,7 +473,9 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
+    installReqs(platform)
     shWithEcho("pip install couchbase --no-index --find-links ${WORKSPACE}/dist")
+    
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
@@ -669,7 +682,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                     echo     template.write(fp) >> "updateTests.py"
                                                 ''')
                                                 batWithEcho("python updateTests.py")
-                                                batWithEcho("pip install -r dev_requirements.txt")
+                                                installReqs(platform)
                                                 batWithEcho("nosetests --with-xunit -v")
                                             }
                                         } else {
@@ -706,7 +719,7 @@ with open("tests.ini", "w") as fp:
 EOF
                                                 ''')
                                                 shWithEcho("python updateTests.py")
-                                                shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+                                                installReqs(platform)
 
                                                 if (PYCBC_VALGRIND != "") {
                                                     shWithEcho("""
