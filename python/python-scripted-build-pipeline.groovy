@@ -443,7 +443,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     cleanWs()
-    //unstash "couchbase-python-client"
+    unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
