@@ -508,7 +508,7 @@ def installClient(platform, dist_dir = null)
     {
         dir("${WORKSPACE}/couchbase-python-client") {
             shWithEcho("pip install cython")
-            shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+            shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
             if (dist_dir)
             {
                 shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
