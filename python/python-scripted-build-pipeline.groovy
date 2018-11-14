@@ -331,7 +331,7 @@ def doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SY
         // USING THE PACKAGE(S) CREATED ABOVE
         try {
             if (platform.contains("windows")) {
-                dir("couchbase-python-client") {
+                dir("${WORKSPACE}\\couchbase-python-client") {
                     batWithEcho('''
                         echo try: > "updateTests.py"
                         echo     from configparser import ConfigParser >> "updateTests.py"
@@ -363,7 +363,7 @@ def doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SY
                     }
                 }
 
-                dir("couchbase-python-client") {
+                dir("${WORKSPACE}/couchbase-python-client") {
                     shWithEcho("pip install configparser")
                     shWithEcho("""
                         cat > updateTests.py <<EOF
@@ -531,15 +531,12 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         installClient(platform)
         installReqs(platform)
     }
-    dir("couchbase-python-client")
+    for (server_version in SERVER_VERSIONS)
     {
-        for (server_version in SERVER_VERSIONS)
+        envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
+        withEnv(envStr)
         {
-            envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
-            withEnv(envStr)
-            {
-                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
-            }
+            testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
         }
     }
 }
