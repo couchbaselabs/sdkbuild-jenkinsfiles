@@ -123,7 +123,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
                 // build job: "couchbase-net-client-test-integration", parameters: [
                 // ]
             }
@@ -279,7 +279,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version)
                         return envStr
 }
 
-def doTests(ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
+def doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -440,7 +440,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
-def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
     cleanWs()
     unstash "couchbase-python-client"
@@ -453,7 +453,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         envStr=getEnvStr(platform,pyversion,arch,server_version)
         withEnv(envStr)
         {
-                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
         }
     }
 }
