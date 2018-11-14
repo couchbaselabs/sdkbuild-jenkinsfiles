@@ -257,9 +257,6 @@ def doTests(String ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
         //if (!platform.contains("windows")){
         //    sh 'chmod -R u+w .git'
         //}
-        //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
-        //unstash "dist-${platform}-${pyversion}-${arch}"
-        //unstash "lcb-${platform}-${pyversion}-${arch}"
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
         try {
@@ -407,12 +404,12 @@ void testAgainstServer(String serverVersion, String envStr, testActor) {
 }
 def doIntegration(String platform, String pyversion, String pyshort, String arch, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
 {
+    cleanWs()
     unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
     unstash "dist-${platform}-${pyversion}-${arch}"
     unstash "lcb-${platform}-${pyversion}-${arch}"
-    cleanWs()
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
-    shWithEcho("pip install ${WORKSPACE}/dist/couchbase-2.5.1.tar.gz")
+    shWithEcho("pip install couchbase --no-index --find-links ${WORKSPACE}/dist")
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version)
