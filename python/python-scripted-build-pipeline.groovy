@@ -450,7 +450,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 }
                 if (cluster.contains("qe-slave1"))
                 {
-                    cluster_id_tokens = cluster.split(/\s+/)
+                    cluster_id_tokens = cluster.trim().split(/\s+/)
                     if (cluster_id_tokens.size()>0)
                     {
                         cluster_id = cluster_id_tokens[0]
