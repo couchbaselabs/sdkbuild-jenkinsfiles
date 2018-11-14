@@ -452,7 +452,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         withEnv(envStr)
         {
             script{
-                testAgainstServer(server_version, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+                testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
             }
 
         }
