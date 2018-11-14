@@ -482,16 +482,19 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0")
     withEnv(envStr)
     {
-        installReqs(platform)
         shWithEcho("pip uninstall -y couchbase || true")
         shWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
     }    
-    for (server_version in SERVER_VERSIONS)
+    dir("couchbase-python-client")
     {
-        envStr=getEnvStr(platform,pyversion,arch,server_version)
-        withEnv(envStr)
+        installReqs(platform)
+        for (server_version in SERVER_VERSIONS)
         {
+            envStr=getEnvStr(platform,pyversion,arch,server_version)
+            withEnv(envStr)
+            {
                 testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
+            }
         }
     }
 }
