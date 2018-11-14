@@ -179,23 +179,50 @@ pip install --verbose Twisted gevent""")
         }
     }
 }
+trait Platform
+{
+    void shell(String command, boolean returnStdout = true )
+    {
+        def STAGE_NAME="fred"
+        print "[$STAGE_NAME]:${command}:"+this.real_shell(script:command, returnStdout: returnStdout)
+        
+    }
+    abstract String real_shell(Map args)
+}
+
+class Windows implements Platform
+{
+   String real_shell(Map args){
+        return bat(args)
+    }
+}
+
+class Unix implements Platform
+{
+   String real_shell(Map args){
+        return sh(args)
+    }
+}
 
 void installPython(String platform, String version, String pyshort, String path, String arch) {
     def cmd = "cbdep install python ${version} -d ${path}"
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
+    def plat_class = null
     if (platform.contains("windows"))
     {
-        batWithEcho(cmd)
+        plat_class = Windows()
+        //batWithEcho(cmd)
     }
     else
     {
-        shWithEcho(cmd)
+        plat_class = Unix()
+        //shWithEcho(cmd)
     }
+    plat_class.shell(cmd)
 }
-
-
+​
 void shWithEcho(String command) {
     echo "[$STAGE_NAME]:${command}:"+ sh (script: command, returnStdout: true)
 }
@@ -356,13 +383,21 @@ EOF
     }
 }
 
-void testAgainstServer(String serverVersion, String envStr, testActor) {
+void testAgainstServer(String serverVersion, String platform, String envStr, testActor) {
     // Note this must be run inside a script {} block to allow try/finally
     def clusterId = null
     try {
-
+        def my_plat = null
+        if (platform.contains("Windows"))
+        {
+            my_plat = new Windows()
+        }
+        else
+        {
+            my_plat = new Unix()
+        }
         // For debugging, what clusters are open
-        shWithEcho("cbdyncluster ps -a")
+        my_plat.shell("cbdyncluster ps -a")
 
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
         // shWithEcho("cbdyncluster rm -f 3d023261")
