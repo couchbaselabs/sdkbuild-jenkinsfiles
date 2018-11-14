@@ -238,11 +238,24 @@ def batWithEcho(String command) {
 
 def cmdWithEcho(platform, String command, boolean quiet = false)
 {
-    if (platform.contains("windows")){
-        return batWithEcho(command)
+    try{
+        if (platform.contains("windows")){
+            return batWithEcho(command)
+        }
+        else{
+            return shWithEcho(command)
+        }
     }
-    else{
-        return shWithEcho(command)
+    catch (Exception e)
+    {
+        if (quiet)
+        {
+            return ""
+        }
+        else
+        {
+            throw e
+        }
     }
 }
 
