@@ -279,7 +279,7 @@ def getEnvStr(String platform, String pyversion, String arch, String server_vers
                         return envStr
 }
 
-def doTests(String ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
+def doTests(ip, platform, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -384,7 +384,7 @@ EOF
     }
 }
 
-void testAgainstServer(String serverVersion, platform, envStr, testActor) {
+void testAgainstServer(serverVersion, platform, envStr, testActor) {
     script{
         // Note this must be run inside a script {} block to allow try/finally
         def clusterId = null
