@@ -474,7 +474,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
-def installClient(platform)
+def installClient(platform, dist_dir = null)
 {
     if (platform.contains("windows")){
         batWithEcho("pip uninstall -y couchbase || true")
@@ -486,7 +486,10 @@ def installClient(platform)
             shWithEcho("pip uninstall -y couchbase || true")
             shWithEcho("pip install cython")
             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+            if (dist_dir)
+            {
+                shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+            }
         }
     }
 
