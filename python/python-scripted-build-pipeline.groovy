@@ -408,11 +408,14 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 }
                 if (cluster.contains("qe-slave1"))
                 {
-                    cluster_id = cluster.split(/\s+/)[0]
-
-                    echo "killing cluster ${cluster_id}"
-                    
-                    shWithEcho("cbdyncluster rm ${cluster_id}")
+                    cluster_id_tokens = cluster.split(/\s+/)
+                    if (cluster_id_tokens.size()>0)
+                    {
+                        cluster_id = cluster_id_tokens[0]
+                        echo "killing cluster ${cluster_id}"
+                        
+                        shWithEcho("cbdyncluster rm ${cluster_id}")
+                    }
                 }                    
             }
 
