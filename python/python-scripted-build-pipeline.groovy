@@ -495,10 +495,10 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             def count=0
             for (entry in node_list){
                 cmd_str+=" --node "+entry.services.join(",")
-                entry['ip']=ips[count]
+                entry['ip']=ip_list[count]
                 count+=1
             }
-
+            print "got node_list ${node_list}"
             // Create the cluster
             //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
             print cmd_str
