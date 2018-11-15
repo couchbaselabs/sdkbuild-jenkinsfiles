@@ -488,7 +488,6 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             // Find the cluster IP
             def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
             echo "Got raw cluster IPs " + ips
-            def node_count = node_list.size()
             def ip_list = ips.tokenize(', ')[0]
             def ip=ip_list[0]
             print "Got cluster IP http://" + ip + ":8091\n"
