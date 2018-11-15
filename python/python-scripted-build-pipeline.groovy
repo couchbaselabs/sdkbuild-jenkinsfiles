@@ -322,7 +322,8 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 def getServiceIp(node_list, name)
 {
-                    cbas_ip = first_ip
+                    //cbas_ip = first_ip
+                    cbas_ip=node_list.last().ip
                 for (entry in node_list){
                     if (name in entry.services)
                     {
