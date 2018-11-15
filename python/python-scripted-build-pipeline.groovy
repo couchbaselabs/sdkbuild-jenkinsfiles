@@ -536,7 +536,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             if (clusterId != null) {
                 // Easy to run out of resources during iterating, so cleanup even
                 // though cluster will be auto-removed after a time
-                shWithEcho(script: "cbdyncluster rm " + clusterId)
+                shWithEcho("cbdyncluster rm " + clusterId)
             }
             junit 'couchbase-python-client/nosetests.xml'
         }
