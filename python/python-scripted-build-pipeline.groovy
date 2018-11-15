@@ -523,6 +523,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
 
             // The transactions tests check for this environment property
+            envStr+="LCB_LOGLEVEL=5"
             withEnv(envStr){
                 testActor.call(node_list)
             }
