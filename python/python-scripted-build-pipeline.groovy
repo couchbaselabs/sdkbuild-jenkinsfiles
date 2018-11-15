@@ -383,17 +383,18 @@ template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
 if os.path.exists("tests.ini"):
     raise Exception("tests.ini already exists")
-    with open("tests.ini", "w") as fp:
-        template.write(fp)
-        print("Wrote to file")
+with open("tests.ini", "w") as fp:
+    template.write(fp)
+    print("Wrote to file")
 print("Done writing")
 print("Wrote {}".format(template))
 EOF
                     """)
 
                     
-                    shWithEcho("python updateTests.py && cat tests.ini")
-
+                    shWithEcho("python updateTests.py")
+                    shWithEcho("ls -alrt")
+                    shWithEcho("cat tests.ini")
                     if (PYCBC_VALGRIND != "") {
                         shWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
@@ -476,7 +477,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             echo "Got cluster IP http://" + ip + ":8091"
 
             // Create the cluster
-            shWithEcho("cbdyncluster --node kv --node kv --node kv --bucket default setup " + clusterId)
+            shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,index,n1ql,fts --node kv,cbas --bucket default setup " + clusterId)
 
             // Make the bucket flushable
             shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
