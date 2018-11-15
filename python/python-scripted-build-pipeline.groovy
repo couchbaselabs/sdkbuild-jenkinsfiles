@@ -392,7 +392,7 @@ EOF
                     """)
 
                     
-                    shWithEcho("python updateTests.py")
+                    shWithEcho("python updateTests.py && cat tests.ini")
 
                     if (PYCBC_VALGRIND != "") {
                         shWithEcho("""
