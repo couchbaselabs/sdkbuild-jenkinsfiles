@@ -519,6 +519,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             -H "Content-Type: application/x-www-form-urlencoded" \
             http://Administrator:password@${ip}:8091/settings/rbac/users/local/default
             """)
+            shWithEcho("curl -X GET http://Administrator:password@${ip}:8091/settings/rbac/users")
             shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
 
             // The transactions tests check for this environment property
