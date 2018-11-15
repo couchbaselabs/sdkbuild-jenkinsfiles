@@ -393,7 +393,7 @@ template.set("mock", "enabled", "False")
 template.set("realserver", "host", "${first_ip}")
 template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
-template.set("analytics", "host", "${cbas_ip}"")
+template.set("analytics", "host", "${cbas_ip}")
 if os.path.exists("tests.ini"):
     raise Exception("tests.ini already exists")
 with open("tests.ini", "w") as fp:
