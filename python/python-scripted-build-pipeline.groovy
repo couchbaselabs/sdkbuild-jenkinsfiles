@@ -385,6 +385,9 @@ if os.path.exists("tests.ini"):
     raise Exception("tests.ini already exists")
     with open("tests.ini", "w") as fp:
         template.write(fp)
+        print("Wrote to file")
+print("Done writing")
+print("Wrote {}".format(template))
 EOF
                     """)
 
