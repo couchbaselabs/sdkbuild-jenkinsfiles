@@ -395,7 +395,8 @@ template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
 try:
     template.add_section("analytics")
-except:
+except e:
+    print("got exception: {}".format(e))
     pass
 template.set("analytics", "host", "${cbas_ip}")
 if os.path.exists("tests.ini"):
