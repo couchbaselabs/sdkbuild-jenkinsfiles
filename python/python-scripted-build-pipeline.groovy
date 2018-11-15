@@ -320,8 +320,19 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
                         }
                         return envStr
 }
+def getServiceIp(node_list, name)
+{
+                    cbas_ip = first_ip
+                for (entry in node_list){
+                    if (name in entry.services)
+                    {
+                        cbas_ip=entry['ip']
+                    }
+                }
+                return cbas_ip
 
-def doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
+}
+def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -362,7 +373,8 @@ def doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SY
                         shWithEcho("make && make install")
                     }
                 }
-
+                first_ip = node_list[0].ip
+                cbas_ip = getServiceIp(node_list,'cbas')
                 dir("${WORKSPACE}/couchbase-python-client") {
                     shWithEcho("pip install configparser")
                     shWithEcho("""
@@ -378,9 +390,10 @@ template = ConfigParser()
 template.readfp(fp)
 template.set("realserver", "enabled", "True")
 template.set("mock", "enabled", "False")
-template.set("realserver", "host", "${ip}")
+template.set("realserver", "host", "${first_ip}")
 template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
+template.set("analytics", "host", ${cbas_ip})
 if os.path.exists("tests.ini"):
     raise Exception("tests.ini already exists")
 with open("tests.ini", "w") as fp:
@@ -467,24 +480,41 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 
 
             // Allocate the cluster.  3 KV nodes.
-            clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + serverVersion, returnStdout: true)
+            def node_list = [[services:["kv","index","n1ql"]],[services:["kv,fts"]],[services:["kv,cbas"]]]
+            def node_count = node_list.size()
+            clusterId = sh(script: "cbdyncluster allocate --num-nodes=${node_count} --server-version=" + serverVersion, returnStdout: true)
             echo "Got cluster ID " + clusterId
 
             // Find the cluster IP
             def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
             echo "Got raw cluster IPs " + ips
-            def ip = ips.tokenize(',')[0]
-            echo "Got cluster IP http://" + ip + ":8091"
+            def node_count = node_list.size()
+            def ip_list = ips.tokenize(', ')[0]
+            def ip=ip_list[0]
+            print "Got cluster IP http://" + ip + ":8091\n"
+            def cmd_str = ""
+            def count=0
+            for (entry in node_list){
+                cmd_str+=" --node "+entry.services.join(",")
+                entry['ip']=ips[count]
+                count+=1
+            }
 
             // Create the cluster
-            shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,index,n1ql,fts --node kv,cbas --bucket default setup " + clusterId)
+            //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
+            print cmd_str
+//shWithEcho("cbdyncluster ${cmd_str} --bucket default setup " + clusterId)
 
+            // Create the cluster
+            //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
+            shWithEcho("cbdyncluster ${cmd_str} --bucket default setup " + clusterId)
             // Make the bucket flushable
             shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+            shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
 
             // The transactions tests check for this environment property
             withEnv(envStr){
-                testActor.call(ip)
+                testActor.call(node_list)
             }
         }
         catch (e)
