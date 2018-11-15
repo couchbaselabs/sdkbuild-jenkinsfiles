@@ -1,8 +1,8 @@
 def PLATFORMS = [
     "windows-2012",
-    "ubuntu16",
+  //  "ubuntu16",
     // "centos7",
-    "macos"
+  //  "macos"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
 
@@ -24,7 +24,9 @@ pipeline {
             steps {
                 cleanWs()
                 dir('linq2couchbase') {
-                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    //checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                
+                    checkout([$class: 'GitSCM', userRemoteConfigs: [[url: 'git@github.com:couchbaselabs/Linq2Couchbase.git', poll: false]]])
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
@@ -163,7 +165,7 @@ def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
                 stage("test ${platform}") {
                     dir("linq2couchbase") {
                         if (platform.contains("windows")) {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f net452 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f net46 --no-build")
                             batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
 
                             // BUG: vstest process hangs
