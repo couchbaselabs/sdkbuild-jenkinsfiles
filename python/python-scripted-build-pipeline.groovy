@@ -497,7 +497,64 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
-def installClient(platform, dist_dir = null)
+
+def getCMakeTarget(platform, arch)
+{
+            def win_arch=[x86:[],x64:['Win64']][arch]
+            cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
+            return cmake_arch
+
+}
+def buildLibCouchbase(platform, arch)
+{
+    dir("${WORKSPACE}")
+    {
+        cmdWithEcho(platform,"git clone http://review.couchbase.org/libcouchbase $LCB_PATH",false)
+        cmake_arch = getCMakeTarget(platform, arch)
+        if (platform.contains("windows"))
+        {
+            dir("libcouchbase") {
+                batWithEcho("git checkout ${LCB_VERSION}")
+            }
+            
+            dir("build") {
+                if (IS_RELEASE == "true") {
+                    batWithEcho("""
+                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                        cmake --build .
+                    """)
+                } else {
+                    // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
+                    batWithEcho("""
+                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                        cmake --build .
+                    """)
+                }
+                batWithEcho("""
+                    cmake --build . --target alltests
+                    ctest -C debug
+                """)
+                batWithEcho("cmake --build . --target package")
+            }
+        }
+        else
+        {
+            dir("libcouchbase") {
+                shWithEcho("git checkout ${LCB_VERSION}")
+                dir("build") {
+                    if (IS_RELEASE == "true") {
+                        shWithEcho("cmake ../")
+                    } else {
+                        shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                    }
+                    shWithEcho("make")
+                }
+            }
+        }
+    }    
+}
+
+def installClient(platform, arch, dist_dir = null)
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
@@ -508,6 +565,7 @@ def installClient(platform, dist_dir = null)
         {
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
+                buildLibCouchbase(platform, arch)
                 shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
                 if (dist_dir)
                 {
@@ -523,12 +581,12 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     cleanWs()
     unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
-    unstash "lcb-${platform}-${pyversion}-${arch}"
+    //unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
-        installClient(platform)
+        installClient(platform, arch)
         installReqs(platform)
     }
     for (server_version in SERVER_VERSIONS)
