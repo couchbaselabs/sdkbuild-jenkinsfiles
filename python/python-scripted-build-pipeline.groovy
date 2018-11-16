@@ -394,6 +394,7 @@ template.set("mock", "enabled", "False")
 template.set("realserver", "host", "${first_ip}")
 template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
+template.set("realserver", "bucket_password", "password")
 try:
     template.add_section("analytics")
 except e:
@@ -545,11 +546,11 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 
 def getCMakeTarget(platform, arch)
 {
-            def win_arch=[x86:[],x64:['Win64']][arch]
-            cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
-            return cmake_arch
-
+    def win_arch=[x86:[],x64:['Win64']][arch]
+    cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
+    return cmake_arch
 }
+
 def buildLibCouchbase(platform, arch)
 {
     dir("${WORKSPACE}")
@@ -610,6 +611,7 @@ def installClient(platform, arch, dist_dir = null)
         {
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
+                cmdWithEcho(platform,"pip install cmake",true)
                 buildLibCouchbase(platform, arch)
                 shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
                 if (dist_dir)
