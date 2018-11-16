@@ -516,6 +516,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             shWithEcho("cbdyncluster ${cmd_str} --bucket default setup " + clusterId)
             // Make the bucket flushable
             shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+            shWithEcho("""curl -v -X POST -u Administrator:password -d '["beer-sample"]' http://${ip}:8091/sampleBuckets/install""")
             shWithEcho("""curl -X PUT --data "name=default&roles=admin&password=password" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             http://Administrator:password@${ip}:8091/settings/rbac/users/local/default
