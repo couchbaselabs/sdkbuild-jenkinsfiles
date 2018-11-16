@@ -401,8 +401,6 @@ except e:
     print("got exception: {}".format(e))
     pass
 template.set("analytics", "host", "${cbas_ip}")
-if os.path.exists("tests.ini"):
-    raise Exception("tests.ini already exists")
 with open("tests.ini", "w") as fp:
     template.write(fp)
     print("Wrote to file")
