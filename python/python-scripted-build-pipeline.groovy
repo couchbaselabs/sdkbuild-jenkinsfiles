@@ -552,7 +552,6 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 // though cluster will be auto-removed after a time
                 shWithEcho("cbdyncluster rm " + clusterId)
             }
-            junit 'couchbase-python-client/nosetests.xml'
         }
     }
 }
