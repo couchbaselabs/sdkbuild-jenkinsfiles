@@ -147,6 +147,7 @@ pipeline {
                             git config user.email "sdk_dev@couchbase.com"
                             git config user.signingkey 7CD637BCC6326B4ED62959B8D21968C134100A58
                             git tag -asm "Release $version" $version
+                            git push origin $version
                         """)
                     }
                 }
