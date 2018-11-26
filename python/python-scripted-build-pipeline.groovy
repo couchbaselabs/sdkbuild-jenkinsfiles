@@ -920,8 +920,5 @@ EOF
             }
         }
     }
-    if (PARALLEL_PAIRS)
-    {
-        parallel pairs
-    }
+    parallel pairs
 }
