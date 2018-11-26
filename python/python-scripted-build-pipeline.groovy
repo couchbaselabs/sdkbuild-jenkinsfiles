@@ -333,7 +333,7 @@ def getServiceIp(node_list, name)
                 return cbas_ip
 
 }
-def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION)
+def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -341,15 +341,9 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        sep=getSep(platform)
-        test_rel_path="${SERVER_VERSION}"
-        test_full_path = "couchbase-python-client${sep}${test_rel_path}"
-        test_rel_xunit_file="${test_rel_path}${sep}nosetests.xml"
-        nosetests_args=" --with-xunit --xunit-file=${test_rel_xunit_file} -v"
         try {
             if (platform.contains("windows")) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
-                    batWithEcho("md ${test_rel_path}")
                     batWithEcho('''
                         echo try: > "updateTests.py"
                         echo     from configparser import ConfigParser >> "updateTests.py"
@@ -366,7 +360,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                         echo     template.write(fp) >> "updateTests.py"
                     ''')
                     batWithEcho("python updateTests.py")
-                    batWithEcho("nosetests ${nosetests_args}")
+                    batWithEcho("nosetests --with-xunit -v")
                 }
             } else {
                 shWithEcho("python --version")
@@ -383,7 +377,6 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                 first_ip = node_list[0].ip
                 cbas_ip = getServiceIp(node_list,'cbas')
                 dir("${WORKSPACE}/couchbase-python-client") {
-                    shWithEcho("mkdir -p ${test_rel_path}")
                     shWithEcho("pip install configparser")
                     shWithEcho("""
                         cat > updateTests.py <<EOF
@@ -431,14 +424,14 @@ EOF
 
                     if (PYCBC_DEBUG_SYMBOLS == "") {
                         shWithEcho("which nosetests")
-                        shWithEcho("nosetests ${nosetests_args}")
+                        shWithEcho("nosetests --with-xunit -v")
                     } else {
                         shWithEcho("""
                         export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
                         echo "trying to write to: ["
                         echo "\$TMPCMDS"
                         echo "]"
-                        echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
+                        echo "run `which nosetests` -v --with-xunit" > "\$TMPCMDS"
                         echo "bt" >>"\$TMPCMDS"
                         echo "py-bt" >>"\$TMPCMDS"
                         echo "quit" >>"\$TMPCMDS"
@@ -450,13 +443,7 @@ EOF
             echo "Caught an error in doTests: ${e}"
             throw e
         } finally {
-            junit "couchbase-python-client/**/nosetests.xml"
-            if (platform.contains("windows")){
-                batWithEcho("rmdir /Q /S ${test_full_path}")
-            }
-            else{
-                shWithEcho("rm -rf ${test_full_path}")
-            }
+            junit 'couchbase-python-client/nosetests.xml'
         }
     }
 }
@@ -552,6 +539,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 // though cluster will be auto-removed after a time
                 shWithEcho("cbdyncluster rm " + clusterId)
             }
+            junit 'couchbase-python-client/nosetests.xml'
         }
     }
 }
@@ -653,17 +641,9 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
         withEnv(envStr)
         {
-            testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS,server_version)})
+            testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS)})
         }
     }
-}
-
-def getSep(platform){
-    def sep = "/"
-    if (platform.contains("windows")) {
-        sep = "\\"
-    }
-    return sep
 }
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
     def pairs = [:] 
@@ -734,7 +714,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def win_arch=[x86:[],x64:['Win64']][arch]
                         def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
                         def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
-                        def sep = getSep(platform)
+                        def sep = "/"
+                        if (platform.contains("windows")) {
+                            sep = "\\"
+                        }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
                         def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
                         //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
@@ -937,5 +920,8 @@ EOF
             }
         }
     }
-    parallel pairs
+    if (PARALLEL_PAIRS)
+    {
+        parallel pairs
+    }
 }
