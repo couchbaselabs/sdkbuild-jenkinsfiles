@@ -524,7 +524,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
 
             // Create the cluster
             //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
-            shWithEcho("cbdyncluster ${cmd_str} --bucket default setup " + clusterId)
+            shWithEcho("cbdyncluster ${cmd_str} --storage-mode plasma --bucket default setup " + clusterId)
             // Make the bucket flushable
             shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
             shWithEcho("""curl -v -X POST -u Administrator:password -d '["beer-sample"]' http://${ip}:8091/sampleBuckets/install""")
