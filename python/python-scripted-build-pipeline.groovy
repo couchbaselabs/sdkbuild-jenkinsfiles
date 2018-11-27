@@ -205,23 +205,18 @@ class Unix implements Platform
     }
 }*/
 
+boolean isWindows(String platform)
+{
+    return platform.toLowerCase().contains("windows")
+}
+
 void installPython(String platform, String version, String pyshort, String path, String arch) {
     def cmd = "cbdep install python ${version} -d ${path}"
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
     def plat_class = null
-    if (platform.contains("windows"))
-    {
-        //plat_class = Windows()
-        batWithEcho(cmd)
-    }
-    else
-    {
-        //plat_class = Unix()
-        shWithEcho(cmd)
-    }
-    //plat_class.shell(cmd)
+    cmdWithEcho(platform,cmd,false)
 }
 ​
 def shWithEcho(String command) {
@@ -239,7 +234,7 @@ def batWithEcho(String command) {
 def cmdWithEcho(platform, command, quiet)
 {
     try{
-        if (platform.contains("windows")){
+        if (isWindows(platform)){
             return batWithEcho(command)
         }
         else{
@@ -263,7 +258,7 @@ def installReqs(platform)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        if (platform.contains("Windows")){
+        if (isWindows(platform)){
             batWithEcho("pip install -r dev_requirements.txt")
         }
         else
@@ -279,11 +274,11 @@ String prefixWorkspace(String path){
 def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 {
 
-    if (PLATFORM.contains("windows") && (PY_VERSION.contains("2.7"))) {
+    if (isWindows(platform) && (PY_VERSION.contains("2.7"))) {
         return combis
     }
 
-    if (!PLATFORM.contains("windows") && PY_ARCH == "x86") {
+    if (!isWindows(platform) && PY_ARCH == "x86") {
         return combis
     }
 
@@ -311,7 +306,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 
 def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
-    if (platform.contains("windows")) { 
+    if (isWindows(platform)) { 
                             //batWithEcho("md ${dist_dir}")
                             envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "CB_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
@@ -336,13 +331,13 @@ def getServiceIp(node_list, name)
 def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS)
 {
     timestamps {
-        //if (!platform.contains("windows")){
+        //if (!isWindows(platform)){
         //    sh 'chmod -R u+w .git'
         //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
         try {
-            if (platform.contains("windows")) {
+            if (isWindows(platform)) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
                     batWithEcho('''
                         echo try: > "updateTests.py"
@@ -454,7 +449,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         def clusterId = null
         try {
             /* def my_plat = null
-            if (platform.contains("Windows"))
+            if (isWindows(platform))
             {
                 my_plat = new Windows()
             }
@@ -557,7 +552,7 @@ def buildLibCouchbase(platform, arch)
     {
         cmdWithEcho(platform,"git clone http://review.couchbase.org/libcouchbase $LCB_PATH",false)
         cmake_arch = getCMakeTarget(platform, arch)
-        if (platform.contains("windows"))
+        if (isWindows(platform))
         {
             dir("libcouchbase") {
                 batWithEcho("git checkout ${LCB_VERSION}")
@@ -604,7 +599,7 @@ def installClient(platform, arch, dist_dir = null)
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
-        if (platform.contains("windows")){
+        if (isWindows(platform)){
             batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
         }
         else
@@ -684,15 +679,15 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                 def platform = j//.key
                 def pyversion = k//.key
                 def arch = l//.key
-                if (platform.contains("windows") && (pyversion.contains("2.7"))) {
+                if (isWindows(platform) && (pyversion.contains("2.7"))) {
                     continue
                 }
 
-                if (!platform.contains("windows") && arch == "x86") {
+                if (!isWindows(platform) && arch == "x86") {
                     continue
                 }
                 def label = platform
-                if (platform =="windows")
+                if (isWindows(platform))
                 {
                     if (pyversion>="3.5"){
                         label="msvc-2015"
@@ -715,7 +710,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
                         def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
                         def sep = "/"
-                        if (platform.contains("windows")) {
+                        if (isWindows(platform)) {
                             sep = "\\"
                         }
                         def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
@@ -724,7 +719,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def dist_dir_rel="dist"
                         def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
-                        if (platform.contains("windows")) { 
+                        if (isWindows(platform)) { 
                             envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
                             envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
@@ -736,7 +731,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     unstash 'couchbase-python-client'
 
                                     // TODO: CHECK THIS ALL LOOKS GOOD
-                                    if (platform.contains("windows")) {
+                                    if (isWindows(platform)) {
                                         batWithEcho("SET")
                                         dir("deps") {
                                             installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
@@ -814,7 +809,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             }
                             stage("test ${platform}_${pyversion}_${arch}") {
                                 timestamps {
-                                    //if (!platform.contains("windows")){
+                                    //if (!isWindows(platform)){
                                     //    sh 'chmod -R u+w .git'
                                     //}
                                     //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
@@ -823,7 +818,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                                     // USING THE PACKAGE(S) CREATED ABOVE
                                     try {
-                                        if (platform.contains("windows")) {
+                                        if (isWindows(platform)) {
                                             dir("couchbase-python-client") {
                                                 batWithEcho('''
                                                     echo try: > "updateTests.py"
