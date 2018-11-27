@@ -210,27 +210,6 @@ boolean isWindows(String platform)
     return platform.toLowerCase().contains("windows")
 }
 
-void installPython(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
-    }
-    def plat_class = null
-    cmdWithEcho(platform,cmd,false)
-}
-​
-def shWithEcho(String command) {
-    result=sh(script: command, returnStdout: true)
-    echo "[$STAGE_NAME]:${command}:"+ result
-    return result
-}
-
-def batWithEcho(String command) {
-    result=bat(script: command, returnStdout: true)
-    echo "[$STAGE_NAME]:${command}:"+ result
-    return result
-}
-
 def cmdWithEcho(platform, command, quiet)
 {
     try{
@@ -253,6 +232,28 @@ def cmdWithEcho(platform, command, quiet)
         }
     }
 }
+
+void installPython(String platform, String version, String pyshort, String path, String arch) {
+    def cmd = "cbdep install python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+    def plat_class = null
+    cmdWithEcho(platform,cmd,false)
+}
+​
+def shWithEcho(String command) {
+    result=sh(script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ result
+    return result
+}
+
+def batWithEcho(String command) {
+    result=bat(script: command, returnStdout: true)
+    echo "[$STAGE_NAME]:${command}:"+ result
+    return result
+}
+
 
 def installReqs(platform)
 {
