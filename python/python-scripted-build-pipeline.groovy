@@ -313,6 +313,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
     PYCBC_DEBUG_LOG = "${PYCBC_DEBUG_LOG}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
+    
     common_vars=["LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG=${PYCBC_DEBUG_LOG}"]
     if (platform.contains("windows")) { 
         //batWithEcho("md ${dist_dir}")
@@ -520,13 +521,8 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 count+=1
             }
             print "got node_list ${node_list}"
-            // Create the cluster
-            //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
             print cmd_str
-//shWithEcho("cbdyncluster ${cmd_str} --bucket default setup " + clusterId)
-
             // Create the cluster
-            //shWithEcho("cbdyncluster --node kv,index,n1ql --node kv,fts --node kv,cbas --bucket default setup " + clusterId)
             shWithEcho("cbdyncluster ${cmd_str} --storage-mode plasma --bucket default setup " + clusterId)
             // Make the bucket flushable
             shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
