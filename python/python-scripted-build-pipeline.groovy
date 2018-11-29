@@ -262,7 +262,7 @@ def cmdWithEcho(platform, command, quiet)
 def isWindows(platform)
 {
     
-    return platform.toLowerCase.contains("windows")
+    return platform.toLowerCase().contains("windows")
 }
 def installReqs(platform)
 {
