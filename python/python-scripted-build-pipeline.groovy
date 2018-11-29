@@ -259,11 +259,16 @@ def cmdWithEcho(platform, command, quiet)
     }
 }
 
+def isWindows(platform)
+{
+    
+    return platform.toLowerCase.contains("windows")
+}
 def installReqs(platform)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        if (platform.contains("Windows")){
+        if (isWindows(platform)){
             batWithEcho("pip install -r dev_requirements.txt")
         }
         else
