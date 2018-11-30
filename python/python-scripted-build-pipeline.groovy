@@ -110,11 +110,8 @@ pip install --verbose Twisted gevent""")
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
-            /* post {
-                always {
-                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
-                }
-            } */
+            post {
+            }
         }
         stage('test-integration-server') {
             agent { label 'qe-slave-linux1' }
@@ -124,8 +121,6 @@ pip install --verbose Twisted gevent""")
             }
             steps {
                 doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
-                // build job: "couchbase-net-client-test-integration", parameters: [
-                // ]
             }
         }
         stage('quality') {
@@ -171,14 +166,12 @@ pip install --verbose Twisted gevent""")
                 unstash "couchbase-python-client-package"
                 // TODO: PUBLISH!
             }
-/*             post {
-                always {
-                    archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true
-                }
-            } */
+            post {
+            }
         }
     }
 }
+
 /*
 trait Platform
 {
