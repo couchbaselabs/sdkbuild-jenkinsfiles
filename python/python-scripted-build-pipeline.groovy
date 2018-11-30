@@ -110,8 +110,6 @@ pip install --verbose Twisted gevent""")
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
-            post {
-            }
         }
         stage('test-integration-server') {
             agent { label 'qe-slave-linux1' }
@@ -165,8 +163,6 @@ pip install --verbose Twisted gevent""")
                 cleanWs()
                 unstash "couchbase-python-client-package"
                 // TODO: PUBLISH!
-            }
-            post {
             }
         }
     }
