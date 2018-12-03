@@ -106,7 +106,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS, ${WORKSPACE})
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS, "${WORKSPACE}")
             }
         }
         stage('quality') {
