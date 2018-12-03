@@ -1,15 +1,3 @@
-/* def parseEnvList(String line){
-    return String(line).split("\s*")
-}
-
-def booleanOr(String line, Boolean fallBack = False)
-{
-    if (!line.size()){
-        return fallBack
-    }
-    return line.toBoolean()
-} */
-
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
@@ -118,7 +106,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS)
+                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS, ${WORKSPACE})
             }
         }
         stage('quality') {
@@ -212,7 +200,7 @@ void installPython(String platform, String version, String pyshort, String path,
     }
     //plat_class.shell(cmd)
 }
-​
+
 def shWithEcho(String command) {
     result=sh(script: command, returnStdout: true)
     echo "[$STAGE_NAME]:${command}:"+ result
@@ -604,7 +592,7 @@ def buildLibCouchbase(platform, arch)
     }    
 }
 
-def installClient(platform, arch, dist_dir = null)
+def installClient(String platform, String arch, String WORKSPACE, dist_dir = null)
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
@@ -627,7 +615,7 @@ def installClient(platform, arch, dist_dir = null)
     }
 }
 
-def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE)
 {
     cleanWs()
     unstash "couchbase-python-client"
@@ -637,7 +625,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
-        installClient(platform, arch)
+        installClient(platform, arch, WORKSPACE)
         installReqs(platform)
     }
     for (server_version in SERVER_VERSIONS)
