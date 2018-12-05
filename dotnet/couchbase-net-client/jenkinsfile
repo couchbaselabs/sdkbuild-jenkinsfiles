@@ -1,7 +1,7 @@
 def PLATFORMS = [
     "windows-2012",
     "ubuntu16",
-    // "centos7",
+    "centos7",
     "macos"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
@@ -33,90 +33,80 @@ pipeline {
                 stash includes: 'couchbase-net-client/', name: 'couchbase-net-client', useDefaultExcludes: false
             }
         }
-        stage('build-and-test') {
+        stage('build-test') {
             agent { label 'master' }
             steps {
-                cleanWs()
-                buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION)
+                buildAndTest(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
-        stage('package') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-                unstash "couchbase-net-client-build"
-                stash includes: 'couchbase-net-client/', name: "couchbase-net-client-package", useDefaultExcludes: false
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
-                }
-            }
-        }
-        stage('test-integration-server') {
-            agent { label 'master' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-                // build job: "couchbase-net-client-test-integration", parameters: [
-                // ]
-            }
-        }
-        stage('quality') {
-            agent { label 'master' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-            }
-        }
-        stage('snapshot') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == false && IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-                // TODO: Upload build artefacts to snapshot server here
-            }
-        }
-        stage('approval') {
-            agent none
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == true }
-            }
-            steps {
-                input 'Publish?'
-            }
-        }
-        stage('publish') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == true }
-            }
-            steps {
-                cleanWs()
-                unstash "couchbase-net-client-package"
-                // TODO: PUBLISH!
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
-                }
-            }
-        }
+        // stage('package') {
+        //     agent { label 'windows-2012' }
+        //     when {
+        //         expression
+        //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+        //     }
+        //     steps {
+        //         cleanWs()
+        //         unstash "couchbase-net-client"
+        //         dir("couchbase-net-client") {
+        //             batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release --no-build")
+        //             archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
+        //         }
+        //     }
+        //     post {
+        //         always {
+        //             archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+        //         }
+        //     }
+        // }
+        // stage('quality') {
+        //     agent { label 'master' }
+        //     when {
+        //         expression
+        //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+        //     }
+        //     steps {
+        //         cleanWs()
+        //     }
+        // }
+        // stage('snapshot') {
+        //     agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+        //     when {
+        //         expression
+        //             {  return IS_RELEASE.toBoolean() == false && IS_GERRIT_TRIGGER.toBoolean() == false }
+        //     }
+        //     steps {
+        //         cleanWs()
+        //         // TODO: Upload build artefacts to snapshot server here
+        //     }
+        // }
+        // stage('approval') {
+        //     agent none
+        //     when {
+        //         expression
+        //             {  return IS_RELEASE.toBoolean() == true }
+        //     }
+        //     steps {
+        //         input 'Publish?'
+        //     }
+        // }
+        // stage('publish') {
+        //     agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+        //     when {
+        //         expression
+        //             {  return IS_RELEASE.toBoolean() == true }
+        //     }
+        //     steps {
+        //         cleanWs()
+        //         unstash "couchbase-net-client-package"
+        //         // TODO: PUBLISH!
+        //     }
+        //     post {
+        //         always {
+        //             archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+        //         }
+        //     }
+        // }
     }
 }
 
@@ -128,7 +118,7 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
+def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -144,43 +134,41 @@ def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
                         dir("couchbase-net-client") {
-                            // TODO: set version suffix
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase\\Couchbase.csproj -c Release")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release")
+                            // TODO: set version suffix and build with SNK
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln")
                         }
-                        stash includes: 'couchbase-net-client/', name: "couchbase-net-client-build", useDefaultExcludes: false
+
+                        // stash on Windows to get all target frameworks
+                        stash includes: 'couchbase-net-client/', name: 'couchbase-net-client', useDefaultExcludes: false
                     } else {
                         shWithEcho('env')
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
                         dir("couchbase-net-client") {
-                            // TODO: set version suffix
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase/Couchbase.csproj -c Release")
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release")
+                            // TODO: set version suffix and build with SNK
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/couchbase-net-client.sln")
                         }
                     }
                 }
                 stage("test ${platform}") {
-                    dir("couchbase-net-client") {
-                        if (platform.contains("windows")) {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f net452 --no-build")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
-
-                            // BUG: vstest process hangs
-                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
-                        } else {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
-
-                            // BUG: vstest process hangs
-                            //batWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
+                    if (platform.contains("windows")) {
+                        dir("couchbase-net-client") {
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                         }
-
-                        // converts test results into JUnit format, requires MSTest Jenkins plugin
-                        // step([$class: 'MSTestPublisher', testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
-
-                        // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-                        // USING THE PACKAGE(S) CREATED ABOVE
+                    } else {
+                        dir("couchbase-net-client") {
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            //shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        }
                     }
+
+                    // converts test results into JUnit format, requires MSTest Jenkins plugin
+                    // step([$class: 'MSTestPublisher', testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
+
+                    // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
+                    // USING THE PACKAGE(S) CREATED ABOVE
                 }
             }
         }
