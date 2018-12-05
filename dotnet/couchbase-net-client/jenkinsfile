@@ -1,15 +1,14 @@
 def PLATFORMS = [
     "windows-2012",
     "ubuntu16",
-    "centos7",
-    "macos"
+    "centos7"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
 
 pipeline {
     agent none
     stages {
-        stage('job valid?') {
+        stage("job valid?") {
             when {
                 expression {
                     return _INTERNAL_OK_.toBoolean() != true
@@ -19,28 +18,28 @@ pipeline {
                 error("Exiting early as not valid run")
             }
         }
-        stage('prepare and validate') {
-            agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
+        stage("prepare and validate") {
+            agent { label "centos6||centos7||ubuntu16||ubuntu14" }
             steps {
                 cleanWs()
-                dir('couchbase-net-client') {
-                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                dir("couchbase-net-client") {
+                    checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
 
-                stash includes: 'couchbase-net-client/', name: 'couchbase-net-client', useDefaultExcludes: false
+                stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
             }
         }
-        stage('build-test') {
-            agent { label 'master' }
+        stage("build") {
+            agent { label "master" }
             steps {
                 buildAndTest(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
-        // stage('package') {
-        //     agent { label 'windows-2012' }
+        // stage("package") {
+        //     agent { label "windows-2012" }
         //     when {
         //         expression
         //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
@@ -55,12 +54,12 @@ pipeline {
         //     }
         //     post {
         //         always {
-        //             archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+        //             archiveArtifacts artifacts: "couchbase-net-client/", fingerprint: true
         //         }
         //     }
         // }
-        // stage('quality') {
-        //     agent { label 'master' }
+        // stage("quality") {
+        //     agent { label "master" }
         //     when {
         //         expression
         //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
@@ -69,8 +68,8 @@ pipeline {
         //         cleanWs()
         //     }
         // }
-        // stage('snapshot') {
-        //     agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+        // stage("snapshot") {
+        //     agent { label "ubuntu14||ubuntu16||centos6||centos7" }
         //     when {
         //         expression
         //             {  return IS_RELEASE.toBoolean() == false && IS_GERRIT_TRIGGER.toBoolean() == false }
@@ -80,18 +79,18 @@ pipeline {
         //         // TODO: Upload build artefacts to snapshot server here
         //     }
         // }
-        // stage('approval') {
+        // stage("approval") {
         //     agent none
         //     when {
         //         expression
         //             {  return IS_RELEASE.toBoolean() == true }
         //     }
         //     steps {
-        //         input 'Publish?'
+        //         input "Publish?"
         //     }
         // }
-        // stage('publish') {
-        //     agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+        // stage("publish") {
+        //     agent { label "ubuntu14||ubuntu16||centos6||centos7" }
         //     when {
         //         expression
         //             {  return IS_RELEASE.toBoolean() == true }
@@ -103,7 +102,7 @@ pipeline {
         //     }
         //     post {
         //         always {
-        //             archiveArtifacts artifacts: 'couchbase-net-client/', fingerprint: true
+        //             archiveArtifacts artifacts: "couchbase-net-client/", fingerprint: true
         //         }
         //     }
         // }
@@ -123,14 +122,14 @@ def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
     for (j in PLATFORMS) {
         def platform = j
 
-        pairs[platform]= {
+        pairs[platform] = {
             node(platform) {
                 stage("build ${platform}") {
                     cleanWs()
-                    unstash 'couchbase-net-client'
+                    unstash "couchbase-net-client"
 
                     if (platform.contains("windows")) {
-                        batWithEcho('SET')
+                        batWithEcho("SET")
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
                         dir("couchbase-net-client") {
@@ -139,9 +138,9 @@ def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
                         }
 
                         // stash on Windows to get all target frameworks
-                        stash includes: 'couchbase-net-client/', name: 'couchbase-net-client', useDefaultExcludes: false
+                        stash includes: "couchbase-net-client/", name: "couchbase-net-client-build", useDefaultExcludes: false
                     } else {
-                        shWithEcho('env')
+                        shWithEcho("env")
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
 
                         dir("couchbase-net-client") {
@@ -165,7 +164,7 @@ def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
                     }
 
                     // converts test results into JUnit format, requires MSTest Jenkins plugin
-                    // step([$class: 'MSTestPublisher', testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
+                    // step([$class: "MSTestPublisher", testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
 
                     // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                     // USING THE PACKAGE(S) CREATED ABOVE
