@@ -37,9 +37,22 @@ pipeline {
             steps {
                 cleanWs()
                 shWithEcho("env")
-
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    script {
+                        String version = getVersion()
+                        if (version.length()>0) {
+                            dir("couchbase-python-client") {
+                                platform = "${DEFAULT_PLATFORM}"
+                                cmdWithEcho(platform, """
+git config user.name "Couchbase SDK Team"
+                            git config user.email "sdk_dev@couchbase.com"
+""")
+
+                                cmdWithEcho(platform, "git tag -a ${version} -m 'Release of client version ${version}'", false)
+                            }
+                        }
+                    }
                 }
 
                 // TODO: UPDATE METADATA HERE
@@ -95,6 +108,7 @@ pip install --verbose Twisted gevent""")
                     shWithEcho("python setup.py build_sphinx")
                     shWithEcho("mkdir dist")
                 }
+                archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
@@ -138,6 +152,7 @@ pip install --verbose Twisted gevent""")
                     {  return IS_RELEASE.toBoolean() == true }
             }
             steps {
+                emailext body: "Jenkins: approval required for PYCBC -$BUILD_URL", subject: 'Jenkins: approval required for PYCBC', to: 'ellis.breen@couchbase.com'
                 input 'Publish?'
             }
         }
@@ -150,10 +165,65 @@ pip install --verbose Twisted gevent""")
             steps {
                 cleanWs()
                 unstash "couchbase-python-client-package"
-                // TODO: PUBLISH!
+                doOptionalPublishing()
+                dir ("couchbase-python-client") {
+                    script {
+                        shWithEcho("""git push --tags""")
+                    }
+                }
             }
         }
     }
+}
+
+def doOptionalPublishing()
+{
+    String PACKAGE_PY_VERSION = "2.7.15"
+    envStr=getEnvStr("linux", PACKAGE_PY_VERSION,"x64","","")
+
+    script{
+        try{
+            String version = getVersion()
+            installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
+            withEnv(envStr){
+                dir ("couchbase-python-client") {
+                    cmdWithEcho("unix", """
+    pip install twine
+    twine upload dist/* -r pypi""", true)
+                    cmdWithEcho("unix", "aws s3 sync build/sphinx/html/ s3://docs.couchbase.com/sdk-api/couchbase-python-client-${PYCBC_VERSION} --acl public-read", true)
+                }
+            }
+        }
+        catch(Exception e)
+        {
+            echo("Caught failure while doing optional publishing steps: ${e}")
+        }
+
+    }
+}
+
+def getVersion() {
+    String version = "${PYCBC_VERSION}"
+
+    if (version.length() == 0) {
+        try {
+            version = "${PYCBC_VERSION_JIRA}"
+        }
+        catch (Exception e) {
+            echo("Could not read version from PYCBC_VERSION_JIRA: ${e}")
+        }
+    }
+
+    if (version.length() == 0) {
+        try {
+            def version_info = readJSON file: 'metadata.json'
+            version = version_info['version']
+        }
+        catch (Exception e) {
+            echo("Could not read version from metadata: ${e}")
+        }
+    }
+    return version
 }
 
 /*
@@ -296,13 +366,13 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
     PYCBC_DEBUG_LOG = "${PYCBC_DEBUG_LOG}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
     
-    common_vars=["LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG=${PYCBC_DEBUG_LOG}","PYCBC_JENKINS_INVOCATION=TRUE"]
+    common_vars=["LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG=${PYCBC_DEBUG_LOG}","PYCBC_JENKINS_INVOCATION=TRUE","PYCBC_MIN_ANALYTICS=${PYCBC_MIN_ANALYTICS}","PYCBC_TEST_OLD_ANALYTICS=${PYCBC_TEST_OLD_ANALYTICS}"]
     if (platform.contains("windows")) { 
         //batWithEcho("md ${dist_dir}")
-        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "CB_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
         //shWithEcho("mkdir -p ${dist_dir}")
-        envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "CB_SERVER_VERSION=${server_version}"]
+        envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
     return envStr+common_vars
 }
@@ -692,21 +762,16 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     continue
                 }
                 def label = platform
-                if (platform =="windows")
-                {
-                    if (pyversion>="3.5"){
-                        label="msvc-2015"
-                    }
-                    else if (pyversion>="3.3"){
-                        label="msvc-2010"
-                    }
-                    else
-                    {
+                if (platform == "windows") {
+                    if (pyversion >= "3.5") {
+                        label = "msvc-2015"
+                    } else if (pyversion >= "3.3") {
+                        label = "msvc-2010"
+                    } else {
                         continue
                     }
-                }                
+                }
                 echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
-
                 pairs[platform + "_" + pyversion + "_" + arch]= {
                     node(label) {
                         def envStr = []
