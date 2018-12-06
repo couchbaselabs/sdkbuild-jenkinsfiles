@@ -35,7 +35,13 @@ pipeline {
         stage("build") {
             agent { label "master" }
             steps {
-                buildAndTest(PLATFORMS, DOTNET_SDK_VERSION)
+                doBuilds(PLATFORMS, DOTNET_SDK_VERSION)
+            }
+        }
+        stage("unit-test") {
+            agent { label "master" }
+            steps {
+                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
         // stage("package") {
@@ -117,7 +123,7 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
+def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -129,36 +135,50 @@ def buildAndTest(PLATFORMS, DOTNET_SDK_VERSION) {
                     unstash "couchbase-net-client"
 
                     if (platform.contains("windows")) {
-                        batWithEcho("SET")
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-
                         dir("couchbase-net-client") {
                             // TODO: set version suffix and build with SNK
                             batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln")
                         }
-
-                        // stash on Windows to get all target frameworks
-                        stash includes: "couchbase-net-client/", name: "couchbase-net-client-build", useDefaultExcludes: false
                     } else {
-                        shWithEcho("env")
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-
                         dir("couchbase-net-client") {
                             // TODO: set version suffix and build with SNK
                             shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/couchbase-net-client.sln")
                         }
                     }
+
+                    stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
                 }
-                stage("test ${platform}") {
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform] = {
+            node(platform) {
+                stage("unit-test ${platform}") {
+                    cleanWs()
+                    unstash "couchbase-net-client-${platform}"
+
                     if (platform.contains("windows")) {
+                        batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
                         dir("couchbase-net-client") {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0")
                             //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                         }
                     } else {
+                        shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
                         dir("couchbase-net-client") {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0")
                             //shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                         }
                     }
