@@ -552,7 +552,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             clusters_running=shWithEcho("cbdyncluster ps -a")
             echo "got clusters_running: ${clusters_running}"
             withEnv(envStr){
-                if ("${KILL_CLUSTERS}")
+                if ("${KILL_CLUSTERS}"){
                     kill_clusters(clusters_running)
                 }
 
