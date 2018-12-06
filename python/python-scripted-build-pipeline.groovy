@@ -516,6 +516,23 @@ EOF
         }
     }
 }
+def kill_clusters(clusters_running) {
+    for (cluster in clusters_running.split('\n')) {
+        // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
+        if (cluster.contains("node_")) {
+            continue
+        }
+        if (cluster.contains("qe-slave1")) {
+            cluster_id_tokens = cluster.trim().split(/\s+/)
+            if (cluster_id_tokens.size() > 0) {
+                cluster_id = cluster_id_tokens[0]
+                echo "killing cluster ${cluster_id}"
+
+                shWithEcho("cbdyncluster rm ${cluster_id}")
+            }
+        }
+    }
+}
 
 void testAgainstServer(serverVersion, platform, envStr, testActor) {
     script{
@@ -534,61 +551,46 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
             // For debugging, what clusters are open
             clusters_running=shWithEcho("cbdyncluster ps -a")
             echo "got clusters_running: ${clusters_running}"
-            for (cluster in clusters_running.split('\n')){
-                // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
-                if (cluster.contains("node_")){
-                    continue
-                }
-                if (cluster.contains("qe-slave1"))
-                {
-                    cluster_id_tokens = cluster.trim().split(/\s+/)
-                    if (cluster_id_tokens.size()>0)
-                    {
-                        cluster_id = cluster_id_tokens[0]
-                        echo "killing cluster ${cluster_id}"
-                        
-                        shWithEcho("cbdyncluster rm ${cluster_id}")
-                    }
-                }                    
-            }
-
-
-            // Allocate the cluster.  3 KV nodes.
-            def node_list = [[services:["kv","index","n1ql"]],[services:["kv,fts"]],[services:["kv,cbas"]]]
-            def node_count = node_list.size()
-            clusterId = sh(script: "cbdyncluster allocate --num-nodes=${node_count} --server-version=" + serverVersion, returnStdout: true)
-            echo "Got cluster ID " + clusterId
-
-            // Find the cluster IP
-            def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
-            echo "Got raw cluster IPs " + ips
-            def ip_list = ips.tokenize(',')
-            def ip=ip_list[0]
-            print "Got cluster IP http://" + ip + ":8091\n"
-            def cmd_str = ""
-            def count=0
-            for (entry in node_list){
-                cmd_str+=" --node "+entry.services.join(",")
-                entry['ip']=ip_list[count]
-                count+=1
-            }
-            print "got node_list ${node_list}"
-            print cmd_str
-            // Create the cluster
-            shWithEcho("cbdyncluster ${cmd_str} --storage-mode plasma --bucket default setup " + clusterId)
-            // Make the bucket flushable
-            shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
-            shWithEcho("""curl -v -X POST -u Administrator:password -d '["beer-sample"]' http://${ip}:8091/sampleBuckets/install""")
-            sleep(30)
-            shWithEcho("""curl -X PUT --data "name=default&roles=admin&password=password" \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            http://Administrator:password@${ip}:8091/settings/rbac/users/local/default
-            """)
-            shWithEcho("curl -X GET http://Administrator:password@${ip}:8091/settings/rbac/users")
-            shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
-
-            // The transactions tests check for this environment property
             withEnv(envStr){
+                if ("${KILL_CLUSTERS}")
+                    kill_clusters(clusters_running)
+                }
+
+
+                // Allocate the cluster.  3 KV nodes.
+                def node_list = [[services:["kv","index","n1ql"]],[services:["kv,fts"]],[services:["kv,cbas"]]]
+                def node_count = node_list.size()
+                clusterId = sh(script: "cbdyncluster allocate --num-nodes=${node_count} --server-version=" + serverVersion, returnStdout: true)
+                echo "Got cluster ID " + clusterId
+
+                // Find the cluster IP
+                def ips = sh(script: "cbdyncluster ips " + clusterId, returnStdout: true).trim()
+                echo "Got raw cluster IPs " + ips
+                def ip_list = ips.tokenize(',')
+                def ip=ip_list[0]
+                print "Got cluster IP http://" + ip + ":8091\n"
+                def cmd_str = ""
+                def count=0
+                for (entry in node_list){
+                    cmd_str+=" --node "+entry.services.join(",")
+                    entry['ip']=ip_list[count]
+                    count+=1
+                }
+                print "got node_list ${node_list}"
+                print cmd_str
+                // Create the cluster
+                shWithEcho("cbdyncluster ${cmd_str} --storage-mode plasma --bucket default setup " + clusterId)
+                // Make the bucket flushable
+                shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+                shWithEcho("""curl -v -X POST -u Administrator:password -d '["beer-sample"]' http://${ip}:8091/sampleBuckets/install""")
+                sleep(30)
+                shWithEcho("""curl -X PUT --data "name=default&roles=admin&password=password" \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                http://Administrator:password@${ip}:8091/settings/rbac/users/local/default
+                """)
+                shWithEcho("curl -X GET http://Administrator:password@${ip}:8091/settings/rbac/users")
+                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
+
                 testActor.call(node_list)
             }
         }
@@ -605,6 +607,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         }
     }
 }
+
 
 def getCMakeTarget(platform, arch)
 {
