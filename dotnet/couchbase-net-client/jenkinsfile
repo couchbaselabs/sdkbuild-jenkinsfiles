@@ -44,26 +44,21 @@ pipeline {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
-        // stage("package") {
-        //     agent { label "windows-2012" }
-        //     when {
-        //         expression
-        //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-        //     }
-        //     steps {
-        //         cleanWs()
-        //         unstash "couchbase-net-client"
-        //         dir("couchbase-net-client") {
-        //             batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release --no-build")
-        //             archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
-        //         }
-        //     }
-        //     post {
-        //         always {
-        //             archiveArtifacts artifacts: "couchbase-net-client/", fingerprint: true
-        //         }
-        //     }
-        // }
+        stage("package") {
+            agent { label "windows-2012" }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+            }
+            steps {
+                cleanWs()
+                unstash "couchbase-net-client"
+                dir("couchbase-net-client") {
+                    batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release --no-build")
+                    archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
+                }
+            }
+        }
         // stage("quality") {
         //     agent { label "master" }
         //     when {
