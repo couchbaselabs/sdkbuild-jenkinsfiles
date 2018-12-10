@@ -1,9 +1,11 @@
 def PLATFORMS = [
     "windows-2012",
-    "ubuntu16",
-    "centos7"
+    // "ubuntu16",
+    // "centos7"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
+def CB_VERSIONS = ["5.5.2", "6.0.0"]
+def SUFFIX = "r${BUILD_NUMBER}"
 
 pipeline {
     agent none
@@ -21,15 +23,14 @@ pipeline {
         stage("prepare and validate") {
             agent { label "centos6||centos7||ubuntu16||ubuntu14" }
             steps {
-                cleanWs()
-                dir("couchbase-net-client") {
+                dir("couchbase-net-client-${BUILD_NUMBER}") {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
 
-                stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
+                stash includes: "couchbase-net-client-${BUILD_NUMBER}/", name: "couchbase-net-client", useDefaultExcludes: false
             }
         }
         stage("build") {
@@ -44,47 +45,40 @@ pipeline {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
+        stage("mock-test") {
+            agent { label "master" }
+            steps {
+                doMockTests(PLATFORMS, DOTNET_SDK_VERSION)
+            }
+        }
+        stage("combintation-test") {
+            agent { label "master" }
+            steps {
+                doCombintationTests(PLATFORMS, DOTNET_SDK_VERSION)
+            }
+        }
         stage("package") {
             agent { label "windows-2012" }
             when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
             }
             steps {
-                cleanWs()
-                unstash "couchbase-net-client"
-                dir("couchbase-net-client") {
-                    batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release --no-build")
+                unstash "couchbase-net-client-windows-2012"
+
+                dir("couchbase-net-client-${BUILD_NUMBER}") {
+                    batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release /p:VersionSuffix=${SUFFIX}")
                     archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
                 }
             }
         }
-        // stage("quality") {
-        //     agent { label "master" }
-        //     when {
-        //         expression
-        //             {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-        //     }
-        //     steps {
-        //         cleanWs()
-        //     }
-        // }
-        // stage("snapshot") {
-        //     agent { label "ubuntu14||ubuntu16||centos6||centos7" }
-        //     when {
-        //         expression
-        //             {  return IS_RELEASE.toBoolean() == false && IS_GERRIT_TRIGGER.toBoolean() == false }
-        //     }
-        //     steps {
-        //         cleanWs()
-        //         // TODO: Upload build artefacts to snapshot server here
-        //     }
-        // }
         // stage("approval") {
         //     agent none
         //     when {
-        //         expression
-        //             {  return IS_RELEASE.toBoolean() == true }
+        //         expression {
+        //             return IS_RELEASE.toBoolean() == true
+        //         }
         //     }
         //     steps {
         //         input "Publish?"
@@ -93,8 +87,9 @@ pipeline {
         // stage("publish") {
         //     agent { label "ubuntu14||ubuntu16||centos6||centos7" }
         //     when {
-        //         expression
-        //             {  return IS_RELEASE.toBoolean() == true }
+        //         expression {
+        //             return IS_RELEASE.toBoolean() == true
+        //         }
         //     }
         //     steps {
         //         cleanWs()
@@ -126,24 +121,23 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform] = {
             node(platform) {
                 stage("build ${platform}") {
-                    cleanWs()
                     unstash "couchbase-net-client"
 
                     if (platform.contains("windows")) {
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-                        dir("couchbase-net-client") {
+                        dir("couchbase-net-client-${BUILD_NUMBER}") {
                             // TODO: set version suffix and build with SNK
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln -c Release")
                         }
                     } else {
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-                        dir("couchbase-net-client") {
+                        dir("couchbase-net-client-${BUILD_NUMBER}") {
                             // TODO: set version suffix and build with SNK
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/couchbase-net-client.sln")
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/couchbase-net-client.sln -c Release")
                         }
                     }
 
-                    stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
+                    stash includes: "couchbase-net-client-${BUILD_NUMBER}/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
                 }
             }
         }
@@ -160,21 +154,20 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform] = {
             node(platform) {
                 stage("unit-test ${platform}") {
-                    cleanWs()
                     unstash "couchbase-net-client-${platform}"
 
                     if (platform.contains("windows")) {
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-                        dir("couchbase-net-client") {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0")
-                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        dir("couchbase-net-client-${BUILD_NUMBER}") {
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f net452 --no-build")
+                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
+                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
                         }
                     } else {
                         shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-                        dir("couchbase-net-client") {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0")
-                            //shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        dir("couchbase-net-client-${BUILD_NUMBER}") {
+                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
+                            //shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
                         }
                     }
 
@@ -183,6 +176,40 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
 
                     // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                     // USING THE PACKAGE(S) CREATED ABOVE
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def doMockTests(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform] = {
+            node(platform) {
+                stage("mock-test ${platform}") {
+
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def doCombintationTests(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform] = {
+            node(platform) {
+                stage("combintation-test ${platform}") {
+
                 }
             }
         }
