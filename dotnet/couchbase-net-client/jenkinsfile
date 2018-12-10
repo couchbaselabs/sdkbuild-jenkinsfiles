@@ -68,7 +68,7 @@ pipeline {
                 unstash "couchbase-net-client-windows-2012"
 
                 dir("couchbase-net-client-${BUILD_NUMBER}") {
-                    batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release /p:VersionSuffix=${SUFFIX}")
+                    batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release /p:VersionSuffix=${SUFFIX} --no-build")
                     archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
                 }
             }
