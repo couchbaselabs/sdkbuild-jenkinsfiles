@@ -67,6 +67,7 @@ pipeline {
             }
             steps {
                 unstash "couchbase-net-client-windows-2012"
+                batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
                 dir("couchbase-net-client") {
                     script {
                         // don't use suffix for release builds
