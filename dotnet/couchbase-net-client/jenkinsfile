@@ -79,38 +79,34 @@ pipeline {
                         }
                     }
                     archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
+                    stash includes: "**\\*.nupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
                 }
             }
         }
-        // stage("approval") {
-        //     agent none
-        //     when {
-        //         expression {
-        //             return IS_RELEASE.toBoolean() == true
-        //         }
-        //     }
-        //     steps {
-        //         input "Publish?"
-        //     }
-        // }
-        // stage("publish") {
-        //     agent { label "ubuntu14||ubuntu16||centos6||centos7" }
-        //     when {
-        //         expression {
-        //             return IS_RELEASE.toBoolean() == true
-        //         }
-        //     }
-        //     steps {
-        //         cleanWs()
-        //         unstash "couchbase-net-client-package"
-        //         // TODO: PUBLISH!
-        //     }
-        //     post {
-        //         always {
-        //             archiveArtifacts artifacts: "couchbase-net-client/", fingerprint: true
-        //         }
-        //     }
-        // }
+        stage("approval") {
+            agent none
+            when {
+                expression {
+                    return IS_RELEASE.toBoolean() == true
+                }
+            }
+            steps {
+                input "Publish .NET SDK to Nuget?"
+            }
+        }
+        stage("publish") {
+            agent { label "windows-2012" }
+            when {
+                expression {
+                    return IS_RELEASE.toBoolean() == true
+                }
+            }
+            steps {
+                unstash "couchbase-net-client-package"
+                echo "Publishing to nuget!"
+                // TODO: PUBLISH!
+            }
+        }
     }
 }
 
