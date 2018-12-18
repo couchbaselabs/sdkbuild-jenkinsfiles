@@ -130,6 +130,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform] = {
             node(platform) {
                 stage("build ${platform}") {
+                    cleanWs()
                     if (platform.contains("windows")) {
                         unstash "couchbase-net-client"
                         batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
