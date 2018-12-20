@@ -32,6 +32,18 @@ linux_test_builds = [
 ]
 
 integration_enabled = true
+if ENV['WINDOWS_ONLY']
+    windows_dists = [
+        [2012, 11, 64],
+        [2012, 11, 32],
+        [2015, 14, 64],
+        [2015, 14, 32],
+        [2017, 15, 64],
+        [2017, 15, 32],
+    ]
+    centos_dists = ubuntu_dists = linux_test_builds = []
+    integration_enabled =false
+end
 %>
 // DO NOT EDIT: this file was generated from Jenkinsfile.erb
 class Version {
