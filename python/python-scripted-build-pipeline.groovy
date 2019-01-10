@@ -791,7 +791,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
                         def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
                         if (platform.contains("windows")) { 
-                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH","LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", , "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
                         } else {
                             envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
                         }
@@ -841,8 +841,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             //installClient(platform,arch,String("${WORKSPACE}"),String("${dist_dir})"))
                                             batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                                             batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated")
-                                            batWithEcho("pip install .")
-                                            batWithEcho("pip install wheel")
+                                            withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
+                                                batWithEcho("pip install .")
+                                                batWithEcho("pip install wheel")
+                                            }
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
@@ -871,8 +873,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                            shWithEcho("pip install .")
-                                            shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                                            withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
+                                                shWithEcho("pip install .")
+                                                shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                                            }
                                         }
                                     }
 
