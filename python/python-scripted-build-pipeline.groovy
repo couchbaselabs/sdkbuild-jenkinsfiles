@@ -678,7 +678,8 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
                 shWithEcho("pip install cython")
                 cmdWithEcho(platform,"pip install cmake",true)
                 buildLibCouchbase(platform, arch)
-                shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC} install")
+                shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+                shWithEcho("pip install .")
                 if (dist_dir)
                 {
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -754,9 +755,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
-                def platform = j//.key
-                def pyversion = k//.key
-                def arch = l//.key
+                String platform = j//.key
+                String pyversion = k//.key
+                String arch = l//.key
                 if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                     continue
                 }
@@ -837,8 +838,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
 
                                         dir("couchbase-python-client") {
+                                            //installClient(platform,arch,String("${WORKSPACE}"),String("${dist_dir})"))
                                             batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated install")
+                                            batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated")
+                                            batWithEcho("pip install .")
                                             batWithEcho("pip install wheel")
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                             batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -868,6 +871,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+                                            shWithEcho("pip install .")
                                             shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                         }
                                     }
