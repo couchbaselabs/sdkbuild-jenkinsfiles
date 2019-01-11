@@ -69,19 +69,18 @@ pipeline {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "couchbase-net-client-windows-2012"
                 installSDK("windows-2012", DOTNET_SDK_VERSION)
-                dir("couchbase-net-client") {
-                    script {
-                        // don't use suffix for release builds
-                        def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
 
-                        // pack with SNK
-                        withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-                        }
+                script {
+                    // don't use suffix for release builds
+                    def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
+
+                    // pack with SNK
+                    withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
-                    archiveArtifacts artifacts: "**\\*.nupkg", fingerprint: true
-                    stash includes: "**\\*.nupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
                 }
+                archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg", fingerprint: true
+                stash includes: "couchbase-net-client\\**\\*.nupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
             }
         }
         stage("approval") {
@@ -127,22 +126,14 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform] = {
             node(platform) {
                 stage("build ${platform}") {
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "couchbase-net-client"
+                    installSDK(platform, DOTNET_SDK_VERSION)
+
                     if (platform.contains("windows")) {
-                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                        unstash "couchbase-net-client"
-                        installSDK(platform, DOTNET_SDK_VERSION)
-                        dir("couchbase-net-client") {
-                            // TODO: set version suffix and build with SNK
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln")
-                        }
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
                     } else {
-                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                        unstash "couchbase-net-client"
-                        installSDK(platform, DOTNET_SDK_VERSION)
-                        dir("couchbase-net-client") {
-                            // TODO: set version suffix and build with SNK
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/couchbase-net-client.sln")
-                        }
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
                     }
 
                     stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
@@ -162,23 +153,17 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform] = {
             node(platform) {
                 stage("unit-test ${platform}") {
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "couchbase-net-client-${platform}"
+                    installSDK(platform, DOTNET_SDK_VERSION)
+
                     if (platform.contains("windows")) {
-                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                        unstash "couchbase-net-client-${platform}"
-                        installSDK(platform, DOTNET_SDK_VERSION)
-                        dir("couchbase-net-client") {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        }
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                        //batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                     } else {
-                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                        unstash "couchbase-net-client-${platform}"
-                        installSDK(platform, DOTNET_SDK_VERSION)
-                        dir("couchbase-net-client") {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        }
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                        //shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                     }
 
                     // converts test results into JUnit format, requires MSTest Jenkins plugin
