@@ -23,7 +23,7 @@ pipeline {
         stage("prepare and validate") {
             agent { label "centos6||centos7||ubuntu16||ubuntu14" }
             steps {
-                cleanWs()
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 dir("couchbase-net-client") {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
                 }
@@ -66,6 +66,7 @@ pipeline {
                 }
             }
             steps {
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "couchbase-net-client-windows-2012"
                 installSDK("windows-2012", DOTNET_SDK_VERSION)
                 dir("couchbase-net-client") {
@@ -127,6 +128,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
             node(platform) {
                 stage("build ${platform}") {
                     if (platform.contains("windows")) {
+                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                         unstash "couchbase-net-client"
                         installSDK(platform, DOTNET_SDK_VERSION)
                         dir("couchbase-net-client") {
@@ -134,7 +136,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
                             batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\couchbase-net-client.sln")
                         }
                     } else {
-                        cleanWs()
+                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                         unstash "couchbase-net-client"
                         installSDK(platform, DOTNET_SDK_VERSION)
                         dir("couchbase-net-client") {
@@ -161,6 +163,7 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
             node(platform) {
                 stage("unit-test ${platform}") {
                     if (platform.contains("windows")) {
+                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                         unstash "couchbase-net-client-${platform}"
                         installSDK(platform, DOTNET_SDK_VERSION)
                         dir("couchbase-net-client") {
@@ -169,7 +172,7 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
                             //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                         }
                     } else {
-                        cleanWs()
+                        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                         unstash "couchbase-net-client-${platform}"
                         installSDK(platform, DOTNET_SDK_VERSION)
                         dir("couchbase-net-client") {
