@@ -1,0 +1,169 @@
+def PLATFORMS = [
+    "windows-2012",
+    "ubuntu16",
+    "centos7"
+]
+def DOTNET_SDK_VERSION = "2.1.403"
+def SUFFIX = "r${BUILD_NUMBER}"
+
+pipeline {
+    agent none
+    stages {
+        stage("prepare and validate") {
+            agent { label "centos6||centos7||ubuntu16||ubuntu14" }
+            steps {
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                dir("multi-cluster-dotnet") {
+                    //checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
+                    checkout([$class: 'GitSCM', userRemoteConfigs: [[url: 'git@github.com:couchbase/multi-cluster-dotnet.git', poll: false]]])
+                }
+
+                // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
+                // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
+
+                stash includes: "multi-cluster-dotnet/", name: "multi-cluster-dotnet", useDefaultExcludes: false
+            }
+        }
+        stage("build") {
+            agent { label "master" }
+            steps {
+                doBuilds(PLATFORMS, DOTNET_SDK_VERSION)
+            }
+        }
+        stage("unit-test") {
+            agent { label "master" }
+            steps {
+                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
+            }
+        }
+        stage("package") {
+            agent { label "windows-2012" }
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            steps {
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                unstash "multi-cluster-dotnet-2012"
+                installSDK("windows-2012", DOTNET_SDK_VERSION)
+
+                script {
+                    // don't use suffix for release builds
+                    def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
+
+                    // pack with SNK
+                    withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack multi-cluster-dotnet\\Src\\Couchbase.MultiCluster\\Couchbase.MultiCluster.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                    }
+                }
+                archiveArtifacts artifacts: "multi-cluster-dotnet\\**\\*.nupkg", fingerprint: true
+                stash includes: "multi-cluster-dotnet\\**\\*.nupkg", name: "multi-cluster-dotnet-package", useDefaultExcludes: false
+            }
+        }
+        stage("approval") {
+            agent none
+            when {
+                expression {
+                    return IS_RELEASE.toBoolean() == true
+                }
+            }
+            steps {
+                input "Publish MultiCluster .NET to Nuget?"
+            }
+        }
+        stage("publish") {
+            agent { label "windows-2012" }
+            when {
+                expression {
+                    return IS_RELEASE.toBoolean() == true
+                }
+            }
+            steps {
+                unstash "multi-cluster-dotnet-package"
+                echo "Publishing to nuget!"
+                // TODO: PUBLISH!
+            }
+        }
+    }
+}
+
+void shWithEcho(String command) {
+    echo "[$STAGE_NAME]"+ sh (script: command, returnStdout: true)
+}
+
+void batWithEcho(String command) {
+    echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
+}
+
+def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform] = {
+            node(platform) {
+                stage("build ${platform}") {
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "multi-cluster-dotnet"
+                    installSDK(platform, DOTNET_SDK_VERSION)
+
+                    if (platform.contains("windows")) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build multi-cluster-dotnet\\multi-cluster-dotnet.sln")
+                    } else {
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build multi-cluster-dotnet/multi-cluster-dotnet.sln")
+                    }
+
+                    stash includes: "multi-cluster-dotnet/", name: "multi-cluster-dotnet-${platform}", useDefaultExcludes: false
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform] = {
+            node(platform) {
+                stage("unit-test ${platform}") {
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "multi-cluster-dotnet-${platform}"
+                    installSDK(platform, DOTNET_SDK_VERSION)
+
+                    if (platform.contains("windows")) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test multi-cluster-dotnet\\test\\Couchbase.MultiCluster.Tests\\Couchbase.MultiCluster.Tests.csproj --no-build")
+                    } else {
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test multi-cluster-dotnet/test/Couchbase.MultiCluster.Tests/Couchbase.MultiCluster.Tests.csproj --no-build")
+                    }
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
+    def install = false
+
+    if (!fileExists("deps")) {
+        install = true
+    } else {
+        dir("deps") {
+            install = !fileExists("dotnet-core-sdk-${DOTNET_SDK_VERSION}")
+        }
+    }
+
+    if (install) {
+        if (PLATFORM.contains("windows")) {
+            batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+        } else {
+            shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+        }
+    }
+}
