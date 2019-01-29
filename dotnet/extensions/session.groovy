@@ -4,7 +4,7 @@ def PLATFORMS = [
     "centos7"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
-def SUFFIX = "r${BUILD_NUMBER}"
+def SUFFIX = "ci-${BUILD_NUMBER}"
 
 pipeline {
     agent none
@@ -43,11 +43,14 @@ pipeline {
                 installSDK("windows-2012", DOTNET_SDK_VERSION)
 
                 script {
-                    // don't use suffix for release builds
-                    def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
+                    // get package version and apply suffix if not release build
+                    def version = env.VERSION
+                    if (env.IS_RELEASE.toBoolean() == false) {
+                        version = "${version}-${SUFFIX}"
+                    }
 
                     // pack in Release mode (no SNK because some dependencies are not signed)
-                    batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Couchbase.Extensions\\src\\Couchbase.Extensions.Session\\Couchbase.Extensions.Session.csproj -c Release /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                    batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack Couchbase.Extensions\\src\\Couchbase.Extensions.Session\\Couchbase.Extensions.Session.csproj -c Release /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                 }
                 archiveArtifacts artifacts: "Couchbase.Extensions\\**\\*.nupkg", fingerprint: true
                 stash includes: "Couchbase.Extensions\\**\\*.nupkg", name: "Couchbase.Extensions.Session-package", useDefaultExcludes: false
