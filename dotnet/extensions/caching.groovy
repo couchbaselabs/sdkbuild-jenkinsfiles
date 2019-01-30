@@ -35,6 +35,12 @@ pipeline {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
+        stage("combination-test") {
+            agent { label 'sdk-integration-test-linux' }
+            steps {
+                doCombinationTests("5.5.0", DOTNET_SDK_VERSION)
+            }
+        }
         stage("package") {
             agent { label "windows-2012" }
             steps {
@@ -106,9 +112,11 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
                     if (platform.contains("windows")) {
                         batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Couchbase.Extensions\\src\\Couchbase.Extensions.Caching\\Couchbase.Extensions.Caching.csproj")
                         batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Couchbase.Extensions\\tests\\Couchbase.Extensions.Caching.UnitTests\\Couchbase.Extensions.Caching.UnitTests.csproj")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Couchbase.Extensions\\tests\\Couchbase.Extensions.Caching.IntegrationTests\\Couchbase.Extensions.Caching.IntegrationTests.csproj")
                     } else {
                         shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Couchbase.Extensions/src/Couchbase.Extensions.Caching/Couchbase.Extensions.Caching.csproj")
                         shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Couchbase.Extensions/tests/Couchbase.Extensions.Caching.UnitTests/Couchbase.Extensions.Caching.UnitTests.csproj")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Couchbase.Extensions/tests/Couchbase.Extensions.Caching.IntegrationTests/Couchbase.Extensions.Caching.IntegrationTests.csproj")
                     }
 
                     stash includes: "Couchbase.Extensions/", name: "Couchbase.Extensions.Caching-${platform}", useDefaultExcludes: false
@@ -143,6 +151,43 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
     }
 
     parallel pairs
+}
+
+def doCombinationTests(SERVER_VERSION, DOTNET_SDK_VERSION) {
+    def platform = "ubuntu16"
+    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+    unstash "Couchbase.Extensions.Caching-${platform}"
+    installSDK(platform, DOTNET_SDK_VERSION)
+
+    // configure using cbdyncluster
+    def clusterId = null
+    try {
+        // Allocate the cluster (1 KV node)
+        clusterId = sh(script: "cbdyncluster allocate --num-nodes=1 --server-version=" + SERVER_VERSION, returnStdout: true)
+        echo "Got cluster ID $clusterId"
+
+        // Find the cluster IP
+        def ips = sh(script: "cbdyncluster ips $clusterId", returnStdout: true).trim()
+        echo "Got raw cluster IPs " + ips
+        def ip = ips.tokenize(',')[0]
+        echo "Got cluster IP http://" + ip + ":8091"
+
+        // Create the cluster
+        shWithEcho("cbdyncluster --node kv --bucket default setup $clusterId")
+
+        // replace hostname in config.json
+        shWithEcho("sed -i -e 's/hostname.*/hostname\": \"test\",/' tests/Couchbase.Extensions.Caching.IntegrationTests/config.json")
+
+        // run integration tests
+        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Couchbase.Extensions/tests/Couchbase.Extensions.Caching.IntegrationTests/Couchbase.Extensions.Caching.IntegrationTests.csproj --no-build")
+    }
+    finally {
+        if (clusterId != null) {
+            // Easy to run out of resources during iterating, so cleanup even
+            // though cluster will be auto-removed after a time
+            sh(script: "cbdyncluster rm $clusterId")
+        }
+    }
 }
 
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
