@@ -1,15 +1,15 @@
 def PLATFORMS = [
     "windows-2012",
-  //  "ubuntu16",
-    // "centos7",
-  //  "macos"
+    "ubuntu16",
+    "centos7"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
+def SUFFIX = "ci-${BUILD_NUMBER}"
 
 pipeline {
     agent none
     stages {
-        stage('job valid?') {
+        stage("job valid?") {
             when {
                 expression {
                     return _INTERNAL_OK_.toBoolean() != true
@@ -19,103 +19,79 @@ pipeline {
                 error("Exiting early as not valid run")
             }
         }
-        stage('prepare and validate') {
-            agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
+        stage("prepare and validate") {
+            agent { label "centos6||centos7||ubuntu16||ubuntu14" }
             steps {
-                cleanWs()
-                dir('linq2couchbase') {
-                    //checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
-                
-                    checkout([$class: 'GitSCM', userRemoteConfigs: [[url: 'git@github.com:couchbaselabs/Linq2Couchbase.git', poll: false]]])
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                dir("linq2couchbase") {
+                    checkout([$class: "GitSCM", userRemoteConfigs: [[url: "git@github.com:couchbaselabs/Linq2Couchbase.git", poll: false]]])
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
 
-                stash includes: 'linq2couchbase/', name: 'linq2couchbase', useDefaultExcludes: false
+                stash includes: "linq2couchbase/", name: "linq2couchbase", useDefaultExcludes: false
             }
         }
-        stage('build-and-test') {
-            agent { label 'master' }
+        stage("build") {
+            agent { label "master" }
             steps {
-                cleanWs()
-                buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION)
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                doBuild(PLATFORMS, DOTNET_SDK_VERSION)
             }
         }
-        stage('package') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
+        stage("unit-test") {
+            agent { label "master" }
             steps {
-                cleanWs()
-                unstash "linq2couchbase-build"
-                stash includes: 'linq2couchbase/', name: "linq2couchbase-package", useDefaultExcludes: false
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
             }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'linq2couchbase/', fingerprint: true
+        }
+        stage("package") {
+            agent { label "windows-2012" }
+            steps {
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                unstash "linq2couchbase-windows-2012"
+                installSDK("windows-2012", DOTNET_SDK_VERSION)
+
+                script {
+                    // get package version and apply suffix if not release build
+                    def version = env.VERSION
+                    if (env.IS_RELEASE.toBoolean() == false) {
+                        version = "${version}-${SUFFIX}"
+                    }
+
+                    // pack in Release mode (no SNK because some dependencies are not signed)
+                    batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack linq2couchbase\\Src\\Couchbase.Linq\\Couchbase.Linq.csproj -c Release /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                 }
+                archiveArtifacts artifacts: "linq2couchbase\\**\\*.nupkg", fingerprint: true
+                stash includes: "linq2couchbase\\**\\*.nupkg", name: "linq2couchbase-package", useDefaultExcludes: false
             }
         }
-        stage('test-integration-server') {
-            agent { label 'master' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-                // build job: "linq2couchbase-test-integration", parameters: [
-                // ]
-            }
-        }
-        stage('quality') {
-            agent { label 'master' }
-            when {
-                expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-            }
-        }
-        stage('snapshot') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
-            when {
-                expression
-                    {  return IS_RELEASE.toBoolean() == false && IS_GERRIT_TRIGGER.toBoolean() == false }
-            }
-            steps {
-                cleanWs()
-                // TODO: Upload build artefacts to snapshot server here
-            }
-        }
-        stage('approval') {
+        stage("approval") {
             agent none
             when {
                 expression
                     {  return IS_RELEASE.toBoolean() == true }
             }
             steps {
-                input 'Publish?'
+                input "Publish?"
             }
         }
-        stage('publish') {
-            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+        stage("publish") {
+            agent { label "ubuntu14||ubuntu16||centos6||centos7" }
             when {
                 expression
                     {  return IS_RELEASE.toBoolean() == true }
             }
             steps {
-                cleanWs()
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "linq2couchbase-package"
                 // TODO: PUBLISH!
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'linq2couchbase/', fingerprint: true
+                    archiveArtifacts artifacts: "linq2couchbase/", fingerprint: true
                 }
             }
         }
@@ -130,7 +106,7 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
+def doBuild(PLATFORMS, DOTNET_SDK_VERSION) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -138,55 +114,77 @@ def buildsAndTests(PLATFORMS, DOTNET_SDK_VERSION) {
         pairs[platform]= {
             node(platform) {
                 stage("build ${platform}") {
-                    cleanWs()
-                    unstash 'linq2couchbase'
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "linq2couchbase"
+                    installSDK(platform, DOTNET_SDK_VERSION)
 
                     if (platform.contains("windows")) {
-                        batWithEcho('SET')
-                        batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-
-                        dir("linq2couchbase") {
-                            // TODO: set version suffix
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.Linq\\Couchbase.Linq.csproj -c Release")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release")
-                        }
-                        stash includes: 'linq2couchbase/', name: "linq2couchbase-build", useDefaultExcludes: false
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build linq2couchbase\\Src\\Couchbase.Linq\\Couchbase.Linq.csproj")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build linq2couchbase\\Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj")
+                        stash includes: "linq2couchbase/", name: "linq2couchbase-build", useDefaultExcludes: false
                     } else {
-                        shWithEcho('env')
-                        shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
-
-                        dir("linq2couchbase") {
-                            // TODO: set version suffix
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.Linq/Couchbase.Linq.csproj -c Release")
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -c Release")
-                        }
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq/Couchbase.Linq.csproj -f netstandard1.5")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -f netcoreapp1.1")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -f netcoreapp2.0")
                     }
-                }
-                stage("test ${platform}") {
-                    dir("linq2couchbase") {
-                        if (platform.contains("windows")) {
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f net46 --no-build")
-                            batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
 
-                            // BUG: vstest process hangs
-                            //batWithEcho("..\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test Src\\Couchbase.Linq.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
-                        } else {
-                            shWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src/Couchbase.Linq.UnitTests/Couchbase.UnitTests.csproj -c Release -f netcoreapp2.0 --no-build")
-
-                            // BUG: vstest process hangs
-                            //batWithEcho("../deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -c Release -f netcoreapp1.1 --no-build")
-                        }
-
-                        // converts test results into JUnit format, requires MSTest Jenkins plugin
-                        // step([$class: 'MSTestPublisher', testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
-
-                        // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-                        // USING THE PACKAGE(S) CREATED ABOVE
-                    }
+                    stash includes: "linq2couchbase/", name: "linq2couchbase-${platform}", useDefaultExcludes: false
                 }
             }
         }
     }
 
     parallel pairs
+}
+
+def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
+    def pairs = [:]
+    for (j in PLATFORMS) {
+        def platform = j
+
+        pairs[platform]= {
+            node(platform) {
+                stage("test ${platform}") {
+                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                    unstash "linq2couchbase-${platform}"
+                    installSDK(platform, DOTNET_SDK_VERSION)
+
+                    if (platform.contains("windows")) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test linq2couchbase\\Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -f net46 --no-build")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test linq2couchbase\\Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                    } else {
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test linq2couchbase/Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                    }
+
+                    // converts test results into JUnit format, requires MSTest Jenkins plugin
+                    // step([$class: "MSTestPublisher", testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
+
+                    // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
+                    // USING THE PACKAGE(S) CREATED ABOVE
+                }
+            }
+        }
+    }
+
+    parallel pairs
+}
+
+def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
+    def install = false
+
+    if (!fileExists("deps")) {
+        install = true
+    } else {
+        dir("deps") {
+            install = !fileExists("dotnet-core-sdk-${DOTNET_SDK_VERSION}")
+        }
+    }
+
+    if (install) {
+        if (PLATFORM.contains("windows")) {
+            batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+        } else {
+            shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+        }
+    }
 }
