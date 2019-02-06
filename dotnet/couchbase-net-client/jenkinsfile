@@ -71,12 +71,15 @@ pipeline {
                 installSDK("windows-2012", DOTNET_SDK_VERSION)
 
                 script {
-                    // don't use suffix for release builds
-                    def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
+                    // get package version and apply suffix if not release build
+                    def version = env.VERSION
+                    if (env.IS_RELEASE.toBoolean() == false) {
+                        version = "${version}-${SUFFIX}"
+                    }
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
                 }
                 archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg", fingerprint: true
