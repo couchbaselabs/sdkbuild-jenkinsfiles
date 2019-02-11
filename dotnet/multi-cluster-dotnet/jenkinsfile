@@ -59,30 +59,6 @@ pipeline {
                 stash includes: "multi-cluster-dotnet\\**\\*.nupkg", name: "multi-cluster-dotnet-package", useDefaultExcludes: false
             }
         }
-        stage("approval") {
-            agent none
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                input "Publish MultiCluster .NET to Nuget?"
-            }
-        }
-        stage("publish") {
-            agent { label "windows-2012" }
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                unstash "multi-cluster-dotnet-package"
-                echo "Publishing to nuget!"
-                // TODO: PUBLISH!
-            }
-        }
     }
 }
 
