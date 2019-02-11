@@ -53,6 +53,7 @@ pipeline {
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
                         batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack multi-cluster-dotnet\\Src\\Couchbase.MultiCluster\\Couchbase.MultiCluster.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack multi-cluster-dotnet\\Src\\Couchbase.MultiCluster.WebApiConfiguration\\Couchbase.MultiCluster.WebApiConfiguration.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
                 }
                 archiveArtifacts artifacts: "multi-cluster-dotnet\\**\\*.nupkg", fingerprint: true
