@@ -4,7 +4,7 @@ def PLATFORMS = [
     "centos7"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
-def SUFFIX = "r${BUILD_NUMBER}"
+def SUFFIX = "ci-${BUILD_NUMBER}"
 
 pipeline {
     agent none
@@ -38,23 +38,21 @@ pipeline {
         }
         stage("package") {
             agent { label "windows-2012" }
-            when {
-                expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
-                }
-            }
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                unstash "multi-cluster-dotnet-2012"
+                unstash "multi-cluster-dotnet-windows-2012"
                 installSDK("windows-2012", DOTNET_SDK_VERSION)
 
                 script {
-                    // don't use suffix for release builds
-                    def versionSuffix = env.IS_RELEASE.toBoolean() ? "" : SUFFIX
+                    // get package version and apply suffix if not release build
+                    def version = env.VERSION
+                    if (env.IS_RELEASE.toBoolean() == false) {
+                        version = "${version}-${SUFFIX}"
+                    }
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack multi-cluster-dotnet\\Src\\Couchbase.MultiCluster\\Couchbase.MultiCluster.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:VersionSuffix=${versionSuffix} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack multi-cluster-dotnet\\Src\\Couchbase.MultiCluster\\Couchbase.MultiCluster.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
                 }
                 archiveArtifacts artifacts: "multi-cluster-dotnet\\**\\*.nupkg", fingerprint: true
