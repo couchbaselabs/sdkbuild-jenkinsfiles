@@ -153,16 +153,15 @@ def buildsAndTests(PLATFORMS) {
                     stage("build-${platform}") {
                         cleanWs()
                         unstash 'couchbase-jvm-core'
+                        installJDK(platform, JAVA_VERSION)
 
                         if (platform == "windows") {
-                            batWithEcho("cbdep install -d deps java ${JAVA_VERSION}")
                             dir('couchbase-jvm-core') {
                                 batWithEcho("mvn -version")
                                 batWithEcho("java -version")
                                 batWithEcho("mvn package -Dmaven.test.skip")
                             }
                         } else {
-                            shWithEcho("cbdep install -d deps java ${JAVA_VERSION}")
                             dir('couchbase-jvm-core') {
                                 shWithEcho("mvn -version")
                                 shWithEcho("java -version")
@@ -190,4 +189,28 @@ def buildsAndTests(PLATFORMS) {
     }
 
     parallel tests
+}
+
+def installJDK(PLATFORM, JAVA_VERSION) {
+    def install = false
+
+    if (!fileExists("deps")) {
+        install = true
+    } else {
+        dir("deps") {
+            install = !fileExists("jdk1.8.0_")
+        }
+    }
+
+    if (install) {
+        if (PLATFORM.contains("windows")) {
+            // manually create java deps folder due to bug in cbdep
+            batWithEcho("mkdir deps\\jdk1.8.0_")
+            batWithEcho("cbdep install -d deps java ${JAVA_VERSION}")
+        } else {
+            // manually  create java deps folder due to bug in cbdep
+            shWithEcho("mkdir deps/jdk1.8.0_")
+            shWithEcho("cbdep install -d deps java ${JAVA_VERSION}")
+        }
+    }
 }
