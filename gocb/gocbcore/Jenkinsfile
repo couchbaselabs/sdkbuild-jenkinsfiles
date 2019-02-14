@@ -1,4 +1,4 @@
-def PLATFORMS = [ "ubuntu16", "macos", "windows" ]
+def PLATFORMS = [ "windows" ]
 
 pipeline {
     agent none
@@ -186,25 +186,22 @@ def builds(PLATFORMS) {
                     stage("build ${platform}") {
                         cleanWs()
                         unstash 'gocbcore'
-    
+                        installGolang(platform, GO_VERSION)
+
                         if (platform == "windows") {
-                            batWithEcho("SET")
-                            batWithEcho("cbdep install -d deps golang ${GO_VERSION}")
-                            
                             dir("src/github.com/couchbase/gocbcore") {
                                 batWithEcho("go version")
                                 batWithEcho("go get -t ./")
                                 batWithEcho("go build")
                             }
                         } else {
-                            shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
                             dir("src/github.com/couchbase/gocbcore") {
                                 shWithEcho("go version")
                                 shWithEcho("go get -t ./")
                                 shWithEcho("go build")
                             }
                         }
-    
+
                         stash includes: 'src/github.com/couchbase/gocbcore/', name: "gocbcore-build-${platform}", useDefaultExcludes: false
                         //archiveArtifacts artifacts: 'src/github.com/couchbase/gocb/', fingerprint: true, defaultExcludes: false
                     }
@@ -214,4 +211,28 @@ def builds(PLATFORMS) {
     }
 
     parallel builds
+}
+
+def installGolang(PLATFORM, GO_VERSION) {
+    def install = false
+
+    if (!fileExists("deps")) {
+        install = true
+    } else {
+        dir("deps") {
+            install = !fileExists("go${GO_VERSION}")
+        }
+    }
+
+    if (install) {
+        if (PLATFORM.contains("windows")) {
+            // manually create deps folder due to bug in cbdep
+            batWithEcho("mkdir deps\\go${GO_VERSION}")
+            batWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+        } else {
+            // manually create deps folder due to bug in cbdep
+            shWithEcho("mkdir deps/go${GO_VERSION}")
+            shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
+        }
+    }
 }
