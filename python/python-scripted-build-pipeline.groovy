@@ -17,7 +17,7 @@ def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY
 def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 def WIN_PY_DEFAULT_VERSION = "3.7.0"
-
+def BUILD_LCB = "False"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -811,7 +811,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        if ("${BUILD_LCB}")
+                                        if ("${BUILD_LCB} =="True")
                                         {
                                             batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                                             dir("libcouchbase") {
@@ -858,7 +858,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                                         shWithEcho("python --version")
                                         shWithEcho("pip --version")
-                                        if ("${BUILD_LCB}")
+                                        if ("${BUILD_LCB}"=="True")
                                         {
 
                                             shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
