@@ -677,7 +677,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
                 cmdWithEcho(platform,"pip install cmake",true)
-                buildLibCouchbase(platform, arch)
+                //buildLibCouchbase(platform, arch)
                 //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                 shWithEcho("pip install .")
                 if (dist_dir)
@@ -811,32 +811,34 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
-                                        dir("libcouchbase") {
-                                            batWithEcho("git checkout ${LCB_VERSION}")
-                                        }
-                                        cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
-                                        
-                                        dir("build") {
-                                            if (IS_RELEASE == "true") {
-                                                batWithEcho("""
-                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                    cmake --build .
-                                                """)
-                                            } else {
-                                                // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
-                                                batWithEcho("""
-                                                    cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                    cmake --build .
-                                                """)
+                                        if ("${BUILD_LCB}")
+                                        {
+                                            batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
+                                            dir("libcouchbase") {
+                                                batWithEcho("git checkout ${LCB_VERSION}")
                                             }
-                                            batWithEcho("""
-                                                cmake --build . --target alltests
-                                                ctest -C debug
-                                            """)
-                                            batWithEcho("cmake --build . --target package")
-                                        }
+                                            cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
 
+                                            dir("build") {
+                                                if (IS_RELEASE == "true") {
+                                                    batWithEcho("""
+                                                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                        cmake --build .
+                                                    """)
+                                                } else {
+                                                    // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
+                                                    batWithEcho("""
+                                                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                        cmake --build .
+                                                    """)
+                                                }
+                                                batWithEcho("""
+                                                    cmake --build . --target alltests
+                                                    ctest -C debug
+                                                """)
+                                                batWithEcho("cmake --build . --target package")
+                                            }
+                                        }
                                         dir("couchbase-python-client") {
                                             //installClient(platform,arch,String("${WORKSPACE}"),String("${dist_dir})"))
                                             batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
@@ -856,20 +858,22 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                                         shWithEcho("python --version")
                                         shWithEcho("pip --version")
+                                        if ("${BUILD_LCB}")
+                                        {
 
-                                        shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                        dir("libcouchbase") {
-                                            shWithEcho("git checkout ${LCB_VERSION}")
-                                            dir("build") {
-                                                if (IS_RELEASE == "true") {
-                                                    shWithEcho("cmake ../")
-                                                } else {
-                                                    shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                            shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
+                                            dir("libcouchbase") {
+                                                shWithEcho("git checkout ${LCB_VERSION}")
+                                                dir("build") {
+                                                    if (IS_RELEASE == "true") {
+                                                        shWithEcho("cmake ../")
+                                                    } else {
+                                                        shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                                    }
+                                                    shWithEcho("make")
                                                 }
-                                                shWithEcho("make")
                                             }
                                         }
-
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
@@ -881,7 +885,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     }
 
                                     stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                    stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                 }
                             }
