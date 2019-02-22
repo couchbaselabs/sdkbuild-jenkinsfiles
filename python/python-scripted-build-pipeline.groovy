@@ -811,7 +811,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         batWithEcho("python --version")
                                         batWithEcho("pip --version")
 
-                                        if ("${BUILD_LCB}" =="True")
+                                        if (BUILD_LCB =="True")
                                         {
                                             batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                                             dir("libcouchbase") {
@@ -858,7 +858,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                                         shWithEcho("python --version")
                                         shWithEcho("pip --version")
-                                        if ("${BUILD_LCB}"=="True")
+                                        if (BUILD_LCB=="True")
                                         {
 
                                             shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
