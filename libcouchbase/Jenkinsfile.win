@@ -159,8 +159,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc11.zip', archive: false, dir: 'ws_win64_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc11.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win64_vc11.zip', archive: true, dir: 'ws_win64_vc11')
                                 }
                             }
                             steps {
@@ -221,8 +220,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win32_vc11.zip', archive: false, dir: 'ws_win32_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc11.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win32_vc11.zip', archive: true, dir: 'ws_win32_vc11')
                                 }
                             }
                             steps {
@@ -283,8 +281,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: true, dir: 'ws_win64_vc14')
                                 }
                             }
                             steps {
@@ -345,8 +342,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: true, dir: 'ws_win32_vc14')
                                 }
                             }
                             steps {
@@ -407,8 +403,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: true, dir: 'ws_win64_vc15')
                                 }
                             }
                             steps {
@@ -469,8 +464,7 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: true, dir: 'ws_win32_vc15')
                                 }
                             }
                             steps {
