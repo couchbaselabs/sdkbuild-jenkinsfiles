@@ -166,7 +166,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc11/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
@@ -228,7 +228,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc11/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
@@ -290,7 +290,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
@@ -352,7 +352,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
@@ -414,7 +414,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
@@ -476,7 +476,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug')
+                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
                                 }
                             }
                         }
