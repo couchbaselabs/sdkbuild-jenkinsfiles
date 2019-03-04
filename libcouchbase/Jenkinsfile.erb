@@ -266,7 +266,8 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: true, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
                                 }
                             }
                             steps {
