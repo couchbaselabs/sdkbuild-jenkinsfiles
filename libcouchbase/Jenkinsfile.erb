@@ -273,7 +273,7 @@ pipeline {
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
