@@ -1,11 +1,12 @@
 def PLATFORMS = [
-    "windows-2012",
+    "windows",
     "ubuntu16",
     "centos7"
 ]
-def DOTNET_SDK_VERSION = "2.1.403"
+def DOTNET_SDK_VERSION = "2.2.104"
 def CB_VERSIONS = ["5.5.2", "6.0.0"]
 def SUFFIX = "r${BUILD_NUMBER}"
+def BRANCH = ""
 
 pipeline {
     agent none
@@ -28,6 +29,11 @@ pipeline {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
                 }
 
+                script {
+                    BRANCH = env.GERRIT_BRANCH
+                    echo "Branch: ${BRANCH}"
+                }
+
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
 
@@ -37,13 +43,13 @@ pipeline {
         stage("build") {
             agent { label "master" }
             steps {
-                doBuilds(PLATFORMS, DOTNET_SDK_VERSION)
+                doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
             }
         }
         stage("unit-test") {
             agent { label "master" }
             steps {
-                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION)
+                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
             }
         }
         // stage("mock-test") {
@@ -121,7 +127,7 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
+def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -133,10 +139,20 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
                     unstash "couchbase-net-client"
                     installSDK(platform, DOTNET_SDK_VERSION)
 
-                    if (platform.contains("windows")) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
+                    if (BRANCH == "master") {
+                        if (platform.contains("windows")) {
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
+                        } else {
+                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
+                        }
+                    } else if (BRANCH == "release27") {
+                        if (platform.contains("windows")) {
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
+                        } else {
+                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
+                        }
                     } else {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
+                        echo "Unknown gerrit branch ${BRANCH}"
                     }
 
                     stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
@@ -148,7 +164,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION) {
     parallel pairs
 }
 
-def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
+def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -160,13 +176,23 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION) {
                     unstash "couchbase-net-client-${platform}"
                     installSDK(platform, DOTNET_SDK_VERSION)
 
-                    if (platform.contains("windows")) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                        //batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                    if (BRANCH == "master") {
+                        if (platform.contains("windows")) {
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj --no-build")
+                        } else {
+                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj --no-build")
+                        }
+                    } else if (BRANCH == "release27") {
+                        if (platform.contains("windows")) {
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            //batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        } else {
+                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            //shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        }
                     } else {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                        //shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                        echo "Unknown gerrit branch ${BRANCH}"
                     }
 
                     // converts test results into JUnit format, requires MSTest Jenkins plugin
