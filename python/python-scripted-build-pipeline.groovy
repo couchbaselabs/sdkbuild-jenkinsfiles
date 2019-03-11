@@ -362,10 +362,10 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
 
 def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
-    PYCBC_DEBUG_LOG = "${PYCBC_DEBUG_LOG}" ?: ""
+    PYCBC_DEBUG_LOG_LEVEL = "${PYCBC_DEBUG_LOG_LEVEL}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
     
-    common_vars=["LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG=${PYCBC_DEBUG_LOG}","PYCBC_JENKINS_INVOCATION=TRUE","PYCBC_MIN_ANALYTICS=${PYCBC_MIN_ANALYTICS}","PYCBC_TEST_OLD_ANALYTICS=${PYCBC_TEST_OLD_ANALYTICS}"]
+    common_vars=["LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG_LEVEL=${PYCBC_DEBUG_LOG_LEVEL}","PYCBC_JENKINS_INVOCATION=TRUE","PYCBC_MIN_ANALYTICS=${PYCBC_MIN_ANALYTICS}","PYCBC_TEST_OLD_ANALYTICS=${PYCBC_TEST_OLD_ANALYTICS}"]
     if (platform.contains("windows")) { 
         //batWithEcho("md ${dist_dir}")
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
