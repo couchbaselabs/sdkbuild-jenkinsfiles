@@ -30,8 +30,8 @@ pipeline {
                 }
 
                 script {
-                    BRANCH = env.GERRIT_BRANCH
-                    echo "Branch: ${BRANCH}"
+                    BRANCH = "$SHA"
+                    echo "Branch: ${SHA}"
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
