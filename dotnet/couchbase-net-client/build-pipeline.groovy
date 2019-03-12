@@ -65,7 +65,7 @@ pipeline {
         //     }
         // }
         stage("package") {
-            agent { label "windows-2012" }
+            agent { label "windows" }
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -73,8 +73,8 @@ pipeline {
             }
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                unstash "couchbase-net-client-windows-2012"
-                installSDK("windows-2012", DOTNET_SDK_VERSION)
+                unstash "couchbase-net-client-windows"
+                installSDK("windows", DOTNET_SDK_VERSION)
 
                 script {
                     // get package version and apply suffix if not release build
@@ -104,7 +104,7 @@ pipeline {
             }
         }
         stage("publish") {
-            agent { label "windows-2012" }
+            agent { label "windows" }
             when {
                 expression {
                     return IS_RELEASE.toBoolean() == true
