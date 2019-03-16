@@ -896,7 +896,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                             withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
                                                 //shWithEcho("pip install .")
-                                                shWithEcho("python setup.py install")
+                                                //shWithEcho("python setup.py install")
                                                 shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                             }
                                         }
