@@ -888,10 +888,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
                                             if ("${PIP_INSTALL}"=="True"){  
-                                                batWithEcho("pip install .")
+                                                shWithEcho("pip install .")
                                             }
                                             else{
-                                                batWithEcho("python setup.py build_ext --inplace install")
+                                                shWithEcho("python setup.py build_ext --inplace install")
                                             }
                                             //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                             withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
