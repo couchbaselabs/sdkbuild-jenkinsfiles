@@ -18,6 +18,7 @@ def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
+def PIP_INSTALL="True"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -850,7 +851,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             }
                                             //batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated")
                                             withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
-                                                batWithEcho("pip install .")
+                                                if ("${PIP_INSTALL}"=="True"){  
+                                                    batWithEcho("pip install .")
+                                                }
+                                                else{
+                                                    batWithEcho("python setup.py build_ext --inplace install")
+                                                }
                                                 batWithEcho("pip install wheel")
                                             }
                                             batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
@@ -882,7 +888,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         }
                                         dir("couchbase-python-client") {
                                             shWithEcho("pip install cython")
-                                            shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+                                            if ("${PIP_INSTALL}"=="True"){  
+                                                batWithEcho("pip install .")
+                                            }
+                                            else{
+                                                batWithEcho("python setup.py build_ext --inplace install")
+                                            }
+                                            //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                             withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
                                                 //shWithEcho("pip install .")
                                                 shWithEcho("python setup.py install")
