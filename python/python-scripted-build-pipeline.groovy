@@ -945,7 +945,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             if (PYCBC_VALGRIND != "") {
                                                 shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
                                                 shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
-                                                shWithEcho("mkdir deps && mkdir deps/valgrind")
+                                                shWithEcho("mkdir deps/valgrind")
                                                 dir("valgrind-3.13.0") {
                                                     shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
                                                     shWithEcho("make && make install")
