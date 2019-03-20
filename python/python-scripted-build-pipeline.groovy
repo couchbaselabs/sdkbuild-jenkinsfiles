@@ -7,7 +7,6 @@ def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
-
 echo "Got platforms ${PLATFORMS}"
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
 echo "Got PY_ARCHES ${PY_ARCHES}"
@@ -487,6 +486,7 @@ EOF
                             valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${PYCBC_VALGRIND}" > build/valgrind.txt""")
                             //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
                             // TODO: NEED PUBLISH VALGRIND
+
                     }
 
                     if (PYCBC_DEBUG_SYMBOLS == "") {
@@ -981,7 +981,20 @@ EOF
                                                         mkdir -p \$VALGRIND_REPORT_DIR
                                                         valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${PYCBC_VALGRIND}" > build/valgrind.txt""")
                                                         //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
-                                                        // TODO: NEED PUBLISH VALGRIND
+                                                    publishValgrind (
+                                                            failBuildOnInvalidReports: false,
+                                                            failBuildOnMissingReports: false,
+                                                            failThresholdDefinitelyLost: '',
+                                                            failThresholdInvalidReadWrite: '',
+                                                            failThresholdTotal: '',
+                                                            pattern: '**/valgrind.xml',
+                                                            publishResultsForAbortedBuilds: false,
+                                                            publishResultsForFailedBuilds: false,
+                                                            sourceSubstitutionPaths: '',
+                                                            unstableThresholdDefinitelyLost: '',
+                                                            unstableThresholdInvalidReadWrite: '',
+                                                            unstableThresholdTotal: ''
+                                                    )
                                                 }
 
                                                 if (PYCBC_DEBUG_SYMBOLS == "") {
