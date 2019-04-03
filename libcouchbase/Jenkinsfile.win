@@ -7,6 +7,7 @@ class Version {
     int minor;
     int patch;
     int commitCount;
+    String prerelease;
     String commitSha1;
 
     Version(String gitVersion) {
@@ -16,15 +17,20 @@ class Version {
 
     @NonCPS
     void parse() {
-        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(\d+)-g([0-9a-f]+))?$/)
+        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(alpha.\d+))?(-(\d+)-g([0-9a-f]+))?$/)
         res.find()
         this.major = res.group(1) as Integer
         this.minor = res.group(2) as Integer
         this.patch = res.group(3) as Integer
         if (res.group(5)) {
-            this.commitCount = res.group(5) as Integer
+            this.prerelease = res.group(5)
         }
-        this.commitSha1 = res.group(6)
+        if (res.group(7)) {
+            this.commitCount = res.group(7) as Integer
+        }
+        if (res.group(8)) {
+            this.commitSha1 = res.group(8)
+        }
     }
 
     String version() {
@@ -32,7 +38,9 @@ class Version {
     }
 
     String tar() {
-        if (commitCount == null || commitCount == 0) {
+        if (prerelease != null && prerelease != "") {
+            return "${version()}_${prerelease}"
+        } else if (commitCount == null || commitCount == 0) {
             return version()
         }
         return gitVersion.replace("-", "_")
@@ -48,9 +56,10 @@ class Version {
 
     String rpmRel() {
         def rel = "1"
-        if (commitCount) {
+        if (prerelease) {
+            rel = "0.${prerelease}"
+        } else if (commitCount) {
             rel = "${commitCount + 1}.git${commitSha1}"
-
         }
         return rel
     }
@@ -65,7 +74,9 @@ class Version {
 
     String deb() {
         def ver = version()
-        if (commitCount) {
+        if (prerelease) {
+            ver += "+${prerelease}"
+        } else if (commitCount) {
             ver += "+r${commitCount}git${commitSha1}"
         }
         return ver
@@ -129,130 +140,6 @@ pipeline {
             parallel {
 
 
-
-                stage('win64 vc11') {
-                    agent { label 'msvc-2012' }
-                    stages {
-                        stage('w64v11') {
-                            steps {
-                                dir('ws_win64_vc11') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc11.zip', archive: false, dir: 'ws_win64_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc11/build') {
-                                    bat('cmake -G"Visual Studio 11 2012 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                                stash includes: 'ws_win64_vc11/', name: 'ws-vs2012-w64', useDefaultExcludes: false
-                            }
-                        }
-                        stage('test') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc11.zip', archive: false, dir: 'ws_win64_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc11/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc11.zip', archive: false, dir: 'ws_win64_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc11/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc11_amd64.zip", fingerprint: true)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('win32 vc11') {
-                    agent { label 'msvc-2012' }
-                    stages {
-                        stage('w32v11') {
-                            steps {
-                                dir('ws_win32_vc11') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc11.zip', archive: false, dir: 'ws_win32_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc11/build') {
-                                    bat('cmake -G"Visual Studio 11 2012" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                                stash includes: 'ws_win32_vc11/', name: 'ws-vs2012-w32', useDefaultExcludes: false
-                            }
-                        }
-                        stage('test') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc11.zip', archive: false, dir: 'ws_win32_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc11/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc11.zip', archive: false, dir: 'ws_win32_vc11')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc11.zip', fingerprint: false)
-                                }
-                            }
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc11/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc11_x86.zip", fingerprint: true)
-                                }
-                            }
-                        }
-                    }
-                }
 
                 stage('win64 vc14') {
                     agent { label 'msvc-2015' }
