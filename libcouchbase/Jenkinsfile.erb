@@ -100,10 +100,12 @@ class Version {
     }
 
     String tar() {
-        if (prerelease != null && prerelease != "") {
-            return "${version()}_${prerelease}"
-        } else if (commitCount == null || commitCount == 0) {
-            return version()
+        if (commitCount == null || commitCount == 0) {
+            if (prerelease != null && prerelease != "") {
+                return "${version()}_${prerelease}"
+            } else {
+                return version()
+            }
         }
         return gitVersion.replace("-", "_")
     }
