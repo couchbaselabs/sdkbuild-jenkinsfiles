@@ -1,0 +1,210 @@
+// vim: ft=groovy et ts=4 sw=4 sts=4 tw=300
+
+// def PLATFORMS = [ "ubuntu16", "windows" ]
+// def PHP_VERSIONS = [ "7.2.6", "7.1.18", "7.0.30", "5.6.36" ]
+// def ARCHES = [ "x86", "x64" ]
+
+def PLATFORMS = [ "ubuntu16" ]
+def PHP_VERSIONS = [ "7.1.28"]
+def ARCHES = [ "x64" ]
+
+pipeline {
+    agent none
+    stages {
+        stage('prepare and validate') {
+            agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
+            steps {
+                cleanWs()
+                dir('php-couchbase') {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+
+                    script {
+                        if (env.IS_RELEASE.toBoolean() == true) {
+                            echo "This is release, not updating metadata"
+                        } else {
+                            echo "This is not release, updating metadata"
+                        }
+                    }
+                }
+
+                stash includes: 'php-couchbase/', name: 'php-couchbase', useDefaultExcludes: false
+            }
+        }
+        stage('build') {
+            agent { label 'centos7' }
+            steps {
+                buildsAndTests(PLATFORMS, ARCHES, PHP_VERSIONS, IGBINARY_VER)
+            }
+        }
+        stage('package') {
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+            }
+            steps {
+                cleanWs()
+                unstash "php-couchbase-build-"+ PLATFORMS[0]
+                stash includes: 'php-couchbase/', name: "php-couchbase-package", useDefaultExcludes: false
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'php-couchbase/', fingerprint: true
+                }
+            }
+        }
+        stage('test-integration') {
+            agent { label 'master' }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+            }
+            steps {
+                cleanWs()
+                build job: "php-couchbase-test-integration", parameters: [
+                ]
+            }
+        }
+        stage('quality') {
+            agent { label 'master' }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+            }
+            steps {
+                cleanWs()
+            }
+        }
+        stage('snapshot') {
+            agent { label 'master' }
+            when {
+                expression
+                    {  return IS_GERRIT_TRIGGER.toBoolean() == false && IS_RELEASE.toBoolean() == true }
+            }
+            steps {
+                cleanWs()
+            }
+        }
+        stage('approval') {
+            agent none
+            when {
+                expression
+                    {  return IS_RELEASE.toBoolean() == true }
+            }
+            steps {
+                emailext body: 'Jenkins: approval required for gocbcore', subject: 'Jenkins: approval required for gocbcore', to: 'charles.dixon@couchbase.com'
+                input 'Publish?'
+            }
+        }
+        stage('publish') {
+            agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
+            when {
+                expression
+                    {  return IS_RELEASE.toBoolean() == true }
+            }
+            steps {
+                cleanWs()
+                unstash "php-couchbase-package"
+
+                dir("php-couchbase") {
+                    script {
+                        shWithEcho("git tag -am \"Release ${version}\" ${version}")
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'php-couchbase/', fingerprint: true
+                }
+            }
+        }
+    }
+}
+
+void shWithEcho(String command) {
+    echo sh (script: command, returnStdout: true)
+}
+
+void batWithEcho(String command) {
+    echo bat (script: command, returnStdout: true)
+}
+
+void installPHPUnit(String version) {
+
+}
+
+void installPHP(String version, String arch, String platform, String igVer) {
+    shWithEcho("echo \"Downloading PHP ${version} ${arch} ${platform}\"")
+}
+
+void installPHPDows(String version, String arch, String platform, String igVer) {
+    batWithEcho("echo \"Downloading PHP ${version} ${arch} ${platform}\"")
+}
+
+def buildsAndTests(PLATFORMS, ARCHES, PHP_VERSIONS, IG_VER) {
+    def builds = [:]
+    for (j in PLATFORMS) {
+        for (k in ARCHES) {
+            for (l in PHP_VERSIONS) {
+                def platform = j
+                def arch = k
+                def version = l
+
+                builds[platform + "-" + arch + "-" + version]= {
+                    node(platform) {
+                        def envStr = []
+                        withEnv(envStr) {
+                            stage("build ${platform}-${arch}-${version}") {
+                                cleanWs()
+                                unstash 'php-couchbase'
+
+                                if (platform == "windows") {
+                                    dir("deps") {
+                                        installPHPDows(version, arch, platform, IG_VER)
+                                    }
+                                    dir("php-couchbase") {
+                                        batWithEcho("php -version")
+                                        batWithEcho("phpize")
+                                        batWithEcho("./configure --with-couchbase")
+                                        batWithEcho("make")
+                                    }
+                                } else {
+                                    sh("find . -type f -name phpize")
+                                    dir("deps") {
+                                        println("Downloading PHP ${version}")
+                                        sh("cbdep install -d /tmp/php php ${version}-cb1")
+                                    }
+                                    dir("php-couchbase") {
+                                        sh("/tmp/php/php-${version}-zts-${arch}/bin/php --version")
+                                        sh("/tmp/php/php-${version}-zts-${arch}/bin/phpize --version")
+                                        sh("/tmp/php/php-${version}-zts-${arch}/bin/phpize")
+                                        sh("/tmp/php/php-${version}-zts-${arch}/bin/php-config || true")
+                                        sh("./configure --with-couchbase --with-php-config=/tmp/php/php-${version}-zts-${arch}/bin/php-config \$(/tmp/php/php-${version}-zts-${arch}/bin/php-config --configure-options)")
+                                        sh("make clean all")
+                                    }
+                                }
+
+                                stash includes: 'php-couchbase/', name: "php-couchbase-build-${platform}-${arch}-${version}", useDefaultExcludes: false
+                            }
+                            stage('test ${platform}-${arch}-${version}') {
+                                dir("php-couchbase") {
+                                    if (platform == "windows") {
+                                        dir("php-couchbase") {
+                                            batWithEcho("CB_MOCK=1 phpunit tests/")
+                                        }
+                                    } else {
+                                        dir("php-couchbase") {
+                                            shWithEcho("CB_MOCK=1 /tmp/php/php-${version}-zts-${arch}/bin/php -d extension=phar.so --d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-${version}-zts-${arch}/phpunit.phar tests/")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    parallel builds
+}
