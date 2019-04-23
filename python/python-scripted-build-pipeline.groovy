@@ -395,15 +395,29 @@ def getServiceIp(node_list, name)
 
 }
 
+def mkdir(GString test_full_path, platform) {
+    dir(test_full_path) {}
+    if (platform.contains("windows")) {
+        batWithEcho("""
+setlocal enableextensions
+md %1
+endlocal
+""")
+    } else {
+        shWithEcho("echo ${PWD} && mkdir -p ${test_full_path} && ls -alrt")
+    }
+}
+
 def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API) {
     sep = getSep(platform)
     test_rel_path = "${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
     nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
-    dir(test_full_path){}
+    mkdir(test_full_path, platform)
     [test_rel_path, nosetests_args, test_full_path]
 }
+
 
 def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, PYCBC_LCB_API=null)
 {
@@ -415,9 +429,10 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         // USING THE PACKAGE(S) CREATED ABOVE
         def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API)
         try {
+            mkdir(test_full_path,platform)
             if (platform.contains("windows")) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
-                    dir(${test_rel_path}){}
+                    dir("${test_rel_path}"){}
                     batWithEcho("md ${test_rel_path}")
                     batWithEcho('''
                         echo try: > "updateTests.py"
@@ -452,7 +467,8 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                 first_ip = node_list[0].ip
                 cbas_ip = getServiceIp(node_list,'cbas')
                 dir("${WORKSPACE}/couchbase-python-client") {
-                    shWithEcho("mkdir -p ${test_rel_path}")
+                    mkdir(test_full_path,platform)
+                    shWithEcho("echo $PWD && mkdir -p ${test_rel_path}")
                     shWithEcho("pip install configparser")
                     shWithEcho("""
                         cat > updateTests.py <<EOF
@@ -498,8 +514,8 @@ EOF
                             // TODO: NEED PUBLISH VALGRIND
 
                     }
+                    shWithEcho("echo $PWD && ls -alrt")
 
-                    dir(${test_rel_path}){}
                     if (PYCBC_DEBUG_SYMBOLS == "") {
                         shWithEcho("which nosetests")
                         shWithEcho("nosetests ${nosetests_args}")
@@ -515,6 +531,7 @@ EOF
                         echo "quit" >>"\$TMPCMDS"
                         gdb -batch -x "\$TMPCMDS" `which python`""")
                     }
+                    shWithEcho("echo $PWD && ls -alrt")
                 }
             }
         } catch (Exception e) {
@@ -926,9 +943,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                                         // USING THE PACKAGE(S) CREATED ABOVE
                                         try {
+                                            mkdir(test_full_path,platform)
                                             if (platform.contains("windows")) {
                                                 dir("couchbase-python-client") {
-                                                    dir(${test_rel_path}){}
                                                     batWithEcho('''
                                                         echo try: > "updateTests.py"
                                                         echo     from configparser import ConfigParser >> "updateTests.py"
@@ -962,7 +979,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                 }
 
                                                 dir("couchbase-python-client") {
-                                                    dir(${test_rel_path}){}
+                                                    mkdir(test_full_path,platform)
                                                     //shWithEcho("mkdir -p ${test_rel_path}")
                                                     shWithEcho("pip install configparser")
                                                     shWithEcho('''
