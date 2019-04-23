@@ -317,11 +317,11 @@ def installReqs(platform)
     dir("${WORKSPACE}/couchbase-python-client")
     {
         if (isWindows(platform)){
-            batWithEcho("pip install -r dev_requirements.txt")
+            batWithEcho("pip install -r dev_requirements.txt && pip uninstall nose && pip install git+https://github.com/nose-devs/nose.git")
         }
         else
         {
-            shWithEcho("pip install -r dev_requirements.txt")
+            shWithEcho("pip install -r dev_requirements.txt && pip uninstall nose && pip install git+https://github.com/nose-devs/nose.git")
         }
     }
 }
