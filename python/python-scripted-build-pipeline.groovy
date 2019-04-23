@@ -321,7 +321,7 @@ def installReqs(platform)
         }
         else
         {
-            shWithEcho("cat dev_requirements.txt | xargs -n 1 pip install")
+            shWithEcho("pip install -r dev_requirements.txt")
         }
     }
 }
