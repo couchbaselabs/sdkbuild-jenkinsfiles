@@ -1013,7 +1013,7 @@ EOF
                                                         echo "trying to write to: ["
                                                         echo "\$TMPCMDS"
                                                         echo "]"
-                                                        echo "run `which nosetests` -v --with-xunit" > "\$TMPCMDS"
+                                                        echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
                                                         echo "bt" >>"\$TMPCMDS"
                                                         echo "py-bt" >>"\$TMPCMDS"
                                                         echo "quit" >>"\$TMPCMDS"
@@ -1025,7 +1025,7 @@ EOF
                                             echo "Caught an error in test bit: ${e}"
                                             throw e
                                         } finally {
-                                            junit 'couchbase-python-client/nosetests.xml'
+                                            junit 'couchbase-python-client/**/nosetests.xml'
                                         }
                                     }
                                 }
