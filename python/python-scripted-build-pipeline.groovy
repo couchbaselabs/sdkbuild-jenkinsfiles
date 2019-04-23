@@ -73,7 +73,7 @@ git config user.name "Couchbase SDK Team"
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}","${PYCBC_LCB_APIS}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS)
             }
         }
         stage('package') {
