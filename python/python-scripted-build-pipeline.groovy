@@ -408,9 +408,9 @@ endlocal
     }
 }
 
-def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API) {
+def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
     sep = getSep(platform)
-    test_rel_path = "${platform}_${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
+    test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
     nosetests_args = " --with-xunit --xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name --xunit-file=${test_rel_xunit_file} -v "
@@ -427,7 +427,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
         try {
             mkdir(test_full_path,platform)
             if (platform.contains("windows")) {
@@ -791,9 +791,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
                 for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
-                    String platform = j//.key
-                    String pyversion = k//.key
-                    String arch = l//.key
+                    String platform = j
+                    String pyversion = k
+                    String arch = l
                     if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                         continue
                     }
@@ -815,7 +815,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     pairs[platform + "_" + pyversion + "_" + arch] = {
                         node(label) {
                             SERVER_VERSION="MOCK"
-                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API)
+                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
 
                             def envStr = []
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
