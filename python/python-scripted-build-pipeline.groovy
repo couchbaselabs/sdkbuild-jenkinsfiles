@@ -394,6 +394,16 @@ def getServiceIp(node_list, name)
                 return cbas_ip
 
 }
+
+def List getNoseArgs(SERVER_VERSION, platform) {
+    sep = getSep(platform)
+    test_rel_path = "${SERVER_VERSION}"
+    test_full_path = "couchbase-python-client${sep}${test_rel_path}"
+    test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
+    nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
+    [test_rel_path, nosetests_args, test_full_path]
+}
+
 def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION)
 {
     timestamps {
@@ -402,11 +412,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        sep=getSep(platform)
-        test_rel_path="${SERVER_VERSION}"
-        test_full_path = "couchbase-python-client${sep}${test_rel_path}"
-        test_rel_xunit_file="${test_rel_path}${sep}nosetests.xml"
-        nosetests_args=" --with-xunit --xunit-file=${test_rel_xunit_file} -v"
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform)
         try {
             if (platform.contains("windows")) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
@@ -522,6 +528,8 @@ EOF
         }
     }
 }
+
+
 def kill_clusters(clusters_running) {
     for (cluster in clusters_running.split('\n')) {
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
@@ -786,6 +794,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
                     pairs[platform + "_" + pyversion + "_" + arch] = {
                         node(label) {
+                            SERVER_VERSION="MOCK"
+                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform)
+
                             def envStr = []
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
@@ -931,7 +942,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                     ''')
                                                     batWithEcho("python updateTests.py")
                                                     installReqs(platform)
-                                                    batWithEcho("nosetests --with-xunit -v")
+                                                    batWithEcho("nosetests ${nosetests_args}")
                                                 }
                                             } else {
                                                 shWithEcho("python --version")
@@ -995,7 +1006,7 @@ EOF
 
                                                     if (PYCBC_DEBUG_SYMBOLS == "") {
                                                         shWithEcho("which nosetests")
-                                                        shWithEcho("nosetests --with-xunit -v")
+                                                        shWithEcho("nosetests ${nosetests_args}")
                                                     } else {
                                                         shWithEcho("""
                                                         export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
