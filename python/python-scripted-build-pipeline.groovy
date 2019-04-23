@@ -894,7 +894,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                                                 batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                             }
-                                            //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
                                             archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
                                         } else {
                                             shWithEcho('env')
