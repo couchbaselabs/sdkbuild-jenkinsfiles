@@ -783,7 +783,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             continue
                         }
                     }
-                    echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
+                    echo "got ${platform} ${pyversion} ${arch} ${PYCBC_LCB_API}: launching with label ${label}"
                     pairs[platform + "_" + pyversion + "_" + arch] = {
                         node(label) {
                             def envStr = []
