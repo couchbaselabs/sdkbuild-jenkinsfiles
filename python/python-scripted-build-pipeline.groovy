@@ -758,7 +758,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     //        combis=addCombi(combis,"windows",WIN_PY_DEFAULT_VERSION,arch)
         }
     }
-    echo "Got combis ${combis}"
+    echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
@@ -783,7 +783,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             continue
                         }
                     }
-                    echo "got ${platform} ${pyversion} ${arch} ${PYCBC_LCB_API}: launching with label ${label}"
+                    echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
                     pairs[platform + "_" + pyversion + "_" + arch] = {
                         node(label) {
                             def envStr = []
