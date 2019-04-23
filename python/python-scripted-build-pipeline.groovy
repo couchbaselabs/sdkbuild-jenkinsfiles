@@ -417,6 +417,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         try {
             if (platform.contains("windows")) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
+                    dir(${test_rel_path}){}
                     batWithEcho("md ${test_rel_path}")
                     batWithEcho('''
                         echo try: > "updateTests.py"
@@ -498,6 +499,7 @@ EOF
 
                     }
 
+                    dir(${test_rel_path}){}
                     if (PYCBC_DEBUG_SYMBOLS == "") {
                         shWithEcho("which nosetests")
                         shWithEcho("nosetests ${nosetests_args}")
@@ -926,6 +928,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         try {
                                             if (platform.contains("windows")) {
                                                 dir("couchbase-python-client") {
+                                                    dir(${test_rel_path}){}
                                                     batWithEcho('''
                                                         echo try: > "updateTests.py"
                                                         echo     from configparser import ConfigParser >> "updateTests.py"
@@ -959,6 +962,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                 }
 
                                                 dir("couchbase-python-client") {
+                                                    dir(${test_rel_path}){}
+                                                    //shWithEcho("mkdir -p ${test_rel_path}")
                                                     shWithEcho("pip install configparser")
                                                     shWithEcho('''
                                                         cat > updateTests.py <<EOF
