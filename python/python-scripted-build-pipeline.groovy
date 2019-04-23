@@ -410,10 +410,10 @@ endlocal
 
 def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API) {
     sep = getSep(platform)
-    test_rel_path = "${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
+    test_rel_path = "${platform}_${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
-    nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
+    nosetests_args = " --with-xunit --xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name --xunit-file=${test_rel_xunit_file} -v "
     mkdir(test_full_path, platform)
     [test_rel_path, nosetests_args, test_full_path]
 }
