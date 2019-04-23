@@ -395,16 +395,16 @@ def getServiceIp(node_list, name)
 
 }
 
-def List getNoseArgs(SERVER_VERSION, platform) {
+def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API) {
     sep = getSep(platform)
-    test_rel_path = "${SERVER_VERSION}"
+    test_rel_path = "${SERVER_VERSION}"+PYCBC_LCB_API?:""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
     nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
     [test_rel_path, nosetests_args, test_full_path]
 }
 
-def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION)
+def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, PYCBC_LCB_API=null)
 {
     timestamps {
         //if (!platform.contains("windows")){
@@ -412,7 +412,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API)
         try {
             if (platform.contains("windows")) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
@@ -795,7 +795,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     pairs[platform + "_" + pyversion + "_" + arch] = {
                         node(label) {
                             SERVER_VERSION="MOCK"
-                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform)
+                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API)
 
                             def envStr = []
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
