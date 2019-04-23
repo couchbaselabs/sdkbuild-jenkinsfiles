@@ -17,6 +17,8 @@ def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
+def PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
+
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -71,7 +73,7 @@ git config user.name "Couchbase SDK Team"
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}","${PYCBC_LCB_APIS}")
             }
         }
         stage('package') {
@@ -723,7 +725,7 @@ def getSep(platform){
     }
     return sep
 }
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS) {
     def BUILD_LCB = "False"
     def pairs = [:] 
     
@@ -760,202 +762,194 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
-                String platform = j//.key
-                String pyversion = k//.key
-                String arch = l//.key
-                if (platform.contains("windows") && (pyversion.contains("2.7"))) {
-                    continue
-                }
-
-                if (!platform.contains("windows") && arch == "x86") {
-                    continue
-                }
-                def label = platform
-                if (platform == "windows") {
-                    if (pyversion >= "3.5") {
-                        label = "msvc-2015"
-                    } else if (pyversion >= "3.3") {
-                        label = "msvc-2010"
-                    } else {
+                for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
+                    String platform = j//.key
+                    String pyversion = k//.key
+                    String arch = l//.key
+                    if (platform.contains("windows") && (pyversion.contains("2.7"))) {
                         continue
                     }
-                }
-                echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
-                pairs[platform + "_" + pyversion + "_" + arch]= {
-                    node(label) {
-                        def envStr = []
-                        def pyshort=pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
-                        def win_arch=[x86:[],x64:['Win64']][arch]
-                        def plat_build_dir_rel="build_${platform}_${pyversion}_${arch}"
-                        def plat_build_dir="${WORKSPACE}/${plat_build_dir_rel}"
-                        def sep = getSep(platform)
-                        def libcouchbase_build_dir_rel="${plat_build_dir_rel}${sep}libcouchbase"
-                        def libcouchbase_build_dir="${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
-                        //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
-                        def dist_dir_rel="dist"
-                        def dist_dir="${WORKSPACE}${sep}${dist_dir_rel}"
-                        def libcouchbase_checkout="${WORKSPACE}${sep}libcouchbase"
-                        if (platform.contains("windows")) { 
-                            envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH","LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", , "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+
+                    if (!platform.contains("windows") && arch == "x86") {
+                        continue
+                    }
+                    def label = platform
+                    if (platform == "windows") {
+                        if (pyversion >= "3.5") {
+                            label = "msvc-2015"
+                        } else if (pyversion >= "3.3") {
+                            label = "msvc-2010"
                         } else {
-                            envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+                            continue
                         }
-                        withEnv(envStr) {
-                            stage("build ${platform}_${pyversion}_${arch}") {
-                                timestamps {
-                                    cleanWs()
-                                    unstash 'couchbase-python-client'
+                    }
+                    echo "got ${platform} ${pyversion} ${arch}: launching with label ${label}"
+                    pairs[platform + "_" + pyversion + "_" + arch] = {
+                        node(label) {
+                            def envStr = []
+                            def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
+                            def win_arch = [x86: [], x64: ['Win64']][arch]
+                            def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
+                            def plat_build_dir = "${WORKSPACE}/${plat_build_dir_rel}"
+                            def sep = getSep(platform)
+                            def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
+                            def libcouchbase_build_dir = "${WORKSPACE}${sep}${libcouchbase_build_dir_rel}"
+                            //def dist_dir_rel="${plat_build_dir_rel}${sep}dist"
+                            def dist_dir_rel = "dist"
+                            def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
+                            def libcouchbase_checkout = "${WORKSPACE}${sep}libcouchbase"
+                            if (platform.contains("windows")) {
+                                envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
+//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", , "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+                            } else {
+                                envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}","PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+                            }
+                            withEnv(envStr) {
+                                stage("build ${platform}_${pyversion}_${arch}") {
+                                    timestamps {
+                                        cleanWs()
+                                        unstash 'couchbase-python-client'
 
-                                    // TODO: CHECK THIS ALL LOOKS GOOD
-                                    if (platform.contains("windows")) {
-                                        batWithEcho("SET")
-                                        dir("deps") {
-                                            installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
-                                        }
-
-                                        batWithEcho("python --version")
-                                        batWithEcho("pip --version")
-                                        if (BUILD_LCB =="True")
-                                        {
-                                            batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
-                                            dir("libcouchbase") {
-                                                batWithEcho("git checkout ${LCB_VERSION}")
+                                        // TODO: CHECK THIS ALL LOOKS GOOD
+                                        if (platform.contains("windows")) {
+                                            batWithEcho("SET")
+                                            dir("deps") {
+                                                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
                                             }
-                                            cmake_arch=(['Visual Studio 14 2015']+win_arch).join(' ')
 
-                                            dir("build") {
-                                                if (IS_RELEASE == "true") {
-                                                    batWithEcho("""
-                                                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                        cmake --build .
-                                                    """)
-                                                } else {
-                                                    // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
-                                                    batWithEcho("""
-                                                        cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                        cmake --build .
-                                                    """)
+                                            batWithEcho("python --version")
+                                            batWithEcho("pip --version")
+                                            if (BUILD_LCB == "True") {
+                                                batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
+                                                dir("libcouchbase") {
+                                                    batWithEcho("git checkout ${LCB_VERSION}")
                                                 }
-                                                batWithEcho("""
-                                                    cmake --build . --target alltests
-                                                    ctest -C debug
-                                                """)
-                                                batWithEcho("cmake --build . --target package")
-                                            }
-                                        }
-                                        dir("couchbase-python-client") {
-                                            //installClient(platform,arch,String("${WORKSPACE}"),String("${dist_dir})"))
-                                            if (BUILD_LCB=="True"){
-                                                batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                            }
-                                            //batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated")
-                                            withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
-                                                if ("${PIP_INSTALL}"=="True"){  
-                                                    batWithEcho("pip install .")
-                                                }
-                                                else{
-                                                    batWithEcho("python setup.py build_ext --inplace install")
-                                                }
-                                                batWithEcho("pip install wheel")
-                                            }
-                                            batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
-                                            batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
-                                        }
-                                        //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
-                                        archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
-                                    } else {
-                                        shWithEcho('env')
-                                        installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
+                                                cmake_arch = (['Visual Studio 14 2015'] + win_arch).join(' ')
 
-                                        shWithEcho("python --version")
-                                        shWithEcho("pip --version")
-                                        if (BUILD_LCB=="True")
-                                        {
-
-                                            shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                            dir("libcouchbase") {
-                                                shWithEcho("git checkout ${LCB_VERSION}")
                                                 dir("build") {
                                                     if (IS_RELEASE == "true") {
-                                                        shWithEcho("cmake ../")
+                                                        batWithEcho("""
+                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                            cmake --build .
+                                                        """)
                                                     } else {
-                                                        shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                                        // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
+                                                        batWithEcho("""
+                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                            cmake --build .
+                                                        """)
                                                     }
-                                                    shWithEcho("make")
+                                                    batWithEcho("""
+                                                        cmake --build . --target alltests
+                                                        ctest -C debug
+                                                    """)
+                                                    batWithEcho("cmake --build . --target package")
                                                 }
                                             }
-                                        }
-                                        dir("couchbase-python-client") {
-                                            shWithEcho("pip install cython")
-                                            if ("${PIP_INSTALL}"=="True"){  
-                                                shWithEcho("pip install .")
-                                            }
-                                            else{
-                                                shWithEcho("python setup.py build_ext --inplace install")
-                                            }
-                                            //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                            withEnv(["CPATH=${LCB_INC}","LIBRARY_PATH=${LCB_LIB}"]) {
-                                                //shWithEcho("pip install .")
-                                                //shWithEcho("python setup.py install")
-                                                shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
-                                            }
-                                        }
-                                    }
-
-                                    stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                    //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                    stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                }
-                            }
-                            stage("test ${platform}_${pyversion}_${arch}") {
-                                timestamps {
-                                    //if (!platform.contains("windows")){
-                                    //    sh 'chmod -R u+w .git'
-                                    //}
-                                    //unstash "couchbase-python-client-build-${platform}-${pyversion}-${arch}"
-                                    //unstash "dist-${platform}-${pyversion}-${arch}"
-                                    //unstash "lcb-${platform}-${pyversion}-${arch}"
-                                    // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-                                    // USING THE PACKAGE(S) CREATED ABOVE
-                                    try {
-                                        if (platform.contains("windows")) {
                                             dir("couchbase-python-client") {
-                                                batWithEcho('''
-                                                    echo try: > "updateTests.py"
-                                                    echo     from configparser import ConfigParser >> "updateTests.py"
-                                                    echo except: >> "updateTests.py"
-                                                    echo     from ConfigParser import ConfigParser >> "updateTests.py"
-                                                    echo import os >> "updateTests.py"
-                                                    echo fp = open("tests.ini.sample", "r") >> "updateTests.py"
-                                                    echo template = ConfigParser() >> "updateTests.py"
-                                                    echo template.readfp(fp) >> "updateTests.py"
-                                                    echo template.set("realserver", "enabled", "False") >> "updateTests.py"
-                                                    echo if os.path.exists("tests.ini"): >> "updateTests.py"
-                                                    echo     raise Exception("tests.ini already exists") >> "updateTests.py"
-                                                    echo with open("tests.ini", "w") as fp: >> "updateTests.py"
-                                                    echo     template.write(fp) >> "updateTests.py"
-                                                ''')
-                                                batWithEcho("python updateTests.py")
-                                                installReqs(platform)
-                                                batWithEcho("nosetests --with-xunit -v")
+                                                //installClient(platform,arch,String("${WORKSPACE}"),String("${dist_dir})"))
+                                                if (BUILD_LCB == "True") {
+                                                    batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                                                }
+                                                //batWithEcho("python setup.py build_ext --inplace --library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated")
+                                                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                                                    if ("${PIP_INSTALL}" == "True") {
+                                                        batWithEcho("pip install .")
+                                                    } else {
+                                                        batWithEcho("python setup.py build_ext --inplace install")
+                                                    }
+                                                    batWithEcho("pip install wheel")
+                                                }
+                                                batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
+                                                batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                             }
+                                            //archiveArtifacts artifacts: 'couchbase-python-client/', fingerprint: true, onlyIfSuccessful: false
+                                            archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
                                         } else {
+                                            shWithEcho('env')
+                                            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
+
                                             shWithEcho("python --version")
                                             shWithEcho("pip --version")
-                                            if (PYCBC_VALGRIND != "") {
-                                                shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
-                                                shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
-                                                shWithEcho("mkdir deps/valgrind")
-                                                dir("valgrind-3.13.0") {
-                                                    shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
-                                                    shWithEcho("make && make install")
+                                            if (BUILD_LCB == "True") {
+
+                                                shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
+                                                dir("libcouchbase") {
+                                                    shWithEcho("git checkout ${LCB_VERSION}")
+                                                    dir("build") {
+                                                        if (IS_RELEASE == "true") {
+                                                            shWithEcho("cmake ../")
+                                                        } else {
+                                                            shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                                                        }
+                                                        shWithEcho("make")
+                                                    }
                                                 }
                                             }
-
                                             dir("couchbase-python-client") {
-                                                shWithEcho("pip install configparser")
-                                                shWithEcho('''
-                                                    cat > updateTests.py <<EOF
+                                                shWithEcho("pip install cython")
+                                                if ("${PIP_INSTALL}" == "True") {
+                                                    shWithEcho("pip install .")
+                                                } else {
+                                                    shWithEcho("python setup.py build_ext --inplace install")
+                                                }
+                                                //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+                                                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                                                    //shWithEcho("pip install .")
+                                                    //shWithEcho("python setup.py install")
+                                                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                                                }
+                                            }
+                                        }
+
+                                        stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                        //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                        stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                    }
+                                }
+                                stage("test ${platform}_${pyversion}_${arch}") {
+                                    timestamps {
+                                        // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
+                                        // USING THE PACKAGE(S) CREATED ABOVE
+                                        try {
+                                            if (platform.contains("windows")) {
+                                                dir("couchbase-python-client") {
+                                                    batWithEcho('''
+                                                        echo try: > "updateTests.py"
+                                                        echo     from configparser import ConfigParser >> "updateTests.py"
+                                                        echo except: >> "updateTests.py"
+                                                        echo     from ConfigParser import ConfigParser >> "updateTests.py"
+                                                        echo import os >> "updateTests.py"
+                                                        echo fp = open("tests.ini.sample", "r") >> "updateTests.py"
+                                                        echo template = ConfigParser() >> "updateTests.py"
+                                                        echo template.readfp(fp) >> "updateTests.py"
+                                                        echo template.set("realserver", "enabled", "False") >> "updateTests.py"
+                                                        echo if os.path.exists("tests.ini"): >> "updateTests.py"
+                                                        echo     raise Exception("tests.ini already exists") >> "updateTests.py"
+                                                        echo with open("tests.ini", "w") as fp: >> "updateTests.py"
+                                                        echo     template.write(fp) >> "updateTests.py"
+                                                    ''')
+                                                    batWithEcho("python updateTests.py")
+                                                    installReqs(platform)
+                                                    batWithEcho("nosetests --with-xunit -v")
+                                                }
+                                            } else {
+                                                shWithEcho("python --version")
+                                                shWithEcho("pip --version")
+                                                if (PYCBC_VALGRIND != "") {
+                                                    shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
+                                                    shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
+                                                    shWithEcho("mkdir deps/valgrind")
+                                                    dir("valgrind-3.13.0") {
+                                                        shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
+                                                        shWithEcho("make && make install")
+                                                    }
+                                                }
+
+                                                dir("couchbase-python-client") {
+                                                    shWithEcho("pip install configparser")
+                                                    shWithEcho('''
+                                                        cat > updateTests.py <<EOF
 try:
     from configparser import ConfigParser
 except:
@@ -971,54 +965,57 @@ if os.path.exists("tests.ini"):
 with open("tests.ini", "w") as fp:
     template.write(fp)
 EOF
-                                                ''')
-                                                shWithEcho("python updateTests.py")
-                                                installReqs(platform)
+                                                    ''')
+                                                    shWithEcho("python updateTests.py")
+                                                    installReqs(platform)
 
-                                                if (PYCBC_VALGRIND != "") {
-                                                    shWithEcho("""
-                                                        export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
-                                                        mkdir -p \$VALGRIND_REPORT_DIR
-                                                        valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${PYCBC_VALGRIND}" > build/valgrind.txt""")
+                                                    if (PYCBC_VALGRIND != "") {
+                                                        shWithEcho("""
+                                                            export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
+                                                            mkdir -p \$VALGRIND_REPORT_DIR
+                                                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${
+                                                            PYCBC_VALGRIND
+                                                        }" > build/valgrind.txt""")
                                                         //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
-                                                    publishValgrind (
-                                                            failBuildOnInvalidReports: false,
-                                                            failBuildOnMissingReports: false,
-                                                            failThresholdDefinitelyLost: '',
-                                                            failThresholdInvalidReadWrite: '',
-                                                            failThresholdTotal: '',
-                                                            pattern: '**/valgrind.xml',
-                                                            publishResultsForAbortedBuilds: false,
-                                                            publishResultsForFailedBuilds: false,
-                                                            sourceSubstitutionPaths: '',
-                                                            unstableThresholdDefinitelyLost: '',
-                                                            unstableThresholdInvalidReadWrite: '',
-                                                            unstableThresholdTotal: ''
-                                                    )
-                                                }
+                                                        publishValgrind(
+                                                                failBuildOnInvalidReports: false,
+                                                                failBuildOnMissingReports: false,
+                                                                failThresholdDefinitelyLost: '',
+                                                                failThresholdInvalidReadWrite: '',
+                                                                failThresholdTotal: '',
+                                                                pattern: '**/valgrind.xml',
+                                                                publishResultsForAbortedBuilds: false,
+                                                                publishResultsForFailedBuilds: false,
+                                                                sourceSubstitutionPaths: '',
+                                                                unstableThresholdDefinitelyLost: '',
+                                                                unstableThresholdInvalidReadWrite: '',
+                                                                unstableThresholdTotal: ''
+                                                        )
+                                                    }
 
-                                                if (PYCBC_DEBUG_SYMBOLS == "") {
-                                                    shWithEcho("which nosetests")
-                                                    shWithEcho("nosetests --with-xunit -v")
-                                                } else {
-                                                    shWithEcho("""
-                                                    export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
-                                                    echo "trying to write to: ["
-                                                    echo "\$TMPCMDS"
-                                                    echo "]"
-                                                    echo "run `which nosetests` -v --with-xunit" > "\$TMPCMDS"
-                                                    echo "bt" >>"\$TMPCMDS"
-                                                    echo "py-bt" >>"\$TMPCMDS"
-                                                    echo "quit" >>"\$TMPCMDS"
-                                                    gdb -batch -x "\$TMPCMDS" `which python`""")
+                                                    if (PYCBC_DEBUG_SYMBOLS == "") {
+                                                        shWithEcho("which nosetests")
+                                                        shWithEcho("nosetests --with-xunit -v")
+                                                    } else {
+                                                        shWithEcho("""
+                                                        export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
+                                                        echo "trying to write to: ["
+                                                        echo "\$TMPCMDS"
+                                                        echo "]"
+                                                        echo "run `which nosetests` -v --with-xunit" > "\$TMPCMDS"
+                                                        echo "bt" >>"\$TMPCMDS"
+                                                        echo "py-bt" >>"\$TMPCMDS"
+                                                        echo "quit" >>"\$TMPCMDS"
+                                                        gdb -batch -x "\$TMPCMDS" `which python`""")
+                                                    }
                                                 }
                                             }
+                                        } catch (Exception e) {
+                                            echo "Caught an error in test bit: ${e}"
+                                            throw e
+                                        } finally {
+                                            junit 'couchbase-python-client/nosetests.xml'
                                         }
-                                    } catch (Exception e) {
-                                        echo "Caught an error in test bit: ${e}"
-                                        throw e
-                                    } finally {
-                                        junit 'couchbase-python-client/nosetests.xml'
                                     }
                                 }
                             }
