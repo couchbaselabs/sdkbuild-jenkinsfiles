@@ -361,6 +361,13 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     echo "added, got ${combis}"
     return combis
 }
+def getCommitEnvStrAdditions() {
+    commit_env_additions = []
+    for (item in getAttribs().entrySet()) {
+        commit_env_additions += ["${item.key}=${item.value}"]
+    }
+    return commit_env_additions
+}
 
 def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
@@ -373,14 +380,25 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
     }        
     if (platform.contains("windows")) { 
-        //batWithEcho("md ${dist_dir}")
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
-        //shWithEcho("mkdir -p ${dist_dir}")
         envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
-    return envStr+common_vars
+    return envStr+common_vars+getCommitEnvStrAdditions()
 }
+
+
+def getEnvStr2(PYCBC_LCB_API, String pyversion, PYCBC_VALGRIND) {
+    envStr=[]
+    if (platform.contains("windows")) {
+        envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
+    } else {
+        envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+    }
+    return envStr+getCommitEnvStrAdditions()
+}
+
+
 def getServiceIp(node_list, name)
 {
                     //cbas_ip = first_ip
@@ -770,8 +788,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     def pairs = [:] 
     
     def combis = [:]
-    // as HashMap<String,Map>
-    //.withDefault { key -> [:]}
     def hasWindows = false
     def hasWinDefaultPlat = false
     for (j in PLATFORMS) {
@@ -828,7 +844,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             SERVER_VERSION="MOCK"
                             def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
 
-                            def envStr = []
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
                             def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
@@ -840,17 +855,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def libcouchbase_checkout = "${WORKSPACE}${sep}libcouchbase"
-                            if (platform.contains("windows")) {
-                                envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}","PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
-//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", , "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
-                            } else {
-                                envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}","PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
-                            }
-                            COMMIT_MSG_ATTRIBS=getAttribs()
-                            for (item in COMMIT_MSG_ATTRIBS.entrySet())
-                            {
-                                envStr+=["${item.key}=${item.value}"]
-                            }
+                            def envStr = getEnvStr2(PYCBC_LCB_API, pyversion, PYCBC_VALGRIND)
 
                             withEnv(envStr) {
                                 stage("build ${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}") {
