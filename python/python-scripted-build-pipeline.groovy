@@ -19,8 +19,6 @@ def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
 def PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
 String COMMIT_MSG="${COMMIT_MSG}"
-def COMMIT_MSG_JSON = COMMIT_MSG.readLines().findAll{ it.contains('{')}
-def COMMIT_MSG_ATTRIBS= COMMIT_MSG_JSON.empty?[:]:readJSON(COMMIT_MSG_JSON[0])
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -75,7 +73,7 @@ git config user.name "Couchbase SDK Team"
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, COMMIT_MSG_ATTRIBS)
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, COMMIT_MSG)
             }
         }
         stage('package') {
@@ -755,7 +753,19 @@ def getSep(platform){
     }
     return sep
 }
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, COMMIT_MSG_ATTRIBS) {
+
+def getAttribs() {
+    // TODO: fix
+    //def COMMIT_MSG_JSON = COMMIT_MSG.split("\n").findAll { it.contains('{') }
+    COMMIT_MSG_ATTRIBS=[:]
+    //def COMMIT_MSG_ATTRIBS = COMMIT_MSG_JSON.empty ? [:] : readJSON(COMMIT_MSG_JSON[0])
+    if (COMMIT_MSG.contains('PYCBC_BYPASS_V3_FAILURES')){
+        COMMIT_MSG_ATTRIBS['PYCBC_BYPASS_V3_FAILURES']="TRUE"
+    }
+    return COMMIT_MSG_ATTRIBS
+}
+
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, COMMIT_MSG) {
     def BUILD_LCB = "False"
     def pairs = [:] 
     
@@ -836,7 +846,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             } else {
                                 envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}","PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
                             }
-                            COMMIT_MSG_ATTRIBS=[:]
+                            COMMIT_MSG_ATTRIBS=getAttribs()
                             for (item in COMMIT_MSG_ATTRIBS.entrySet())
                             {
                                 envStr+=["${item.key}=${item.value}"]
