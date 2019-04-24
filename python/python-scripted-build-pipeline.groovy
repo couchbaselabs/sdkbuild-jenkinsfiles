@@ -388,7 +388,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(PYCBC_LCB_API, String pyversion, PYCBC_VALGRIND) {
+def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="0x030000", PYCBC_VALGRIND="") {
     envStr=[]
     if (platform.contains("windows")) {
         envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
@@ -855,7 +855,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def libcouchbase_checkout = "${WORKSPACE}${sep}libcouchbase"
-                            def envStr = getEnvStr2(PYCBC_LCB_API, pyversion, PYCBC_VALGRIND)
+                            def envStr = getEnvStr2(platform, pyversion, "MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
 
                             withEnv(envStr) {
                                 stage("build ${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}") {
