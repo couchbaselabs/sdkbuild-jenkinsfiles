@@ -1,0 +1,280 @@
+<% # vim: ft=eruby et ts=4 sw=4 sts=4
+patch = 'cb1'
+php_versions = [
+    '7.1.28',
+    '7.2.17',
+    #'7.3.4'
+]
+cbdep_install = 'cbdep install --recache'
+%>
+// DO NOT EDIT: this file was generated from Jenkinsfile.erb
+
+pipeline {
+    agent none
+    stages {
+        stage('prepare') {
+            agent { label 'centos7' }
+            steps {
+                cleanWs()
+                sh('sudo yum remove -y libcouchbase*')
+                dir('php-couchbase') {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                }
+                stash includes: 'php-couchbase/', name: 'php-couchbase', useDefaultExcludes: false
+            }
+        }
+        stage('build and test') {
+            parallel {
+
+<% ['x64'].each do |arch| %>
+<%   php_versions.each do |php_ver| %>
+<%     ['nts', 'zts'].each do |ts| %>
+                stage('l<%= ts[0] %><%= php_ver.to_f %>') {
+<% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
+<% php = "#{php_root}/bin/php" %>
+<% php_config = "#{php_root}/bin/php-config" %>
+                    agent { label 'centos7' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                cleanWs()
+                                sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
+                                sh('<%= php %> -i || true')
+                                sh('<%= php_config %> || true')
+                            }
+                        }
+<% lcb_root = "install/libcouchbase-linux-amd64" %>
+<% lcb_ver = '3.0.0_alpha.3-cb1' %>
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+<% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
+                                    sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    sh('mv <%= lcb3_root %> <%= lcb_root %>')
+                                    sh('ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/bin/cbc version')
+                                }
+                            }
+                        }
+<% lcb_ver = '2.10.3-cb1' %>
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.10'
+                                }
+                            }
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+<% lcb2_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
+                                    sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    sh('mv <%= lcb2_root %> <%= lcb_root %>')
+                                    sh('ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+                                        sh('<%= php_root %>/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../<%= lcb_root %>) --with-php-config=<%= php_config %> \$(<%= php_config %> --configure-options)")
+                                        sh('make clean all')
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
+                                    sh("CB_MOCK=1 <%= php %> -d extension=phar.so -d extension=igbinary.so -d extension=\$(pwd)/modules/couchbase.so <%= php_root %>/phpunit.phar tests/")
+                                }
+                            }
+                        }
+                    }
+                }
+<%     end %>
+<%   end %>
+<% end %>
+
+<%
+def msvc_ver(php)
+    case php
+    when /7.3/
+        'msvc2017'
+    when /7.2/, /7.1/
+        'msvc2015'
+    end
+end
+
+def msvs_ver(php)
+    case php
+    when /7.3/
+        '15.0'
+    when /7.2/, /7.1/
+        '14.0'
+    end
+end
+%>
+
+<% ['x64'].each do |arch| %>
+<%   php_versions.each do |php_ver| %>
+<%     ['zts', 'nts'].each do |ts| %>
+                stage('w<%= ts[0] %><%= php_ver.to_f %>') {
+<% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
+<% php = "#{php_root}\\\\php" %>
+<% phpize = "#{php_root}\\\\SDK\\\\phpize.bat" %>
+                    agent { label 'msvc-2015' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                cleanWs()
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+                                    bat('<%= cbdep_install %> --dir c:\\php php-<%=ts %>-default <%= php_ver %>-<%= patch %>')
+                                    bat('<%= php %> -i')
+                                }
+                            }
+                        }
+<% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
+<% lcb_ver = '3.0.0_alpha.3-cb1' %>
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+<% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
+                                    bat('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('move <%= lcb3_root %> <%= lcb_root %>')
+                                    bat('<%= lcb_root %>\\bin\\cbc.exe version')
+                                }
+                            }
+                        }
+<% lcb_ver = '2.10.3-cb1' %>
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.10'
+                                }
+                            }
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+<% lcb2_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
+                                    bat('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('move <%= lcb2_root %> <%= lcb_root %>')
+                                    bat('<%= lcb_root %>\\bin\\cbc.exe version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+<% vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio #{msvs_ver(php_ver)}\\\\VC\\\\vcvarsall.bat" %>
+                                        bat('<%= phpize %>')
+                                        bat("""
+ call "<%= vc_vars %>" x86_amd64
+ set PATH=<%= php_root %>\\msys2\\usr\\bin;%PATH%
+ @echo on
+ configure.bat --with-couchbase=..\\<%= lcb_root %> --with-prefix=release
+""")
+                                        bat("""
+ call "<%= vc_vars %>" x86_amd64
+ @echo on
+ nmake
+""")
+                                        bat("""
+ call "<%= vc_vars %>" x86_amd64
+ @echo on
+ nmake install
+""")
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+<% mock_ver = '1.5.23' %>
+<% mock_jar = 'tests\\\\CouchbaseMock.jar' %>
+<% mock_port = 1000 * (ts == 'zts' ? 1 : 2) + php_ver.scan(/\d/).join.to_i %>
+                            environment {
+                                CB_MOCK = 1
+                                CB_MOCK_CTL_PORT = <%= mock_port %>
+                            }
+                            steps {
+                                dir('<%= php_ver %>-<%= ts %>-<%= arch %>\\php-couchbase') {
+                                    bat('copy ..\\<%= lcb_root %>\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat('<%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('<%= php_root %>\\msys2\\usr\\bin\\wget.exe -O <%= mock_jar %> http://packages.couchbase.com/clients/c/mock/CouchbaseMock-<%= mock_ver %>.jar')
+                                    bat('java -version')
+                                    bat('java -jar <%= mock_jar %> --version')
+                                    bat("""
+ start /b cmd /c java -jar <%= mock_jar %> --harakiri-monitor 127.0.0.1:<%= mock_port %>
+ <%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll <%= php_root %>\\php-phpunit.phar %cd%\\tests\\
+""")
+                                    bat("""
+ mkdir php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>
+ copy libcouchbase.dll php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>
+ copy release\\ext\\php_couchbase.dll php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>
+""")
+                                    stash includes: 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>/', name: 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>', useDefaultExcludes: false
+
+                                }
+                            }
+                        }
+                    }
+                }
+<%     end %>
+<%   end %>
+<% end %>
+
+            }
+        }
+<% php_ver = '7.3.5' %>
+<% ts = 'zts' %>
+<% patch = 'cb4' %>
+        stage('package') {
+            agent { label 'centos7' }
+            steps {
+                cleanWs()
+                sh('sudo yum install -y perl-XML-XPath')
+                sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps/php --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
+<% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
+<% php = "#{php_root}/bin/php" %>
+<% pear = "#{php_root}/bin/pear" %>
+                sh('<%= php %> --version')
+                sh('<%= pear %> version')
+                unstash 'php-couchbase'
+                dir('php-couchbase') {
+                    sh('<%= pear %> package')
+                    archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
+                    stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
+                    sh('tar xf couchbase-*.tgz')
+                }
+<% ['x64'].each do |arch| %>
+<%   php_versions.each do |php_ver| %>
+<%     ['zts', 'nts'].each do |ts| %>
+                unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
+                sh("""
+cp php-couchbase/{package.xml,LICENSE} php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>/
+version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+pkg_name="php_couchbase-\${version}-<%= php_ver.to_f %>-<%= ts %>-x64"
+mv php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %> \${pkg_name}
+zip -r9 \${pkg_name}.zip \${pkg_name}
+                """)
+<%     end %>
+<%   end %>
+<% end %>
+                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+            }
+        }
+    }
+}
