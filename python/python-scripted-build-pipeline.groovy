@@ -507,7 +507,7 @@ import os
 fp = open("tests.ini.sample", "r")
 template = ConfigParser()
 template.readfp(fp)
-is_realserver=bool("${SERVER_VERSION}")
+is_realserver="${SERVER_VERSION}"!="null"
 template.set("realserver", "enabled", str(is_realserver))
 template.set("mock", "enabled", str(not is_realserver))
 if "${first_ip}":
