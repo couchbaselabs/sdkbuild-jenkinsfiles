@@ -443,7 +443,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, PYCBC_LCB_API, pyversion)
         try {
             mkdir(test_full_path,platform)
             if (platform.contains("windows")) {
@@ -483,8 +483,15 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                         shWithEcho("make && make install")
                     }
                 }
-                first_ip = node_list[0].ip
-                cbas_ip = getServiceIp(node_list,'cbas')
+                if (SERVER_VERSION && node_list) {
+                    first_ip = node_list[0].ip
+                    cbas_ip = getServiceIp(node_list, 'cbas')
+                }
+                else {
+                    first_ip =""
+                    cbas_ip =""
+                }
+
                 dir("${WORKSPACE}/couchbase-python-client") {
                     mkdir(test_full_path,platform)
                     shWithEcho("echo $PWD && mkdir -p ${test_rel_path}")
@@ -500,9 +507,11 @@ import os
 fp = open("tests.ini.sample", "r")
 template = ConfigParser()
 template.readfp(fp)
-template.set("realserver", "enabled", "True")
-template.set("mock", "enabled", "False")
-template.set("realserver", "host", "${first_ip}")
+is_realserver=bool("${SERVER_VERSION}")
+template.set("realserver", "enabled", str(is_realserver))
+template.set("mock", "enabled", str(not is_realserver))
+if "${first_ip}":
+    template.set("realserver", "host", "${first_ip}")
 template.set("realserver", "admin_username", "Administrator")
 template.set("realserver", "admin_password", "password")
 template.set("realserver", "bucket_password", "password")
@@ -511,7 +520,8 @@ try:
 except e:
     print("got exception: {}".format(e))
     pass
-template.set("analytics", "host", "${cbas_ip}")
+if "${cbas_ip}":
+    template.set("analytics", "host", "${cbas_ip}")
 with open("tests.ini", "w") as fp:
     template.write(fp)
     print("Wrote to file")
@@ -978,7 +988,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 }
                                 stage("test ${stage_name}") {
 
-                                    doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion)
+                                    doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, PYCBC_LCB_API)
                                 }
                             }
                         }
@@ -991,9 +1001,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 }
 
 
-def doTestsMock(GString test_full_path, String platform, GString nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, String pyversion, PYCBC_LCB_API=null) {
+def doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, PYCBC_LCB_API=null) {
 
-    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, "Mock", PYCBC_LCB_API, true)
+    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, null, PYCBC_LCB_API, true)
 }
 
 def doTestsLegacy(GString test_full_path, String platform, GString nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, String pyversion, PYCBC_LCB_API=null) {
