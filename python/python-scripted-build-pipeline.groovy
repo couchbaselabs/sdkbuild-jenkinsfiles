@@ -856,9 +856,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def libcouchbase_checkout = "${WORKSPACE}${sep}libcouchbase"
                             def envStr = getEnvStr2(platform, pyversion, "MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
-
+                            def stage_name="${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}"
                             withEnv(envStr) {
-                                stage("build ${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}") {
+                                stage("build ${stage_name}") {
                                     timestamps {
                                         cleanWs()
                                         unstash 'couchbase-python-client'
@@ -959,7 +959,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
                                     }
                                 }
-                                stage("test ${platform}_${pyversion}_${arch}") {
+                                stage("test ${stage_name}") {
                                     timestamps {
                                         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
                                         // USING THE PACKAGE(S) CREATED ABOVE
