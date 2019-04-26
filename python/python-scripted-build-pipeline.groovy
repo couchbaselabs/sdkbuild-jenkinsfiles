@@ -811,6 +811,7 @@ def getAttribs() {
 }
 
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, COMMIT_MSG) {
+    def SERVER_VERSION="MOCK"
     def BUILD_LCB = "False"
     def pairs = [:] 
     
@@ -866,7 +867,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         }
                     }
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
-                    pairs[platform + "_" + pyversion + "_" + arch] = {
+                    pairs[platform + "_" + pyversion + "_" + arch + "_" + SERVER_VERSION + "_" + PYCBC_LCB_API] = {
                         node(label) {
                             SERVER_VERSION="MOCK"
                             def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
