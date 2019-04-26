@@ -437,12 +437,10 @@ def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
 }
 
 
-def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, PYCBC_LCB_API=null)
+def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, PYCBC_LCB_API=null, INSTALL_REQS=false)
 {
+    PARSE_SUPPRESSIONS=false
     timestamps {
-        //if (!platform.contains("windows")){
-        //    sh 'chmod -R u+w .git'
-        //}
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
         def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
@@ -468,6 +466,9 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                         echo     template.write(fp) >> "updateTests.py"
                     ''')
                     batWithEcho("python updateTests.py")
+                    if (INSTALL_REQS){
+                        installReqs(platform)
+                    }
                     batWithEcho("nosetests ${nosetests_args}")
                 }
             } else {
@@ -476,7 +477,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                 if (PYCBC_VALGRIND != "") {
                     shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
                     shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
-                    shWithEcho("mkdir deps && mkdir deps/valgrind")
+                    shWithEcho("mkdir -p deps/valgrind")
                     dir("valgrind-3.13.0") {
                         shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
                         shWithEcho("make && make install")
@@ -523,15 +524,32 @@ EOF
                     shWithEcho("python updateTests.py")
                     shWithEcho("ls -alrt")
                     shWithEcho("cat tests.ini")
+                    if (INSTALL_REQS){
+                                        installReqs(platform)
+                    }
                     if (PYCBC_VALGRIND != "") {
                         shWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
                             mkdir -p \$VALGRIND_REPORT_DIR
                             valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${PYCBC_VALGRIND}" > build/valgrind.txt""")
-                            //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
-                            // TODO: NEED PUBLISH VALGRIND
-
-                    }
+                            if (PARSE_SUPPRESSIONS){
+                                shWithEcho("python jenkins/parse_suppressions.py")
+                            }
+                                    publishValgrind(
+                                failBuildOnInvalidReports: false,
+                                failBuildOnMissingReports: false,
+                                failThresholdDefinitelyLost: '',
+                                failThresholdInvalidReadWrite: '',
+                                failThresholdTotal: '',
+                                pattern: '**/valgrind.xml',
+                                publishResultsForAbortedBuilds: false,
+                                publishResultsForFailedBuilds: false,
+                                sourceSubstitutionPaths: '',
+                                unstableThresholdDefinitelyLost: '',
+                                unstableThresholdInvalidReadWrite: '',
+                                unstableThresholdTotal: ''
+                        )
+        }
                     shWithEcho("echo $PWD && ls -alrt")
 
                     if (PYCBC_DEBUG_SYMBOLS == "") {
@@ -564,122 +582,6 @@ EOF
                 shWithEcho("rm -rf ${test_full_path}")
             }
         }
-    }
-}
-
-def doTestsLegacy(stage_name, GString test_full_path, String platform, GString nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, String pyversion) {
-        timestamps {
-            // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-            // USING THE PACKAGE(S) CREATED ABOVE
-            try {
-                mkdir(test_full_path, platform)
-                if (platform.contains("windows")) {
-                    dir("couchbase-python-client") {
-                        batWithEcho('''
-                                                        echo try: > "updateTests.py"
-                                                        echo     from configparser import ConfigParser >> "updateTests.py"
-                                                        echo except: >> "updateTests.py"
-                                                        echo     from ConfigParser import ConfigParser >> "updateTests.py"
-                                                        echo import os >> "updateTests.py"
-                                                        echo fp = open("tests.ini.sample", "r") >> "updateTests.py"
-                                                        echo template = ConfigParser() >> "updateTests.py"
-                                                        echo template.readfp(fp) >> "updateTests.py"
-                                                        echo template.set("realserver", "enabled", "False") >> "updateTests.py"
-                                                        echo if os.path.exists("tests.ini"): >> "updateTests.py"
-                                                        echo     raise Exception("tests.ini already exists") >> "updateTests.py"
-                                                        echo with open("tests.ini", "w") as fp: >> "updateTests.py"
-                                                        echo     template.write(fp) >> "updateTests.py"
-                                                    ''')
-                        batWithEcho("python updateTests.py")
-                        installReqs(platform)
-                        batWithEcho("nosetests ${nosetests_args}")
-                    }
-                } else {
-                    shWithEcho("python --version")
-                    shWithEcho("pip --version")
-                    if (PYCBC_VALGRIND != "") {
-                        shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
-                        shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
-                        shWithEcho("mkdir deps/valgrind")
-                        dir("valgrind-3.13.0") {
-                            shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
-                            shWithEcho("make && make install")
-                        }
-                    }
-
-                    dir("couchbase-python-client") {
-                        mkdir(test_full_path, platform)
-                        //shWithEcho("mkdir -p ${test_rel_path}")
-                        shWithEcho("pip install configparser")
-                        shWithEcho('''
-                                                        cat > updateTests.py <<EOF
-try:
-    from configparser import ConfigParser
-except:
-    from ConfigParser import ConfigParser
-
-import os
-fp = open("tests.ini.sample", "r")
-template = ConfigParser()
-template.readfp(fp)
-template.set("realserver", "enabled", "False")
-if os.path.exists("tests.ini"):
-    raise Exception("tests.ini already exists")
-with open("tests.ini", "w") as fp:
-    template.write(fp)
-EOF
-                                                    ''')
-                        shWithEcho("python updateTests.py")
-                        installReqs(platform)
-
-                        if (PYCBC_VALGRIND != "") {
-                            shWithEcho("""
-                                                            export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
-                                                            mkdir -p \$VALGRIND_REPORT_DIR
-                                                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${
-                                PYCBC_VALGRIND
-                            }" > build/valgrind.txt""")
-                            //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
-                            publishValgrind(
-                                    failBuildOnInvalidReports: false,
-                                    failBuildOnMissingReports: false,
-                                    failThresholdDefinitelyLost: '',
-                                    failThresholdInvalidReadWrite: '',
-                                    failThresholdTotal: '',
-                                    pattern: '**/valgrind.xml',
-                                    publishResultsForAbortedBuilds: false,
-                                    publishResultsForFailedBuilds: false,
-                                    sourceSubstitutionPaths: '',
-                                    unstableThresholdDefinitelyLost: '',
-                                    unstableThresholdInvalidReadWrite: '',
-                                    unstableThresholdTotal: ''
-                            )
-                        }
-
-                        if (PYCBC_DEBUG_SYMBOLS == "") {
-                            shWithEcho("which nosetests")
-                            shWithEcho("nosetests ${nosetests_args}")
-                        } else {
-                            shWithEcho("""
-                                                        export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
-                                                        echo "trying to write to: ["
-                                                        echo "\$TMPCMDS"
-                                                        echo "]"
-                                                        echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
-                                                        echo "bt" >>"\$TMPCMDS"
-                                                        echo "py-bt" >>"\$TMPCMDS"
-                                                        echo "quit" >>"\$TMPCMDS"
-                                                        gdb -batch -x "\$TMPCMDS" `which python`""")
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                echo "Caught an error in test bit: ${e}"
-                throw e
-            } finally {
-                junit 'couchbase-python-client/**/nosetests.xml'
-            }
-
     }
 }
 
@@ -1075,7 +977,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     }
                                 }
                                 stage("test ${stage_name}") {
-                                    doTestsLegacy(stage_name, test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion)
+
+                                    doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion)
                                 }
                             }
                         }
@@ -1086,4 +989,128 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     }
     parallel pairs
 }
+
+
+def doTestsMock(GString test_full_path, String platform, GString nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, String pyversion, PYCBC_LCB_API=null) {
+
+    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, "Mock", PYCBC_LCB_API, true)
+}
+
+def doTestsLegacy(GString test_full_path, String platform, GString nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, String pyversion, PYCBC_LCB_API=null) {
+
+        timestamps {
+            // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
+            // USING THE PACKAGE(S) CREATED ABOVE
+            try {
+                mkdir(test_full_path, platform)
+                if (platform.contains("windows")) {
+                    dir("couchbase-python-client") {
+                        batWithEcho('''
+                                                        echo try: > "updateTests.py"
+                                                        echo     from configparser import ConfigParser >> "updateTests.py"
+                                                        echo except: >> "updateTests.py"
+                                                        echo     from ConfigParser import ConfigParser >> "updateTests.py"
+                                                        echo import os >> "updateTests.py"
+                                                        echo fp = open("tests.ini.sample", "r") >> "updateTests.py"
+                                                        echo template = ConfigParser() >> "updateTests.py"
+                                                        echo template.readfp(fp) >> "updateTests.py"
+                                                        echo template.set("realserver", "enabled", "False") >> "updateTests.py"
+                                                        echo if os.path.exists("tests.ini"): >> "updateTests.py"
+                                                        echo     raise Exception("tests.ini already exists") >> "updateTests.py"
+                                                        echo with open("tests.ini", "w") as fp: >> "updateTests.py"
+                                                        echo     template.write(fp) >> "updateTests.py"
+                                                    ''')
+                        batWithEcho("python updateTests.py")
+                        installReqs(platform)
+                        batWithEcho("nosetests ${nosetests_args}")
+                    }
+                } else {
+                    shWithEcho("python --version")
+                    shWithEcho("pip --version")
+                    if (PYCBC_VALGRIND != "") {
+                        shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
+                        shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
+                        shWithEcho("mkdir deps/valgrind")
+                        dir("valgrind-3.13.0") {
+                            shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
+                            shWithEcho("make && make install")
+                        }
+                    }
+
+                    dir("couchbase-python-client") {
+                        mkdir(test_full_path, platform)
+                        //shWithEcho("mkdir -p ${test_rel_path}")
+                        shWithEcho("pip install configparser")
+                        shWithEcho('''
+                                                        cat > updateTests.py <<EOF
+try:
+    from configparser import ConfigParser
+except:
+    from ConfigParser import ConfigParser
+
+import os
+fp = open("tests.ini.sample", "r")
+template = ConfigParser()
+template.readfp(fp)
+template.set("realserver", "enabled", "False")
+if os.path.exists("tests.ini"):
+    raise Exception("tests.ini already exists")
+with open("tests.ini", "w") as fp:
+    template.write(fp)
+EOF
+                                                    ''')
+                        shWithEcho("python updateTests.py")
+                        installReqs(platform)
+
+                        if (PYCBC_VALGRIND != "") {
+                            shWithEcho("""
+                                                            export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
+                                                            mkdir -p \$VALGRIND_REPORT_DIR
+                                                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${
+                                PYCBC_VALGRIND
+                            }" > build/valgrind.txt""")
+                            //shWithEcho("python jenkins/parse_suppressions.py") VERY SLOW
+                            publishValgrind(
+                                    failBuildOnInvalidReports: false,
+                                    failBuildOnMissingReports: false,
+                                    failThresholdDefinitelyLost: '',
+                                    failThresholdInvalidReadWrite: '',
+                                    failThresholdTotal: '',
+                                    pattern: '**/valgrind.xml',
+                                    publishResultsForAbortedBuilds: false,
+                                    publishResultsForFailedBuilds: false,
+                                    sourceSubstitutionPaths: '',
+                                    unstableThresholdDefinitelyLost: '',
+                                    unstableThresholdInvalidReadWrite: '',
+                                    unstableThresholdTotal: ''
+                            )
+                        }
+
+                        if (PYCBC_DEBUG_SYMBOLS == "") {
+                            shWithEcho("which nosetests")
+                            shWithEcho("nosetests ${nosetests_args}")
+                        } else {
+                            shWithEcho("""
+                                                        export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
+                                                        echo "trying to write to: ["
+                                                        echo "\$TMPCMDS"
+                                                        echo "]"
+                                                        echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
+                                                        echo "bt" >>"\$TMPCMDS"
+                                                        echo "py-bt" >>"\$TMPCMDS"
+                                                        echo "quit" >>"\$TMPCMDS"
+                                                        gdb -batch -x "\$TMPCMDS" `which python`""")
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                echo "Caught an error in test bit: ${e}"
+                throw e
+            } finally {
+                junit 'couchbase-python-client/**/nosetests.xml'
+            }
+
+    }
+}
+
 
