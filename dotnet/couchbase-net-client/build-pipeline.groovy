@@ -24,15 +24,19 @@ pipeline {
         stage("prepare and validate") {
             agent { label "centos6||centos7||ubuntu16||ubuntu14" }
             steps {
+
+				echo "Branch: ${GERRIT_BRANCH}"
+				echo "SHA: ${SHA}"
+				echo "Patchset: ${GERRIT_REFSPEC}"
+
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 dir("couchbase-net-client") {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO", poll: false]]])
                 }
 
-                script {
-                    BRANCH = "$SHA"
-                    echo "Branch: ${SHA}"
-                }
+				script {
+					BRANCH = "${GERRIT_BRANCH}"
+				}
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
                 // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
