@@ -115,9 +115,20 @@ pipeline {
                 }
             }
             steps {
-                unstash "couchbase-net-client-package"
-                echo "Publishing to nuget!"
-                // TODO: PUBLISH!
+                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+
+                script {
+                    withCredentials([string(credentialsId: 'netsdk-nugetkey', variable: 'NUGETKEY')]) {
+                        if (!NUGETKEY?.trim()) {
+                            echo "No Nuget key configured, unable to publish package"
+                        } else {
+                            unstash "couchbase-net-client-package"
+                            echo "Publishing package to Nuget .."
+
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY}")
+                        }
+                    }
+                }
             }
         }
     }
