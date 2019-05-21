@@ -19,6 +19,8 @@ def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
 def PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
 String COMMIT_MSG="${COMMIT_MSG}"
+def USE_NOSE_GIT="${USE_NOSE_GIT}"
+def NOSE_GIT="${NOSE_GIT}"?:(USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":"")
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
@@ -92,7 +94,7 @@ git config user.name "Couchbase SDK Team"
             }
             steps {
                 cleanWs()
-                unstash "lcb-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                //unstash "lcb-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 unstash "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
@@ -317,11 +319,17 @@ def installReqs(platform)
     dir("${WORKSPACE}/couchbase-python-client")
     {
         if (isWindows(platform)){
-            batWithEcho("pip install -r dev_requirements.txt && pip uninstall --yes nose && pip install git+https://github.com/nose-devs/nose.git")
+            batWithEcho("pip install -r dev_requirements.txt")
+            if (NOSE_GIT) {
+                batWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
+            }
         }
         else
         {
-            shWithEcho("pip install -r dev_requirements.txt && pip uninstall --yes nose && pip install git+https://github.com/nose-devs/nose.git")
+            shWithEcho("pip install -r dev_requirements.txt")
+            if (NOSE_GIT) {
+                shWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
+            }
         }
     }
 }
