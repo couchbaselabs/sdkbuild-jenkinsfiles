@@ -1,4 +1,6 @@
-def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: [ "centos7", "windows-2012" ]
+import org.junit.Test
+
+def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
@@ -17,11 +19,12 @@ def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
-def PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
+String[] PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
 String COMMIT_MSG="${COMMIT_MSG}"
 def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
+
 pipeline {
     agent none
     stages {
@@ -75,7 +78,7 @@ git config user.name "Couchbase SDK Team"
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, COMMIT_MSG)
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_ARCH}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, COMMIT_MSG, "${NOSE_GIT}")
             }
         }
         stage('package') {
@@ -107,7 +110,7 @@ echo `which pip`
 pip install --verbose Twisted gevent""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
-                    installReqs(PACKAGE_PLATFORM)
+                    installReqs(PACKAGE_PLATFORM, NOSE_GIT)
                     shWithEcho("python setup.py build_sphinx")
                     shWithEcho("mkdir dist")
                 }
@@ -120,10 +123,10 @@ pip install --verbose Twisted gevent""")
             agent { label 'qe-slave-linux1' }
             when {
                 expression
-                    {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+                        { return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}","${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}","${LCB_VERSION}", "${PYCBC_VALGRIND}","${PYCBC_DEBUG_SYMBOLS}",SERVER_VERSIONS, "${WORKSPACE}")
+                doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT)
             }
         }
         stage('quality') {
@@ -314,7 +317,8 @@ def isWindows(platform)
     
     return platform.toLowerCase().contains("windows")
 }
-def installReqs(platform)
+
+def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
@@ -434,7 +438,7 @@ endlocal
     }
 }
 
-def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
+List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
     sep = getSep(platform)
     test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
@@ -444,14 +448,33 @@ def List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
     [test_rel_path, nosetests_args, test_full_path]
 }
 
+class TestParams{
+    String PYCBC_LCB_API=null
+    boolean INSTALL_REQS=false
+    String NOSE_GIT=null
 
-def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, PYCBC_LCB_API=null, INSTALL_REQS=false)
+    TestParams(String PYCBC_LCB_API, boolean INSTALL_REQS, String NOSE_GIT) {
+        this.PYCBC_LCB_API = PYCBC_LCB_API
+        this.INSTALL_REQS = INSTALL_REQS
+        this.NOSE_GIT = NOSE_GIT
+    }
+
+}
+def installReqsIfNeeded(TestParams params, def platform) {
+
+    if (params.INSTALL_REQS){
+        installReqs(platform,params.NOSE_GIT)
+    }
+}
+
+
+def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, TestParams testParams)
 {
     PARSE_SUPPRESSIONS=false
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, PYCBC_LCB_API, pyversion)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, testParams.PYCBC_LCB_API, pyversion)
         try {
             mkdir(test_full_path,platform)
             if (platform.contains("windows")) {
@@ -474,9 +497,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                         echo     template.write(fp) >> "updateTests.py"
                     ''')
                     batWithEcho("python updateTests.py")
-                    if (INSTALL_REQS){
-                        installReqs(platform)
-                    }
+                    installReqsIfNeeded(testParams,platform)
                     batWithEcho("nosetests ${nosetests_args}")
                 }
             } else {
@@ -542,9 +563,7 @@ EOF
                     shWithEcho("python updateTests.py")
                     shWithEcho("ls -alrt")
                     shWithEcho("cat tests.ini")
-                    if (INSTALL_REQS){
-                                        installReqs(platform)
-                    }
+                    installReqsIfNeeded(testParams,platform)
                     if (PYCBC_VALGRIND != "") {
                         shWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${PYCBC_VALGRIND}"
@@ -553,7 +572,7 @@ EOF
                             if (PARSE_SUPPRESSIONS){
                                 shWithEcho("python jenkins/parse_suppressions.py")
                             }
-                                    publishValgrind(
+                        publishValgrind(
                                 failBuildOnInvalidReports: false,
                                 failBuildOnMissingReports: false,
                                 failThresholdDefinitelyLost: '',
@@ -776,7 +795,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
     }
 }
 
-def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT)
 {
     cleanWs()
     unstash "couchbase-python-client"
@@ -792,9 +811,12 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     for (server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
-        withEnv(envStr)
-        {
-            testAgainstServer(server_version, platform, envStr, {ip->doTests(ip,platform,pyversion,LCB_VERSION,PYCBC_VALGRIND,PYCBC_DEBUG_SYMBOLS,server_version)})
+        for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
+            withEnv(envStr)
+            {
+                TestParams testParams=new TestParams(PYCBC_LCB_API, false, NOSE_GIT)
+                testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
+            }
         }
     }
 }
@@ -823,7 +845,7 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
     return "${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}_${SERVER_VERSION}"
 }
 
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, COMMIT_MSG) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, COMMIT_MSG, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
     def BUILD_LCB = "False"
     def pairs = [:] 
@@ -988,8 +1010,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     }
                                 }
                                 stage("test ${stage_name}") {
+                                    TestParams testParams = new TestParams(PYCBC_LCB_API, true, NOSE_GIT)
 
-                                    doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, PYCBC_LCB_API)
+                                    doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                 }
                             }
                         }
@@ -1002,7 +1025,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 }
 
 
-def doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, PYCBC_LCB_API=null) {
+def doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, TestParams testParams) {
 
-    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, null, PYCBC_LCB_API, true)
+    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, null, testParams)
 }
