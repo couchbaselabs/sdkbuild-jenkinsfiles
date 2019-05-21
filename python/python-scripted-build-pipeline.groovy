@@ -20,7 +20,7 @@ def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
 def PYCBC_LCB_APIS="${PYCBC_LCB_APIS}".split(/,/)
 String COMMIT_MSG="${COMMIT_MSG}"
 def USE_NOSE_GIT=true
-def NOSE_GIT="${NOSE_GIT}"?:(USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":"")
+def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 pipeline {
     agent none
