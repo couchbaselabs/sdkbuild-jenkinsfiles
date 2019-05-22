@@ -112,7 +112,7 @@ pip install --verbose Twisted gevent""")
                 dir("couchbase-python-client") {
                     installReqs(PACKAGE_PLATFORM, NOSE_GIT)
                     shWithEcho("python setup.py build_sphinx")
-                    shWithEcho("mkdir dist")
+                    shWithEcho("mkdir -p dist")
                 }
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
@@ -324,9 +324,6 @@ def installReqs(platform, NOSE_GIT)
     {
         if (isWindows(platform)){
             batWithEcho("pip install -r dev_requirements.txt")
-            if (NOSE_GIT) {
-                batWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
-            }
         }
         else
         {
@@ -438,12 +435,17 @@ endlocal
     }
 }
 
-List getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion = "") {
+List getNoseArgs(SERVER_VERSION, String platform, PYCBC_LCB_API, pyversion = "", TestParams testParams) {
     sep = getSep(platform)
     test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
-    nosetests_args = " --with-xunit --xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name --xunit-file=${test_rel_xunit_file} -v "
+
+    nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
+    if (testParams.NOSE_GIT && !platform.contains('windows'))
+    {
+        nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name"
+    }
     mkdir(test_full_path, platform)
     [test_rel_path, nosetests_args, test_full_path]
 }
@@ -474,7 +476,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, testParams.PYCBC_LCB_API, pyversion)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, testParams.PYCBC_LCB_API, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
             if (platform.contains("windows")) {
@@ -893,7 +895,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                     pairs[stage_name] = {
                         node(label) {
-                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion)
+                            TestParams testParams = new TestParams(PYCBC_LCB_API, true, NOSE_GIT)
+                            def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, PYCBC_LCB_API, pyversion, testParams)
 
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
@@ -1010,8 +1013,6 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     }
                                 }
                                 stage("test ${stage_name}") {
-                                    TestParams testParams = new TestParams(PYCBC_LCB_API, true, NOSE_GIT)
-
                                     doTestsMock(test_full_path, platform, nosetests_args, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                 }
                             }
