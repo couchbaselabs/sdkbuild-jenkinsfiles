@@ -264,7 +264,7 @@ void installPython(String platform, String version, String pyshort, String path,
         cmd = cmd + " --x32"
     }
     def plat_class = null
-    if (platform.contains("windows"))
+    if (isWindows(platform))
     {
         //plat_class = Windows()
         batWithEcho(cmd)
@@ -292,7 +292,7 @@ def batWithEcho(String command) {
 def cmdWithEcho(platform, command, quiet)
 {
     try{
-        if (platform.contains("windows")){
+        if (isWindows(platform)){
             return batWithEcho(command)
         }
         else{
@@ -338,19 +338,19 @@ def installReqs(platform, NOSE_GIT)
 String prefixWorkspace(String path){
     return "${WORKSPACE}/${path}"
 }
-def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
+def addCombi(combis,platform,PY_VERSION,PY_ARCH)
 {
 
-    if (PLATFORM.contains("windows") && (PY_VERSION.contains("2.7"))) {
+    if (isWindows(platform) && (PY_VERSION.contains("2.7"))) {
         return combis
     }
 
-    if (!PLATFORM.contains("windows") && PY_ARCH == "x86") {
+    if (!isWindows(platform) && PY_ARCH == "x86") {
         return combis
     }
 
-    echo "adding ${PLATFORM}/${PY_VERSION}/${PY_ARCH} to ${combis}"
-    def plat = combis.get("${PLATFORM}",null)
+    echo "adding ${platform}/${PY_VERSION}/${PY_ARCH} to ${combis}"
+    def plat = combis.get("${platform}",null)
     if (plat==null)
     {
         plat =[:]
@@ -365,7 +365,7 @@ def addCombi(combis,PLATFORM,PY_VERSION,PY_ARCH)
     {
         version.put("${PY_ARCH}","True")
         plat.put("${PY_VERSION}",version)
-        combis.put("${PLATFORM}",plat)
+        combis.put("${platform}",plat)
     }
     echo "added, got ${combis}"
     return combis
@@ -388,7 +388,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
     {
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
     }        
-    if (platform.contains("windows")) { 
+    if (isWindows(platform)) {
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
         envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
@@ -399,7 +399,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 
 def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="0x030000", PYCBC_VALGRIND="") {
     envStr=[]
-    if (platform.contains("windows")) {
+    if (isWindows(platform)) {
         envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
     } else {
         envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
@@ -424,7 +424,7 @@ def getServiceIp(node_list, name)
 
 def mkdir(GString test_full_path, platform) {
     dir(test_full_path) {}
-    if (platform.contains("windows")) {
+    if (isWindows(platform)) {
         batWithEcho("""
 setlocal enableextensions
 md %1
@@ -442,7 +442,7 @@ List getNoseArgs(SERVER_VERSION, String platform, PYCBC_LCB_API, pyversion = "",
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
 
     nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
-    if (testParams.NOSE_GIT && !platform.contains('windows'))
+    if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name"
     }
@@ -479,7 +479,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
         def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION?:"Mock", platform, testParams.PYCBC_LCB_API, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
-            if (platform.contains("windows")) {
+            if (isWindows(platform)) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
                     dir("${test_rel_path}"){}
                     batWithEcho("md ${test_rel_path}")
@@ -614,7 +614,7 @@ EOF
             throw e
         } finally {
             junit "couchbase-python-client/**/nosetests.xml"
-            if (platform.contains("windows")){
+            if (isWindows(platform)){
                 batWithEcho("rmdir /Q /S ${test_full_path}")
             }
             else{
@@ -648,7 +648,7 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         def clusterId = null
         try {
             /* def my_plat = null
-            if (platform.contains("Windows"))
+            if (isWindows(platform))
             {
                 my_plat = new Windows()
             }
@@ -730,7 +730,7 @@ def buildLibCouchbase(platform, arch)
     {
         cmdWithEcho(platform,"git clone http://review.couchbase.org/libcouchbase $LCB_PATH",false)
         cmake_arch = getCMakeTarget(platform, arch)
-        if (platform.contains("windows"))
+        if (isWindows(platform))
         {
             dir("libcouchbase") {
                 batWithEcho("git checkout ${LCB_VERSION}")
@@ -777,7 +777,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
-        if (platform.contains("windows")){
+        if (isWindows(platform)){
             batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
         }
         else
@@ -825,7 +825,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
 
 def getSep(platform){
     def sep = "/"
-    if (platform.contains("windows")) {
+    if (isWindows(platform)){
         sep = "\\"
     }
     return sep
@@ -873,11 +873,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
-                    if (platform.contains("windows") && (pyversion.contains("2.7"))) {
+                    if (isWindows(platform) && (pyversion.contains("2.7"))) {
                         continue
                     }
 
-                    if (!platform.contains("windows") && arch == "x86") {
+                    if (!isWindows(platform) && arch == "x86") {
                         continue
                     }
                     def label = platform
@@ -917,7 +917,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         unstash 'couchbase-python-client'
 
                                         // TODO: CHECK THIS ALL LOOKS GOOD
-                                        if (platform.contains("windows")) {
+                                        if (isWindows(platform)) {
                                             batWithEcho("SET")
                                             dir("deps") {
                                                 installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
