@@ -441,7 +441,7 @@ List getNoseArgs(SERVER_VERSION, String platform, PYCBC_LCB_API, pyversion = "",
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
 
-    nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v"
+    nosetests_args = " --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name"
@@ -514,6 +514,8 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                         shWithEcho("make && make install")
                     }
                 }
+                def first_ip=""
+                def cbas_ip=""
                 if (SERVER_VERSION && node_list) {
                     first_ip = node_list[0].ip
                     cbas_ip = getServiceIp(node_list, 'cbas')
@@ -527,39 +529,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_VALGRIND, PYCBC_D
                     mkdir(test_full_path,platform)
                     shWithEcho("echo $PWD && mkdir -p ${test_rel_path}")
                     shWithEcho("pip install configparser")
-                    shWithEcho("""
-                        cat > updateTests.py <<EOF
-try:
-    from configparser import ConfigParser
-except:
-    from ConfigParser import ConfigParser
-
-import os
-fp = open("tests.ini.sample", "r")
-template = ConfigParser()
-template.readfp(fp)
-is_realserver="${SERVER_VERSION}"!="null"
-template.set("realserver", "enabled", str(is_realserver))
-template.set("mock", "enabled", str(not is_realserver))
-if "${first_ip}":
-    template.set("realserver", "host", "${first_ip}")
-template.set("realserver", "admin_username", "Administrator")
-template.set("realserver", "admin_password", "password")
-template.set("realserver", "bucket_password", "password")
-try:
-    template.add_section("analytics")
-except e:
-    print("got exception: {}".format(e))
-    pass
-if "${cbas_ip}":
-    template.set("analytics", "host", "${cbas_ip}")
-with open("tests.ini", "w") as fp:
-    template.write(fp)
-    print("Wrote to file")
-print("Done writing")
-print("Wrote {}".format(template))
-EOF
-                    """)
+                    shWithEcho(genTestIniModifier(SERVER_VERSION, first_ip, cbas_ip))
 
                     
                     shWithEcho("python updateTests.py")
@@ -622,6 +592,42 @@ EOF
             }
         }
     }
+}
+
+def genTestIniModifier(SERVER_VERSION, first_ip = "", cbas_ip = "") {
+    return """
+                        cat > updateTests.py <<EOF
+try:
+    from configparser import ConfigParser
+except:
+    from ConfigParser import ConfigParser
+
+import os
+fp = open("tests.ini.sample", "r")
+template = ConfigParser()
+template.readfp(fp)
+is_realserver="${SERVER_VERSION}"!="null"
+template.set("realserver", "enabled", str(is_realserver))
+template.set("mock", "enabled", str(not is_realserver))
+if "${first_ip}":
+    template.set("realserver", "host", "${first_ip}")
+template.set("realserver", "admin_username", "Administrator")
+template.set("realserver", "admin_password", "password")
+template.set("realserver", "bucket_password", "password")
+try:
+    template.add_section("analytics")
+except e:
+    print("got exception: {}".format(e))
+    pass
+if "${cbas_ip}":
+    template.set("analytics", "host", "${cbas_ip}")
+with open("tests.ini", "w") as fp:
+    template.write(fp)
+    print("Wrote to file")
+print("Done writing")
+print("Wrote {}".format(template))
+EOF
+                    """
 }
 
 def kill_clusters(clusters_running) {
