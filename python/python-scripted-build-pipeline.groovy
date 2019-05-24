@@ -800,8 +800,6 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
                 cmdWithEcho(platform,"pip install cmake",true)
-                //buildLibCouchbase(platform, arch)
-                //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                 shWithEcho("pip install .")
                 if (dist_dir)
                 {
@@ -923,6 +921,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
+                            def setup_args = "--inplace " + (PYCBC_DEBUG_SYMBOLS?"--debug ":"")
                             withEnv(envStr) {
                                 stage("build ${stage_name}") {
                                     timestamps {
@@ -973,7 +972,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                     if ("${PIP_INSTALL}" == "True") {
                                                         batWithEcho("pip install .")
                                                     } else {
-                                                        batWithEcho("python setup.py build_ext --inplace install")
+                                                        batWithEcho("python setup.py build_ext ${setup_args} install")
                                                     }
                                                     batWithEcho("pip install wheel")
                                                 }
@@ -1007,7 +1006,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                 if ("${PIP_INSTALL}" == "True") {
                                                     shWithEcho("pip install .")
                                                 } else {
-                                                    shWithEcho("python setup.py build_ext --inplace install")
+                                                    shWithEcho("python setup.py build_ext ${setup_args} install")
                                                 }
                                                 //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
