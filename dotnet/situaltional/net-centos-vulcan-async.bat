@@ -73,14 +73,22 @@ echo ===============================================================STEP4 build 
 cd %WORKSPACE%
 rd /q/s %COUCHBASE-NET-CLIENT% 2>nul
 
-git clone http://github.com/couchbase/couchbase-net-client.git
-cd %COUCHBASE-NET-CLIENT%
-git checkout %client_version%
-echo Cloning Couchbase .NET Client using branch %client_version%
-git clone http://Oferya:oferhub11@github.com/couchbase/couchbase-net-client.git --single-branch --branch %client_version%
+echo Cloning Couchbase .NET Client
+git clone http://github.com/couchbase/couchbase-net-client.git --no-checkout
 cd %COUCHBASE-NET-CLIENT%
 
-if %GERRIT_COMMIT% neq 0 git fetch http://jaekwonpark@review.couchbase.org/couchbase-net-client refs/changes/%GERRIT_COMMIT% && git checkout -f FETCH_HEAD
+if %GERRIT_COMMIT% neq 0 (
+    echo Using Gerrit change set %GERRIT_COMMIT%
+    git fetch http://review.couchbase.org/couchbase-net-client refs/changes/%GERRIT_COMMIT% && git checkout FETCH_HEAD
+) else (
+    echo Checking out branch %NET_CLIENT_BRANCH
+    git checkout %NET_CLIENT_BRANCH%
+
+    if %NET_CLIENT_SHA% neq 0 (
+        echo Applying SHA %NET_CLIENT_SHA%
+        git checkout %NET_CLIENT_SHA%
+    )
+)
 
 git rev-parse --short HEAD > client_commit.txt
 set /p CLIENT_COMMIT=<client_commit.txt

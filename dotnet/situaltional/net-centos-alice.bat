@@ -77,18 +77,23 @@ copy C:\jenkins\workspace\S3Creds_tmp %SDKDCLIENT-NG%
 
 echo ===============================================================STEP4 build couchbase-net-client
 cd %WORKSPACE%
-echo Cloning Couchbase .NET Client using branch %client_version%
-git clone http://Oferya:oferhub11@github.com/couchbase/couchbase-net-client.git --single-branch --branch %client_version%
+rd /q/s %COUCHBASE-NET-CLIENT% 2>nul
+
+echo Cloning Couchbase .NET Client
+git clone http://github.com/couchbase/couchbase-net-client.git --no-checkout
 cd %COUCHBASE-NET-CLIENT%
 
-if %NET_CLIENT_SHA% neq 0 (
-    echo Applying SHA %NET_CLIENT_SHA%
-    git checkout %NET_CLIENT_SHA%
-)
-
 if %GERRIT_COMMIT% neq 0 (
-    echo Applying Gerrit change set %GERRIT_COMMIT%
+    echo Using Gerrit change set %GERRIT_COMMIT%
     git fetch http://review.couchbase.org/couchbase-net-client refs/changes/%GERRIT_COMMIT% && git checkout FETCH_HEAD
+) else (
+    echo Checking out branch %NET_CLIENT_BRANCH
+    git checkout %NET_CLIENT_BRANCH%
+
+    if %NET_CLIENT_SHA% neq 0 (
+        echo Applying SHA %NET_CLIENT_SHA%
+        git checkout %NET_CLIENT_SHA%
+    )
 )
 
 git rev-parse --short HEAD > client_commit.txt
@@ -98,7 +103,7 @@ echo CLIENT_COMMIT=%CLIENT_COMMIT%
 git log -n 2
 
 echo Building Couchbase .NET Client
-if %client_version% == "master" (
+if %NET_CLIENT_BRANCH% == "master" (
     dotnet build %COUCHBASE-NET-CLIENT%\src\Couchbase\Couchbase.csproj
 ) else (
     dotnet build %COUCHBASE-NET-CLIENT%\Src\Couchbase\Couchbase.csproj

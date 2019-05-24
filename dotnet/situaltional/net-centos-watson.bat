@@ -64,15 +64,15 @@ cd %WORKSPACE%
 rd /q/s %COUCHBASE-NET-CLIENT% 2>nul
 
 echo Cloning Couchbase .NET Client
-git clone http://Oferya:oferhub11@github.com/couchbase/couchbase-net-client.git --no-checkout
+git clone http://github.com/couchbase/couchbase-net-client.git --no-checkout
 cd %COUCHBASE-NET-CLIENT%
 
 if %GERRIT_COMMIT% neq 0 (
     echo Using Gerrit change set %GERRIT_COMMIT%
     git fetch http://review.couchbase.org/couchbase-net-client refs/changes/%GERRIT_COMMIT% && git checkout FETCH_HEAD
 ) else (
-    echo Checking out branch %client_version%
-    git checkout %client_version%
+    echo Checking out branch %NET_CLIENT_BRANCH
+    git checkout %NET_CLIENT_BRANCH%
 
     if %NET_CLIENT_SHA% neq 0 (
         echo Applying SHA %NET_CLIENT_SHA%
