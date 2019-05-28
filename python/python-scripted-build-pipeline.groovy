@@ -59,6 +59,7 @@ pipeline {
                             DEFAULT_LCB_API=(DEFAULT_LCB_API!=null)?DEFAULT_LCB_API:"default"
                             PYCBC_LCB_APIS= [DEFAULT_LCB_API]
                             try {
+                                echo("Trying to read LCB_APIS from ${metaData}")
                                 def LCB_APIS = metaData.comp_options.PYCBC_LCB_API_ALL_SUPPORTED
                                 if (LCB_APIS) {
                                     echo("Got LCB_APIS=${LCB_APIS}")
@@ -67,6 +68,7 @@ pipeline {
                                 }
                             }
                             catch (Exception e) {
+                                echo("Got exception ${e} trying to read PYCBC_LCB_API_ALL_SUPPORTED from ${metaData} ")
                             }
                         }
                         if (version.length()>0) {
