@@ -579,6 +579,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                         echo "trying to write to: ["
                         echo "\$TMPCMDS"
                         echo "]"
+                        echo "break abort"
                         echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
                         echo "bt" >>"\$TMPCMDS"
                         echo "py-bt" >>"\$TMPCMDS"
