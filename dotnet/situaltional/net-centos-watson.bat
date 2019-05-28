@@ -71,7 +71,7 @@ if %GERRIT_COMMIT% neq 0 (
     echo Using Gerrit change set %GERRIT_COMMIT%
     git fetch http://review.couchbase.org/couchbase-net-client refs/changes/%GERRIT_COMMIT% && git checkout FETCH_HEAD
 ) else (
-    echo Checking out branch %NET_CLIENT_BRANCH
+    echo Checking out branch %NET_CLIENT_BRANCH%
     git checkout %NET_CLIENT_BRANCH%
 
     if %NET_CLIENT_SHA% neq 0 (
