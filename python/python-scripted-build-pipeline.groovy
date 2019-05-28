@@ -671,8 +671,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                         def invoke = ""
                         if (platform.contains("macos")) {
                             batchFile = """
-echo "break abort" > "${TMPCMDS}"
-echo "run `which nosetests` ${nosetests_args}" > "${TMPCMDS}"
+echo "run `which nosetests` ${nosetests_args}" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
@@ -681,7 +680,7 @@ echo "quit" >>"${TMPCMDS}"
                         } else {
                             batchFile = """
 echo "break abort" > "${TMPCMDS}"
-echo "run `which nosetests` ${nosetests_args}" > "${TMPCMDS}"
+echo "run `which nosetests` ${nosetests_args}" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
