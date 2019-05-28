@@ -63,7 +63,7 @@ pipeline {
                                 def LCB_APIS = metaData.comp_options.PYCBC_LCB_API_ALL_SUPPORTED
                                 if (LCB_APIS) {
                                     echo("Got LCB_APIS=${LCB_APIS}")
-                                    PYCBC_LCB_APIS = LCB_APIS.split(/,/)
+                                    PYCBC_LCB_APIS = LCB_APIS
                                     echo("Set PYCBC_LCB_APIS=${PYCBC_LCB_APIS}")
                                 }
                             }
