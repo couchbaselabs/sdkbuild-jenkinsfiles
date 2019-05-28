@@ -801,7 +801,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
                 cmdWithEcho(platform,"pip install cmake",true)
-                shWithEcho("pip install .")
+                shWithEcho("pip install . -v -v -v")
                 if (dist_dir)
                 {
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -971,7 +971,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                 }
                                                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                                                     if ("${PIP_INSTALL}" == "True") {
-                                                        batWithEcho("pip install .")
+                                                        batWithEcho("pip install . -v -v -v")
                                                     } else {
                                                         batWithEcho("python setup.py build_ext ${setup_args} install")
                                                     }
@@ -1005,13 +1005,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             dir("couchbase-python-client") {
                                                 shWithEcho("pip install cython")
                                                 if ("${PIP_INSTALL}" == "True") {
-                                                    shWithEcho("pip install .")
+                                                    shWithEcho("pip install . -v -v -v")
                                                 } else {
                                                     shWithEcho("python setup.py build_ext ${setup_args} install")
                                                 }
                                                 //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                                                    //shWithEcho("pip install .")
+                                                    //shWithEcho("pip install . -v -v -v")
                                                     //shWithEcho("python setup.py install")
                                                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                                                 }
