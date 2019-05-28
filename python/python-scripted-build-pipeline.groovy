@@ -19,7 +19,7 @@ def DEFAULT_PY_ARCH = PY_ARCHES[0]
 def PARALLEL_PAIRS = "${PARALLEL_PAIRS}".toBoolean()
 def WIN_PY_DEFAULT_VERSION = "3.7.0"
 def PYCBC_ASSERT_CONTINUE = "${PYCBC_ASSERT_CONTINUE}"
-String[] PYCBC_LCB_APIS="${PYCBC_LCB_APIS}"?"${PYCBC_LCB_APIS}".split(/,/):["default"]
+String[] PYCBC_LCB_APIS="${PYCBC_LCB_APIS}"?"${PYCBC_LCB_APIS}".split(/,/):null
 String COMMIT_MSG="${COMMIT_MSG}"
 def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
@@ -46,7 +46,29 @@ pipeline {
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script {
-                        String version = getVersion()
+                        def metaData=readMetadata()
+                        String version = getVersion(metaData)
+                        if (PYCBC_LCB_APIS==null) {
+                            DEFAULT_LCB_API=null
+                            try{
+                                DEFAULT_LCB_API=metaData.comp_options.PYCBC_LCB_API
+                            }
+                            catch(Exception e){
+
+                            }
+                            DEFAULT_LCB_API=(DEFAULT_LCB_API!=null)?DEFAULT_LCB_API:"default"
+                            PYCBC_LCB_APIS= [DEFAULT_LCB_API]
+                            try {
+                                def LCB_APIS = metaData.comp_options.PYCBC_LCB_API_ALL_SUPPORTED
+                                if (LCB_APIS) {
+                                    echo("Got LCB_APIS=${LCB_APIS}")
+                                    PYCBC_LCB_APIS = LCB_APIS.split(/,/)
+                                    echo("Set PYCBC_LCB_APIS=${PYCBC_LCB_APIS}")
+                                }
+                            }
+                            catch (Exception e) {
+                            }
+                        }
                         if (version.length()>0) {
                             dir("couchbase-python-client") {
                                 platform = "${DEFAULT_PLATFORM}"
@@ -189,7 +211,7 @@ def doOptionalPublishing()
 
     script{
         try{
-            String version = getVersion()
+            String version = getVersion(readMetadata())
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 dir ("couchbase-python-client") {
@@ -208,7 +230,7 @@ def doOptionalPublishing()
     }
 }
 
-def getVersion() {
+def getVersion(cbuild_cfg) {
     String version = "${PYCBC_VERSION}"
 
     if (version.length() == 0) {
@@ -221,15 +243,34 @@ def getVersion() {
     }
 
     if (version.length() == 0) {
-        try {
-            def version_info = readJSON file: 'metadata.json'
-            version = version_info['version']
-        }
-        catch (Exception e) {
-            echo("Could not read version from metadata: ${e}")
+        if (cbuild_cfg!=null)
+        {
+            try{
+                version=cbuild_cfg.comp_options.PYCBC_VERSION
+            }
+            catch (Exception e){
+
+            }
         }
     }
+    if (version==null)
+    {
+        version=""
+    }
+
     return version
+}
+
+def readMetadata() {
+    try {
+        def cbuild_cfg = readJSON file: 'cbuild_cfg.json'
+        echo("Read build_cfg ${cbuild_cfg}")
+        return cbuild_cfg
+    }
+    catch (Exception e) {
+        echo("Could not read version from metadata: ${e}")
+    }
+    return null
 }
 
 /*
