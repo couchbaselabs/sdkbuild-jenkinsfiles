@@ -257,24 +257,90 @@ class Unix implements Platform
         return sh(args)
     }
 }*/
+class BuildParams{
+    public String PYCBC_LCB_API=null
 
-void installPython(String platform, String version, String pyshort, String path, String arch) {
-    def cmd = "cbdep install python ${version} -d ${path}"
-    if (arch == "x86") {
-        cmd = cmd + " --x32"
+    BuildParams(String PYCBC_LCB_API) {
+        this.PYCBC_LCB_API = PYCBC_LCB_API
     }
-    def plat_class = null
-    if (isWindows(platform))
-    {
-        //plat_class = Windows()
-        batWithEcho(cmd)
+}
+
+class TestParams{
+    boolean INSTALL_REQS=false
+    String NOSE_GIT=null
+    String PYCBC_VALGRIND=null
+    BuildParams buildParams
+    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND) {
+        this.buildParams = buildParams
+        this.INSTALL_REQS = INSTALL_REQS
+        this.NOSE_GIT = NOSE_GIT
+        this.PYCBC_VALGRIND=PYCBC_VALGRIND
     }
-    else
-    {
-        //plat_class = Unix()
-        shWithEcho(cmd)
+
+}
+
+void installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
+    if (isDebug && false) { // workaround hack, disable for now
+        //BigDecimal versionAsDecimal=BigDecimal.valueOf(Double.parseDouble(version))
+        if (isWindows(platform)) {
+            def PY_DEBUG_INSTALL_DIR = path//getPythonDebugInstall(platform, version, arch)
+            def TEMP_DIR = "${WORKSPACE}\\temp"
+            def FIXED_DIR = "${PY_DEBUG_INSTALL_DIR}"
+            def DL="python-${version}${arch}.exe"
+            def URL = "https://www.python.org/ftp/python/${version}/${DL}"
+            batWithEcho("""
+C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
+            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\core_d.msi TARGETDIR=${FIXED_DIR}
+            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\lib_d.msi TARGETDIR=${FIXED_DIR}
+            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\dev_d.msi TARGETDIR=${FIXED_DIR}
+            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\exe_d.msi TARGETDIR=${FIXED_DIR}
+            del ${FIXED_DIR}\\*.msi
+            ${FIXED_DIR}\\python.exe -E -s -m ensurepip --default-pip
+          ${FIXED_DIR}\\python.exe -m venv ${path}\\python${version}${arch}
+""")
+        }
+        /*else
+        {
+            if (versionAsDecimal>=3.3)
+            {
+                shWithEcho("""
+            export FIXED_DIR=${WORKSPACE}/.pyenv/versions/${version}
+            git clone git://github.com/pyenv/pyenv.git ${HOME}/.pyenv 2>/dev/null || true
+            cd ${HOME}/.pyenv && git pull
+            ${HOME}/.pyenv/bin/pyenv install ${VERSION}
+            fixed_dir: ${HOME}/.pyenv/versions/${VERSION}
+            ${FIXED_DIR}/bin/python -m venv ${INSTALL_DIR}/python${version}
+"""
+            }
+            else if (versionAsDecimal>=2.7 && versionAsDecimal< 3.0)
+            shWithEcho("""
+            export FIXED_DIR=${WORKSPACE}/.pyenv/versions/${version}
+            git clone git://github.com/pyenv/pyenv.git ${HOME}/.pyenv 2>/dev/null || true
+            cd ${HOME}/.pyenv && git pull
+            ${HOME}/.pyenv/bin/pyenv install ${VERSION}
+            ${FIXED_DIR}/bin/python -m pip install virtualenv
+            ${FIXED_DIR}/bin/python -m virtualenv ${INSTALL_DIR}/python${VERSION}""")
+        }*/
+    } else {
+        def cmd = "cbdep install python ${version} -d ${path}"
+        if (arch == "x86") {
+            cmd = cmd + " --x32"
+        }
+
+        def plat_class = null
+        if (isWindows(platform)) {
+            //plat_class = Windows()
+            batWithEcho(cmd)
+        } else {
+            //plat_class = Unix()
+            shWithEcho(cmd)
+        }
     }
     //plat_class.shell(cmd)
+}
+
+private GString getPythonDebugInstall(String version, String arch) {
+    "${WORKSPACE}\\cbdep\\Python${version}${arch}-debug"
 }
 
 def shWithEcho(String command) {
@@ -397,12 +463,13 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="0x030000", PYCBC_VALGRIND="") {
+def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
     envStr=[]
+    PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
     if (isWindows(platform)) {
-        envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
+        envStr = PYCBC_LCB_API_SECTION+["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
     } else {
-        envStr = ["PYCBC_LCB_API=${PYCBC_LCB_API}", "PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+        envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
     }
     return envStr+getCommitEnvStrAdditions()
 }
@@ -450,27 +517,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     [test_rel_path, nosetests_args, test_full_path]
 }
 
-class BuildParams{
-    public String PYCBC_LCB_API=null
 
-    BuildParams(String PYCBC_LCB_API) {
-        this.PYCBC_LCB_API = PYCBC_LCB_API
-    }
-}
-
-class TestParams{
-    boolean INSTALL_REQS=false
-    String NOSE_GIT=null
-    String PYCBC_VALGRIND=null
-    BuildParams buildParams
-    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND) {
-        this.buildParams = buildParams
-        this.INSTALL_REQS = INSTALL_REQS
-        this.NOSE_GIT = NOSE_GIT
-        this.PYCBC_VALGRIND=PYCBC_VALGRIND
-    }
-
-}
 def installReqsIfNeeded(TestParams params, def platform) {
 
     if (params.INSTALL_REQS){
@@ -817,7 +864,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     //unstash "lcb-${platform}-${pyversion}-${arch}"
-    installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}")
+    installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
@@ -922,7 +969,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
-                            def setup_args = "--inplace " + (PYCBC_DEBUG_SYMBOLS?"--debug ":"")
+                            def setup_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
                                 stage("build ${stage_name}") {
                                     timestamps {
@@ -933,7 +980,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         if (isWindows(platform)) {
                                             batWithEcho("SET")
                                             dir("deps") {
-                                                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}")
+                                                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
                                             }
 
                                             batWithEcho("python --version")
@@ -983,7 +1030,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
                                         } else {
                                             shWithEcho('env')
-                                            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64")
+                                            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS?true:false)
 
                                             shWithEcho("python --version")
                                             shWithEcho("pip --version")
