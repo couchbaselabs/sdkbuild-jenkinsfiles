@@ -680,6 +680,7 @@ echo "quit" >>"${TMPCMDS}"
                         } else {
                             batchFile = """
 echo "break abort" > "${TMPCMDS}"
+echo "handle all nostop" > "${TMPCMDS}"
 echo "run `which nosetests` ${nosetests_args}" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
