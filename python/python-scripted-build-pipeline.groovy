@@ -630,19 +630,21 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     shWithEcho("pip install configparser")
                     shWithEcho(genTestIniModifier(SERVER_VERSION, first_ip, cbas_ip))
 
-                    
+
                     shWithEcho("python updateTests.py")
                     shWithEcho("ls -alrt")
                     shWithEcho("cat tests.ini")
-                    installReqsIfNeeded(testParams,platform)
+                    installReqsIfNeeded(testParams, platform)
                     if (testParams.PYCBC_VALGRIND != "") {
                         shWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${testParams.PYCBC_VALGRIND}"
                             mkdir -p \$VALGRIND_REPORT_DIR
-                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${testParams.PYCBC_VALGRIND}" > build/valgrind.txt""")
-                            if (PARSE_SUPPRESSIONS){
-                                shWithEcho("python jenkins/parse_suppressions.py")
-                            }
+                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${
+                            testParams.PYCBC_VALGRIND
+                        }" > build/valgrind.txt""")
+                        if (PARSE_SUPPRESSIONS) {
+                            shWithEcho("python jenkins/parse_suppressions.py")
+                        }
                         publishValgrind(
                                 failBuildOnInvalidReports: false,
                                 failBuildOnMissingReports: false,
@@ -657,24 +659,42 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                                 unstableThresholdInvalidReadWrite: '',
                                 unstableThresholdTotal: ''
                         )
-        }
+                    }
                     shWithEcho("echo $PWD && ls -alrt")
 
                     if (PYCBC_DEBUG_SYMBOLS == "") {
                         shWithEcho("which nosetests")
                         shWithEcho("nosetests ${nosetests_args}")
                     } else {
+                        def TMPCMDS = "${pyversion}_${LCB_VERSION}_cmds"
+                        def batchFile = ""
+                        def invoke = ""
+                        if (platform.contains("macos")) {
+                            batchFile = """
+echo "break abort" > "${TMPCMDS}"
+echo "run `which nosetests` ${nosetests_args}" > "${TMPCMDS}"
+echo "bt" >>"${TMPCMDS}"
+echo "py-bt" >>"${TMPCMDS}"
+echo "quit" >>"${TMPCMDS}"
+"""
+                            invoke = "lldb --batch -K ${TMPCMDS} -o run -f `which python` -- `which nosetests` ${nosetests_args}"
+                        } else {
+                            batchFile = """
+echo "break abort" > "${TMPCMDS}"
+echo "run `which nosetests` ${nosetests_args}" > "${TMPCMDS}"
+echo "bt" >>"${TMPCMDS}"
+echo "py-bt" >>"${TMPCMDS}"
+echo "quit" >>"${TMPCMDS}"
+"""
+                            invoke = "gdb -batch -x \"${TMPCMDS}\" `which python`"
+                        }
                         shWithEcho("""
-                        export TMPCMDS="${pyversion}_${LCB_VERSION}_cmds"
+                        
                         echo "trying to write to: ["
-                        echo "\$TMPCMDS"
+                        echo "${TMPCMDS}"
                         echo "]"
-                        echo "break abort"
-                        echo "run `which nosetests` ${nosetests_args}" > "\$TMPCMDS"
-                        echo "bt" >>"\$TMPCMDS"
-                        echo "py-bt" >>"\$TMPCMDS"
-                        echo "quit" >>"\$TMPCMDS"
-                        gdb -batch -x "\$TMPCMDS" `which python`""")
+                        ${batchFile}
+                        ${invoke}""")
                     }
                     shWithEcho("echo $PWD && ls -alrt")
                 }
