@@ -254,6 +254,7 @@ end
                 sh('<%= pear %> version')
                 unstash 'php-couchbase'
                 dir('php-couchbase') {
+                    sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
                     sh('<%= pear %> package')
                     archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
                     stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)

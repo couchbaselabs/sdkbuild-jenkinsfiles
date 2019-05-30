@@ -658,6 +658,7 @@ pipeline {
                 sh('/tmp/php/php-zts-7.3.5-cb4/bin/pear version')
                 unstash 'php-couchbase'
                 dir('php-couchbase') {
+                    sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
                     sh('/tmp/php/php-zts-7.3.5-cb4/bin/pear package')
                     archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
                     stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
