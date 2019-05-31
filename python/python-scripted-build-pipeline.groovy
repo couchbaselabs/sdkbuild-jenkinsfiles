@@ -150,7 +150,7 @@ pip install --verbose Twisted gevent""")
                         { return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT)
+                doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT, "${PIP_INSTALL}")
             }
         }
         stage('quality') {
@@ -899,9 +899,9 @@ def buildLibCouchbase(platform, arch)
     }    
 }
 
-def installPythonClient(platform, setup_args) {
+def installPythonClient(platform, setup_args, PIP_INSTALL) {
     def installCmd=""
-    if ("${PIP_INSTALL}" == "True") {
+    if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
     } else {
@@ -914,7 +914,7 @@ def installPythonClient(platform, setup_args) {
 }
 
 
-def installClient(String platform, String arch, String WORKSPACE, dist_dir = null, setup_args = null)
+def installClient(String platform, String arch, String WORKSPACE, dist_dir = null)
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
@@ -926,7 +926,6 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
                 cmdWithEcho(platform,"pip install cmake",true)
-                installPythonClient(platform, setup_args )
                 shWithEcho("pip install . -v -v -v")
                 if (dist_dir)
                 {
@@ -937,7 +936,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
     }
 }
 
-def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL)
 {
     cleanWs()
     unstash "couchbase-python-client"
@@ -1096,7 +1095,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                                                 }
                                                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                                                    installPythonClient(platform, setup_args)
+                                                    installPythonClient(platform, setup_args, "${PIP_INSTALL}")
                                                     batWithEcho("pip install wheel")
                                                 }
                                                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
@@ -1126,7 +1125,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             }
                                             dir("couchbase-python-client") {
                                                 shWithEcho("pip install cython")
-                                                installPythonClient(platform, setup_args)
+                                                installPythonClient(platform, setup_args, "${PIP_INSTALL}")
                                                 //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                                                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                                                     //shWithEcho("pip install . -v -v -v")
