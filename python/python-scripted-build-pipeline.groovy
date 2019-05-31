@@ -902,7 +902,8 @@ def buildLibCouchbase(platform, arch)
 def installPythonClient(platform, setup_args) {
     def installCmd=""
     if ("${PIP_INSTALL}" == "True") {
-        installCmd="pip install . -e -v -v -v"
+        //cmdWithEcho(platform, "pip install --upgrade pip")
+        installCmd="pip install -e . -v -v -v"
     } else {
         if (setup_args==null){
             setup_args="--inplace --debug"
