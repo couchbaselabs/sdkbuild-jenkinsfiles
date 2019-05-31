@@ -1014,7 +1014,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
-                    if (isWindows(platform) && (pyversion.contains("2.7"))) {
+                    if (isWindows(platform) && (pyversion.contains("2.7")) && !"${COMMIT_MSG}".contains("PYCBC_TEST_27WIN")) {
                         continue
                     }
 
@@ -1028,7 +1028,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         } else if (pyversion >= "3.3") {
                             label = "msvc-2010"
                         } else {
-                            continue
+                            label = "msvc-2015"
                         }
                     }
                     def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
