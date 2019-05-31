@@ -988,6 +988,101 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
     return "${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}_${SERVER_VERSION}"
 }
 
+
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, setup_args, dist_dir, dist_dir_rel) {
+    timestamps {
+        cleanWs()
+        unstash 'couchbase-python-client'
+
+        // TODO: CHECK THIS ALL LOOKS GOOD
+        if (isWindows(platform)) {
+            batWithEcho("SET")
+            dir("deps") {
+                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
+            }
+
+            batWithEcho("python --version")
+            batWithEcho("pip --version")
+            if (BUILD_LCB == "True") {
+                batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
+                dir("libcouchbase") {
+                    batWithEcho("git checkout ${LCB_VERSION}")
+                }
+                cmake_arch = (['Visual Studio 14 2015'] + win_arch).join(' ')
+
+                dir("build") {
+                    if (IS_RELEASE == "true") {
+                        batWithEcho("""
+                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                            cmake --build .
+                                                        """)
+                    } else {
+                        // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
+                        batWithEcho("""
+                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
+                                                            cmake --build .
+                                                        """)
+                    }
+                    batWithEcho("""
+                                                        cmake --build . --target alltests
+                                                        ctest -C debug
+                                                    """)
+                    batWithEcho("cmake --build . --target package")
+                }
+            }
+            dir("couchbase-python-client") {
+                if (BUILD_LCB == "True") {
+                    batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                }
+                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                    installPythonClient(platform, setup_args, "${PIP_INSTALL}")
+                    batWithEcho("pip install wheel")
+                }
+                batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
+                batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+            }
+            archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
+        } else {
+            shWithEcho('env')
+            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
+
+            shWithEcho("python --version")
+            shWithEcho("pip --version")
+            if (BUILD_LCB == "True") {
+
+                shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
+                dir("libcouchbase") {
+                    shWithEcho("git checkout ${LCB_VERSION}")
+                    dir("build") {
+                        if (IS_RELEASE == "true") {
+                            shWithEcho("cmake ../")
+                        } else {
+                            shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
+                        }
+                        shWithEcho("make")
+                    }
+                }
+            }
+            dir("couchbase-python-client") {
+                shWithEcho("pip install cython")
+                installPythonClient(platform, setup_args, "${PIP_INSTALL}")
+                //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
+                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                    //shWithEcho("pip install . -v -v -v")
+                    //shWithEcho("python setup.py install")
+                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                }
+            }
+        }
+
+        stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+        //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+        stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+    }
+
+}
+
+
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
     def BUILD_LCB = "False"
@@ -1014,7 +1109,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
-                    if (isWindows(platform) && (pyversion<("3.0")) && !"${COMMIT_MSG}".contains("PYCBC_TEST_27WIN")) {
+                    def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TEST_27WIN")
+                    if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
                         continue
                     }
 
@@ -1049,101 +1145,35 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
                             def setup_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
-                                stage("build ${stage_name}") {
-                                    timestamps {
-                                        cleanWs()
-                                        unstash 'couchbase-python-client'
-
-                                        // TODO: CHECK THIS ALL LOOKS GOOD
-                                        if (isWindows(platform)) {
-                                            batWithEcho("SET")
-                                            dir("deps") {
-                                                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
-                                            }
-
-                                            batWithEcho("python --version")
-                                            batWithEcho("pip --version")
-                                            if (BUILD_LCB == "True") {
-                                                batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
-                                                dir("libcouchbase") {
-                                                    batWithEcho("git checkout ${LCB_VERSION}")
-                                                }
-                                                cmake_arch = (['Visual Studio 14 2015'] + win_arch).join(' ')
-
-                                                dir("build") {
-                                                    if (IS_RELEASE == "true") {
-                                                        batWithEcho("""
-                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                            cmake --build .
-                                                        """)
-                                                    } else {
-                                                        // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
-                                                        batWithEcho("""
-                                                            cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
-                                                            cmake --build .
-                                                        """)
-                                                    }
-                                                    batWithEcho("""
-                                                        cmake --build . --target alltests
-                                                        ctest -C debug
-                                                    """)
-                                                    batWithEcho("cmake --build . --target package")
-                                                }
-                                            }
-                                            dir("couchbase-python-client") {
-                                                if (BUILD_LCB == "True") {
-                                                    batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                                                }
-                                                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                                                    installPythonClient(platform, setup_args, "${PIP_INSTALL}")
-                                                    batWithEcho("pip install wheel")
-                                                }
-                                                batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
-                                                batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
-                                            }
-                                            archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
-                                        } else {
-                                            shWithEcho('env')
-                                            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS?true:false)
-
-                                            shWithEcho("python --version")
-                                            shWithEcho("pip --version")
-                                            if (BUILD_LCB == "True") {
-
-                                                shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
-                                                dir("libcouchbase") {
-                                                    shWithEcho("git checkout ${LCB_VERSION}")
-                                                    dir("build") {
-                                                        if (IS_RELEASE == "true") {
-                                                            shWithEcho("cmake ../")
-                                                        } else {
-                                                            shWithEcho("cmake ../ -DCMAKE_BUILD_TYPE=DEBUG")
-                                                        }
-                                                        shWithEcho("make")
-                                                    }
-                                                }
-                                            }
-                                            dir("couchbase-python-client") {
-                                                shWithEcho("pip install cython")
-                                                installPythonClient(platform, setup_args, "${PIP_INSTALL}")
-                                                //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
-                                                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                                                    //shWithEcho("pip install . -v -v -v")
-                                                    //shWithEcho("python setup.py install")
-                                                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
-                                                }
-                                            }
-                                        }
-
-                                        stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                        //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-                                        stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+                                Exception exception_received=null;
+                                try {
+                                    stage("build ${stage_name}") {
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, setup_args, dist_dir, dist_dir_rel)
+                                    }
+                                    stage("test ${stage_name}") {
+                                        doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                     }
                                 }
-                                stage("test ${stage_name}") {
-                                    doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
+                                catch(Exception e){
+                                    exception_received=e
+                                    if(!try_invalid_combo)
+                                    {
+                                        throw e
+                                    }
+                                }
+                                if (try_invalid_combo)
+                                {
+                                    if (!exception_received){
+                                        throw new RuntimeException("Invalid combo unexpectedly succeeded")
+                                    }
+                                    else
+                                    {
+                                        echo("Got exception as expected: ${exception_received}")
+                                    }
+
                                 }
                             }
+
                         }
                     }
                 }
