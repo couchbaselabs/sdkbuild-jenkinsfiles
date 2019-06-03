@@ -1109,7 +1109,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
-                    def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TEST_27WIN")
+                    def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
                     if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
                         continue
                     }
