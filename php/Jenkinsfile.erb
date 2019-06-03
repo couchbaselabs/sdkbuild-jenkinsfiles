@@ -65,7 +65,7 @@ pipeline {
                         stage('lcb2') {
                             when {
                                 expression {
-                                    env.GERRIT_BRANCH == 'release-2.10'
+                                    env.GERRIT_BRANCH == 'release-2.6'
                                 }
                             }
                             steps {
@@ -162,7 +162,7 @@ end
                         stage('lcb2') {
                             when {
                                 expression {
-                                    env.GERRIT_BRANCH == 'release-2.10'
+                                    env.GERRIT_BRANCH == 'release-2.6'
                                 }
                             }
                             steps {
