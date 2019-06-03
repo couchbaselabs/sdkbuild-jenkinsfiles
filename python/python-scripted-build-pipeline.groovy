@@ -49,7 +49,7 @@ pipeline {
                         def metaData=readMetadata()
                         String version = getVersion(metaData)
                         if (PYCBC_LCB_APIS==null) {
-                            DEFAULT_LCB_API=null
+                            def DEFAULT_LCB_API=null
                             try{
                                 DEFAULT_LCB_API=metaData.comp_options.PYCBC_LCB_API
                             }
@@ -1003,7 +1003,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             batWithEcho("python --version")
             batWithEcho("pip --version")
-            if (BUILD_LCB == "True") {
+            if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
                     batWithEcho("git checkout ${LCB_VERSION}")
@@ -1031,7 +1031,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 }
             }
             dir("couchbase-python-client") {
-                if (BUILD_LCB == "True") {
+                if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                 }
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
@@ -1048,7 +1048,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             shWithEcho("python --version")
             shWithEcho("pip --version")
-            if (BUILD_LCB == "True") {
+            if (BUILD_LCB) {
 
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
                 dir("libcouchbase") {
@@ -1085,8 +1085,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
-    def BUILD_LCB = "False"
-    def pairs = [:] 
+    def pairs = [:]
     
     def combis = [:]
     def hasWindows = false
@@ -1148,6 +1147,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 Exception exception_received=null;
                                 try {
                                     stage("build ${stage_name}") {
+                                        def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, setup_args, dist_dir, dist_dir_rel)
                                     }
                                     stage("test ${stage_name}") {
