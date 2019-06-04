@@ -72,7 +72,7 @@ pipeline {
                                 echo("Got exception ${e} trying to read PYCBC_LCB_API_ALL_SUPPORTED from ${metaData} ")
                             }
                         }
-                        tag_version(PYCBC_VERSION, DEFAULT_PLATFORM)
+                        //tag_version(PYCBC_VERSION, DEFAULT_PLATFORM)
                     }
                 }
 
@@ -141,7 +141,7 @@ pip install --verbose Twisted gevent""")
                         { return IS_GERRIT_TRIGGER.toBoolean() == false }
             }
             steps {
-                doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT, "${PIP_INSTALL}")
+                doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT, "${PIP_INSTALL}", PYCBC_VERSION)
             }
         }
         stage('quality') {
@@ -199,16 +199,15 @@ pip install --verbose Twisted gevent""")
     }
 }
 
-def tag_version(String PYCBC_VERSION, DEFAULT_PLATFORM) {
+def tag_version(String PYCBC_VERSION, platform) {
     if (PYCBC_VERSION && PYCBC_VERSION.length() > 0) {
         dir("couchbase-python-client") {
-            platform = "${DEFAULT_PLATFORM}"
             cmdWithEcho(platform, """
 git config user.name "Couchbase SDK Team"
                             git config user.email "sdk_dev@couchbase.com"
 """)
 
-            cmdWithEcho(platform, "git tag -a ${version} -m 'Release of client version ${version}'", false)
+            cmdWithEcho(platform, """git tag -a ${PYCBC_VERSION} -m "Release of client version ${PYCBC_VERSION}" """, false)
         }
     }
 }
@@ -919,7 +918,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 }
 
 
-def installClient(String platform, String arch, String WORKSPACE, dist_dir = null)
+def installClient(String platform, String arch, String WORKSPACE, PYCBC_VERSION)
 {
     script{
         cmdWithEcho(platform,"pip uninstall -y couchbase", true)
@@ -930,8 +929,16 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
         {
             dir("${WORKSPACE}/couchbase-python-client") {
                 shWithEcho("pip install cython")
+
                 cmdWithEcho(platform,"pip install cmake",true)
-                shWithEcho("pip install . -v -v -v")
+                if (PYCBC_VERSION<"3.0.0") {
+                    cmdWithEcho(platform,"python setup.py build_ext --inplace "+getBuildExtArgs(platform, "${WORKSPACE}")+" install")
+                }
+                else
+                {
+                    cmdWithEcho(platform,"pip install . -v -v -v")
+
+                }
                 if (dist_dir)
                 {
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -941,7 +948,7 @@ def installClient(String platform, String arch, String WORKSPACE, dist_dir = nul
     }
 }
 
-def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL)
+def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL, String PYCBC_VERSION)
 {
     cleanWs()
     unstash "couchbase-python-client"
@@ -951,7 +958,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
-        installClient(platform, arch, WORKSPACE)
+        //installClient(platform, arch, WORKSPACE, PYCBC_VERSION)
         installReqs(platform)
     }
     for (server_version in SERVER_VERSIONS)
@@ -1000,7 +1007,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         unstash 'couchbase-python-client'
         if ("${PYCBC_VERSION}".length()>0)
         {
-            tag_version(PYCBC_VERSION,platform)
+            tag_version("${PYCBC_VERSION}",platform)
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
         if (isWindows(platform)) {
@@ -1041,7 +1048,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             dir("couchbase-python-client") {
                 if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
-                    build_ext_args+="--library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated"
+                    build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
                 }
 
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
@@ -1072,7 +1079,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                         shWithEcho("make")
                     }
                 }
-                build_ext_args+="--library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}"
+                build_ext_args+=getBuildExtArgs(platform, "${WORKSPACE}")
             }
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
@@ -1089,6 +1096,17 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+    }
+
+}
+
+def getBuildExtArgs(PLATFORM, WORKSPACE) {
+    if (isWindows(PLATFORM)){
+        return "--library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated"
+    }
+    else
+    {
+        return "--library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}"
     }
 
 }
