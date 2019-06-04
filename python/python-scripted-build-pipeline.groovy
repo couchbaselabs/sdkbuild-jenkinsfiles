@@ -959,7 +959,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     withEnv(envStr)
     {
         //installClient(platform, arch, WORKSPACE, PYCBC_VERSION)
-        installReqs(platform)
+        installReqs(platform, NOSE_GIT)
     }
     for (server_version in SERVER_VERSIONS)
     {
@@ -1084,7 +1084,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
-                //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     //shWithEcho("pip install . -v -v -v")
                     //shWithEcho("python setup.py install")
