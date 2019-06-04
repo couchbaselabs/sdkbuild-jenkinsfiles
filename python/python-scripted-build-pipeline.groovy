@@ -899,16 +899,14 @@ def buildLibCouchbase(platform, arch)
     }    
 }
 
-def installPythonClient(platform, setup_args, PIP_INSTALL) {
+def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     def installCmd=""
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
     } else {
-        if (setup_args==null){
-            setup_args="--inplace --debug"
-        }
-        installCmd="python setup.py build_ext ${setup_args} install"
+        //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
+        installCmd="python setup.py build_ext ${build_ext_args} install"
     }
     cmdWithEcho(platform, installCmd)
 }
@@ -989,7 +987,7 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
 }
 
 
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, setup_args, dist_dir, dist_dir_rel) {
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel) {
     timestamps {
         cleanWs()
         unstash 'couchbase-python-client'
@@ -1033,9 +1031,11 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             dir("couchbase-python-client") {
                 if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
+                    build_ext_args+="--library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated"
                 }
+
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    installPythonClient(platform, setup_args, "${PIP_INSTALL}")
+                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                     batWithEcho("pip install wheel")
                 }
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
@@ -1065,7 +1065,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             }
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
-                installPythonClient(platform, setup_args, "${PIP_INSTALL}")
+                installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 //shWithEcho("python setup.py build_ext --inplace --library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     //shWithEcho("pip install . -v -v -v")
@@ -1142,13 +1142,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
                             def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
-                            def setup_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
+                            def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
                                 Exception exception_received=null;
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, setup_args, dist_dir, dist_dir_rel)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel)
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
