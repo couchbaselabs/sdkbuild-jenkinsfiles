@@ -23,6 +23,7 @@ String[] PYCBC_LCB_APIS="${PYCBC_LCB_APIS}"?"${PYCBC_LCB_APIS}".split(/,/):null
 String COMMIT_MSG="${COMMIT_MSG}"
 def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
+String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 
 pipeline {
@@ -47,7 +48,7 @@ pipeline {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script {
                         def metaData=readMetadata()
-                        String version = getVersion(metaData)
+                        PYCBC_VERSION = getVersion(metaData)
                         if (PYCBC_LCB_APIS==null) {
                             def DEFAULT_LCB_API=null
                             try{
@@ -71,17 +72,7 @@ pipeline {
                                 echo("Got exception ${e} trying to read PYCBC_LCB_API_ALL_SUPPORTED from ${metaData} ")
                             }
                         }
-                        if (version.length()>0) {
-                            dir("couchbase-python-client") {
-                                platform = "${DEFAULT_PLATFORM}"
-                                cmdWithEcho(platform, """
-git config user.name "Couchbase SDK Team"
-                            git config user.email "sdk_dev@couchbase.com"
-""")
-
-                                cmdWithEcho(platform, "git tag -a ${version} -m 'Release of client version ${version}'", false)
-                            }
-                        }
+                        tag_version(PYCBC_VERSION, DEFAULT_PLATFORM)
                     }
                 }
 
@@ -198,10 +189,26 @@ pip install --verbose Twisted gevent""")
                 doOptionalPublishing()
                 dir ("couchbase-python-client") {
                     script {
-                        shWithEcho("""git push --tags""")
+                        if (false){
+                            shWithEcho("""git push --tags""")
+                        }
                     }
                 }
             }
+        }
+    }
+}
+
+def tag_version(String PYCBC_VERSION, DEFAULT_PLATFORM) {
+    if (PYCBC_VERSION && PYCBC_VERSION.length() > 0) {
+        dir("couchbase-python-client") {
+            platform = "${DEFAULT_PLATFORM}"
+            cmdWithEcho(platform, """
+git config user.name "Couchbase SDK Team"
+                            git config user.email "sdk_dev@couchbase.com"
+""")
+
+            cmdWithEcho(platform, "git tag -a ${version} -m 'Release of client version ${version}'", false)
         }
     }
 }
@@ -991,7 +998,10 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
     timestamps {
         cleanWs()
         unstash 'couchbase-python-client'
-
+        if ("${PYCBC_VERSION}".length()>0)
+        {
+            tag_version(PYCBC_VERSION,platform)
+        }
         // TODO: CHECK THIS ALL LOOKS GOOD
         if (isWindows(platform)) {
             batWithEcho("SET")
@@ -1062,6 +1072,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                         shWithEcho("make")
                     }
                 }
+                build_ext_args+="--library-dirs ${LCB_LIB} --include-dirs ${LCB_INC}"
             }
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
