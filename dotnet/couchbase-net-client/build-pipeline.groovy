@@ -125,7 +125,7 @@ pipeline {
                             unstash "couchbase-net-client-package"
                             echo "Publishing package to Nuget .."
 
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY}")
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json --no-symbols")
                         }
                     }
                 }
