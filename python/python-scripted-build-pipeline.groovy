@@ -4,7 +4,7 @@ def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-def SERVER_VERSIONS = "${SERVER_VERSIONS}".split(/\s+/) ?: [ "5.5.0", "6.0.0"] 
+def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "2.7.15"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
@@ -223,10 +223,16 @@ def doOptionalPublishing()
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 dir ("couchbase-python-client") {
-                    cmdWithEcho("unix", """
-    pip install twine
-    twine upload dist/* -r pypi""", true)
-                    cmdWithEcho("unix", "aws s3 sync build/sphinx/html/ s3://docs.couchbase.com/sdk-api/couchbase-python-client-${PYCBC_VERSION} --acl public-read", true)
+                    withCredentials([usernameColonPassword(credentialsId: 'twine', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+
+                            sh("""
+                                pip install twine
+                                twine upload -u $USER -p $PASSWORD dist/* -r pypi"""
+                            )
+                    }
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-PYCBC']]) {
+                        cmdWithEcho("unix", "aws s3 sync build/sphinx/html/ s3://docs.couchbase.com/sdk-api/couchbase-python-client-${PYCBC_VERSION} --acl public-read", true)
+                    }
                 }
             }
         }
