@@ -443,12 +443,9 @@ def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        if (isWindows(platform)){
-            batWithEcho("pip install -r dev_requirements.txt")
-        }
-        else
-        {
-            shWithEcho("pip install -r dev_requirements.txt")
+        cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+""")
+        if (!isWindows(platform)){
             if (NOSE_GIT) {
                 shWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
             }
@@ -913,6 +910,10 @@ def buildLibCouchbase(platform, arch)
 
 def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     def installCmd=""
+    cmdWithEcho(platform, """
+                            pip install restructuredtext-lint
+                            restructuredtext-lint README.md"""
+    )
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
@@ -924,36 +925,6 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 }
 
 
-def installClient(String platform, String arch, String WORKSPACE, PYCBC_VERSION)
-{
-    script{
-        cmdWithEcho(platform,"pip uninstall -y couchbase", true)
-        if (isWindows(platform)){
-            batWithEcho("pip install --upgrade couchbase --no-index --find-links ${WORKSPACE}/dist")
-        }
-        else
-        {
-            dir("${WORKSPACE}/couchbase-python-client") {
-                shWithEcho("pip install cython")
-
-                cmdWithEcho(platform,"pip install cmake",true)
-                if (PYCBC_VERSION<"3.0.0") {
-                    cmdWithEcho(platform,"python setup.py build_ext --inplace "+getBuildExtArgs(platform, "${WORKSPACE}")+" install")
-                }
-                else
-                {
-                    cmdWithEcho(platform,"pip install . -v -v -v")
-
-                }
-                if (dist_dir)
-                {
-                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
-                }
-            }
-        }
-    }
-}
-
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL, String PYCBC_VERSION)
 {
     cleanWs()
@@ -964,7 +935,6 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
-        //installClient(platform, arch, WORKSPACE, PYCBC_VERSION)
         installReqs(platform, NOSE_GIT)
     }
     for (server_version in SERVER_VERSIONS)
@@ -1015,7 +985,10 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         {
             tag_version("${PYCBC_VERSION}",platform)
         }
-        // TODO: CHECK THIS ALL LOOKS GOOD
+        dir("couchbase-python-client") {
+            cmdWithEcho(platform, "")
+        }
+            // TODO: CHECK THIS ALL LOOKS GOOD
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
@@ -1091,13 +1064,16 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 shWithEcho("pip install cython")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    //shWithEcho("pip install . -v -v -v")
-                    //shWithEcho("python setup.py install")
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                 }
             }
         }
-
+        dir("couchbase-python-client") {
+            cmdWithEcho(platform, """
+pip install twine
+twine check dist/*
+""")
+        }
         stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
