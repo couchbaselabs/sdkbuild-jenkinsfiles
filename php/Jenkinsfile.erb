@@ -1,11 +1,12 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 patch = 'cb1'
 php_versions = [
-    '7.1.28',
-    '7.2.17',
-    #'7.3.4'
+    '7.1.30',
+    '7.2.19',
+    '7.3.6'
 ]
-cbdep_install = 'cbdep install --recache'
+# cbdep_install = 'cbdep install --recache'
+cbdep_install = 'cbdep install'
 %>
 // DO NOT EDIT: this file was generated from Jenkinsfile.erb
 
@@ -124,7 +125,7 @@ end
 %>
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.3/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 stage('w<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
@@ -261,7 +262,7 @@ end
                     sh('tar xf couchbase-*.tgz')
                 }
 <% ['x64'].each do |arch| %>
-<%   php_versions.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.3/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
                 sh("""
