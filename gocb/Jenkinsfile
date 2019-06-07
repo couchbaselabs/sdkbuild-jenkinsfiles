@@ -28,8 +28,32 @@ pipeline {
                 dir('src/github.com/couchbase/gocb') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     shWithEcho("go version")
-                    shWithEcho("go get -t ./")
-                    shWithEcho("make devsetup && make lint")
+                    
+                    script {
+                        if (env.GOCB_VERSION == "v1") {
+                            shWithEcho("go get -t ./")
+                            shWithEcho("make devsetup && make lint")
+                        } else {
+                            withEnv(['GO111MODULE=on']) {
+                                shWithEcho("go get -t ./")
+                                // make sure that we've vendored and updated mod file correctly
+                                shWithEcho("go mod vendor")
+                                shWithEcho("go mod tidy")
+                                shWithEcho("git diff --name-status --exit-code")
+
+                                // make sure that we haven't left a replace in the mod file
+                                shWithEcho("""
+                                if grep -q "replace " go.mod; then
+                                    echo "Found replace in go.mod file"
+                                    exit 1
+                                fi
+                                """)
+
+                                shWithEcho("make devsetup && make lint")
+                            }
+                        }
+                    }
+                    
                     
                     script {
                         if (env.IS_RELEASE.toBoolean() == true) {
@@ -100,12 +124,24 @@ pipeline {
                 cleanWs()
                 build job: "gocb-test-integration", parameters: [
                     string(name: "GO_VERSION", value: GO_VERSION),
+                    string(name: "GOCB_VERSION", value: GOCB_VERSION),
                     string(name: "CB_SERVER_VERSION", value: "5.5.2")
                 ]
                 build job: "gocb-test-integration", parameters: [
                     string(name: "GO_VERSION", value: GO_VERSION),
+                    string(name: "GOCB_VERSION", value: GOCB_VERSION),
                     string(name: "CB_SERVER_VERSION", value: "6.0.0")
                 ]
+                script {
+                    if (env.GOCB_VERSION != "v1") {
+                        build job: "gocb-test-integration", parameters: [
+                            string(name: "GO_VERSION", value: GO_VERSION),
+                    string(name: "GOCB_VERSION", value: GOCB_VERSION),
+                            string(name: "CB_SERVER_VERSION", value: "6.5.0-3143"),
+                            string(name: "EXTRA_PARAMS", value: "--collection-name=test")
+                        ]
+                    }
+                }
             }
         }
         stage('quality') {
@@ -194,7 +230,13 @@ def builds(PLATFORMS) {
         
                             dir("src/github.com/couchbase/gocb") {
                                 batWithEcho("go version")
-                                batWithEcho("go get -t ./")
+                                if (env.GOCB_VERSION == "v1") {
+                                    batWithEcho("go get -t ./")
+                                } else {
+                                    withEnv(['GO111MODULE=on']) {
+                                        batWithEcho("go get ./")
+                                    }
+                                }
                                 batWithEcho("go build")
                             }
                         } else {
@@ -202,7 +244,13 @@ def builds(PLATFORMS) {
         
                             dir("src/github.com/couchbase/gocb") {
                                 shWithEcho("go version")
-                                shWithEcho("go get -t ./")
+                                if (env.GOCB_VERSION == "v1") {
+                                    shWithEcho("go get -t ./")
+                                } else {
+                                    withEnv(['GO111MODULE=on']) {
+                                        shWithEcho("go get ./")
+                                    }
+                                }
                                 shWithEcho("go build")
                             }
                         }
