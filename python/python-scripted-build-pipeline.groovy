@@ -1073,14 +1073,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                         catch (e) {
                             echo("Got exception ${e} while trying to build docs")
                         }
-                        try {
-                            archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
-                        }
-                        catch (e)
-                        {
-                            echo("Got exception ${e} while trying to archive docs")
-                        }
-
                     }
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                 }
@@ -1092,7 +1084,16 @@ pip install twine
 twine check dist/*
 """)
         }
-
+        if (do_sphinx)
+        {
+            try {
+                archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
+            }
+            catch (e)
+            {
+                echo("Got exception ${e} while trying to archive docs")
+            }
+        }
         stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
