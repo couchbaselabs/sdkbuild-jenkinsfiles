@@ -125,7 +125,7 @@ echo `which pip`
 pip install --verbose Twisted gevent""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
-                    installReqs(PACKAGE_PLATFORM, NOSE_GIT)
+                    installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
                     shWithEcho("python setup.py build_sphinx")
                     shWithEcho("mkdir -p dist")
                 }
