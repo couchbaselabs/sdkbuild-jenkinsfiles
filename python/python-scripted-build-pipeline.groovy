@@ -1065,7 +1065,13 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installReqs(platform,null)
-                    shWithEcho("python setup.py build_sphinx")
+                    try {
+                        shWithEcho("python setup.py build_sphinx")
+                    }
+                    catch(e)
+                    {
+                        echo("Got exception ${e} while trying to build docs")
+                    }
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                 }
             }
