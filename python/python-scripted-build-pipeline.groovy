@@ -1065,16 +1065,22 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 shWithEcho("pip install cython")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    installReqs(platform,"${NOSE_GIT}")
-                    try {
-                        if (do_sphinx) {
+                    installReqs(platform, "${NOSE_GIT}")
+                    if (do_sphinx) {
+                        try {
                             shWithEcho("python setup.py build_sphinx")
+                        }
+                        catch (e) {
+                            echo("Got exception ${e} while trying to build docs")
+                        }
+                        try {
                             archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
                         }
-                    }
-                    catch(e)
-                    {
-                        echo("Got exception ${e} while trying to build docs")
+                        catch (e)
+                        {
+                            echo("Got exception ${e} while trying to archive docs")
+                        }
+
                     }
                     shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                 }
