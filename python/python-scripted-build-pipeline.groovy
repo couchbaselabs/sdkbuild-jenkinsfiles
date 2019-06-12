@@ -1064,7 +1064,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 shWithEcho("pip install cython")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    installReqs(platform,null)
+                    installReqs(platform,"${NOSE_GIT}")
                     try {
                         shWithEcho("python setup.py build_sphinx")
                     }
