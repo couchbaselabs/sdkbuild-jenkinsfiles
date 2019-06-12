@@ -977,7 +977,8 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
 }
 
 
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT) {
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+{
     timestamps {
         cleanWs()
         unstash 'couchbase-python-client'
@@ -1066,7 +1067,10 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installReqs(platform,"${NOSE_GIT}")
                     try {
-                        shWithEcho("python setup.py build_sphinx")
+                        if (do_sphinx) {
+                            shWithEcho("python setup.py build_sphinx")
+                            archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
+                        }
                     }
                     catch(e)
                     {
@@ -1083,7 +1087,6 @@ twine check dist/*
 """)
         }
 
-        archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
         stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
@@ -1121,6 +1124,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         }
     }
     echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
+    boolean  done_sphinx=0
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
@@ -1128,6 +1132,12 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
+                    boolean do_sphinx=false
+                    if (!done_sphinx && platform.contains("ubuntu16") && pyversion.contains("3.7"))
+                    {
+                        do_sphinx=true
+                        done_sphinx=true
+                    }
                     def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
                     if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
                         continue
@@ -1168,7 +1178,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
