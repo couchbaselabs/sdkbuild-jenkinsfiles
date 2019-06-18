@@ -772,6 +772,7 @@ EOF
 def kill_clusters(GString clusters_running) {
 
     for (cluster in clusters_running.eachLine {return it})
+    {
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
         if (cluster.contains("node_")) {
             continue
