@@ -1,4 +1,4 @@
-import org.junit.Test
+import groovy.text.SimpleTemplateEngine
 
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
@@ -344,7 +344,7 @@ class TestParams{
 
 }
 
-void installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
+void installPython(GString platform, GString version, GString pyshort, path, GString arch, boolean isDebug = false) {
     if (isDebug && false) { // workaround hack, disable for now
         //BigDecimal versionAsDecimal=BigDecimal.valueOf(Double.parseDouble(version))
         if (isWindows(platform)) {
@@ -404,23 +404,23 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
     //plat_class.shell(cmd)
 }
 
-private GString getPythonDebugInstall(String version, String arch) {
+private GString getPythonDebugInstall(GString version, GString arch) {
     "${WORKSPACE}\\cbdep\\Python${version}${arch}-debug"
 }
 
-def shWithEcho(String command) {
+def shWithEcho(command) {
     result=sh(script: command, returnStdout: true)
     echo "[$STAGE_NAME]:${command}:"+ result
     return result
 }
 
-def batWithEcho(String command) {
+def batWithEcho(command) {
     result=bat(script: command, returnStdout: true)
-    echo "[$STAGE_NAME]:${command}:"+ result
+    echo "[$STAGE_NAME]:${command}:"+ "${result}"
     return result
 }
 
-static String cmdWithEcho(String platform, String command, boolean quiet=false)
+static GString cmdWithEcho(GString platform,  command, boolean quiet=false)
 {
     try{
         if (isWindows(platform)){
@@ -430,7 +430,7 @@ static String cmdWithEcho(String platform, String command, boolean quiet=false)
             return shWithEcho(command)
         }
     }
-    catch (Throwable e)
+    catch (e)
     {
         if (quiet)
         {
@@ -446,10 +446,10 @@ static String cmdWithEcho(String platform, String command, boolean quiet=false)
 static boolean isWindows(GString platform)
 {
     
-    return platform.toLowerCase().contains("windows")
+    return "${platform}".toString().toLowerCase().contains("windows")
 }
 
-def installReqs(platform, NOSE_GIT)
+def installReqs(GString platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
@@ -463,10 +463,7 @@ def installReqs(platform, NOSE_GIT)
     }
 }
 
-String prefixWorkspace(String path){
-    return "${WORKSPACE}/${path}"
-}
-def addCombi(combis,platform,PY_VERSION,PY_ARCH)
+def addCombi(combis,GString platform,PY_VERSION,PY_ARCH)
 {
 
     if (isWindows(platform) && (PY_VERSION.contains("2.7"))) {
@@ -506,7 +503,7 @@ def getCommitEnvStrAdditions() {
     return commit_env_additions
 }
 
-def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
+def getEnvStr( GString platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
     PYCBC_DEBUG_LOG_LEVEL = "${PYCBC_DEBUG_LOG_LEVEL}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
@@ -525,7 +522,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(platform, pyversion, String arch = "", String server_version = "MOCK", String PYCBC_LCB_API="DEFAULT", String PYCBC_VALGRIND="") {
+def getEnvStr2(GString platform, pyversion, String arch = "", String server_version = "MOCK", String PYCBC_LCB_API="DEFAULT", String PYCBC_VALGRIND="") {
     envStr=[]
     PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
     if (isWindows(platform)) {
@@ -535,6 +532,7 @@ def getEnvStr2(platform, pyversion, String arch = "", String server_version = "M
     }
     return envStr+getCommitEnvStrAdditions()
 }
+
 
 
 def getServiceIp(node_list, name)
@@ -551,7 +549,7 @@ def getServiceIp(node_list, name)
 
 }
 
-def mkdir(GString test_full_path, platform) {
+def mkdir(GString test_full_path, GString platform) {
     dir(test_full_path) {}
     if (isWindows(platform)) {
         batWithEcho("""
@@ -564,9 +562,9 @@ endlocal
     }
 }
 
-List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams testParams) {
+def getNoseArgs(GString SERVER_VERSION_RAW, GString platform, GString pyversion = null, TestParams testParams) {
     sep = getSep(platform)
-    test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + testParams.buildParams.PYCBC_LCB_API ?: ""
+    test_rel_path = "${platform}_"+(pyversion?:"")+"_"+("${SERVER_VERSION_RAW}"?: "Mock")+"_" + testParams.buildParams.PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
 
@@ -588,13 +586,13 @@ def installReqsIfNeeded(TestParams params, def platform) {
 }
 
 
-def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, TestParams testParams)
+def doTests(node_list, GString platform, GString pyversion, GString LCB_VERSION, PYCBC_DEBUG_SYMBOLS, GString SERVER_VERSION, TestParams testParams)
 {
     PARSE_SUPPRESSIONS=false
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION, platform, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
             if (isWindows(platform)) {
@@ -771,7 +769,7 @@ EOF
 
 def kill_clusters(GString clusters_running) {
 
-    for (cluster in clusters_running.eachLine {return it})
+    for (GString cluster in clusters_running.split('\n'))
     {
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
         if (cluster.contains("node_")) {
@@ -789,7 +787,7 @@ def kill_clusters(GString clusters_running) {
     }
 }
 
-void testAgainstServer(serverVersion, platform, envStr, testActor) {
+void testAgainstServer(GString serverVersion, GString platform, GString envStr, testActor) {
     script{
         // Note this must be run inside a script {} block to allow try/finally
         def clusterId = null
@@ -871,7 +869,7 @@ def getCMakeTarget(platform, arch)
     return cmake_arch
 }
 
-def buildLibCouchbase(platform, arch)
+def buildLibCouchbase(GString platform, arch)
 {
     dir("${WORKSPACE}")
     {
@@ -937,19 +935,19 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 }
 
 
-def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL, String PYCBC_VERSION)
+def doIntegration(GString platform, GString pyversion, GString pyshort, GString arch, LCB_VERSION, PYCBC_VALGRIND, boolean PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, GString WORKSPACE, GString[] PYCBC_LCB_APIS, GString NOSE_GIT, GString PIP_INSTALL, GString PYCBC_VERSION)
 {
     cleanWs()
     unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     //unstash "lcb-${platform}-${pyversion}-${arch}"
-    installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
+    installPython(platform, pyversion, pyshort, "deps", arch, PYCBC_DEBUG_SYMBOLS)
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
         installReqs(platform, NOSE_GIT)
     }
-    for (server_version in SERVER_VERSIONS)
+    for (GString server_version in SERVER_VERSIONS)
     {
         envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
         for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
@@ -964,7 +962,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     }
 }
 
-def getSep(platform){
+def getSep(GString platform){
     def sep = "/"
     if (isWindows(platform)){
         sep = "\\"
@@ -989,7 +987,7 @@ static GString getStageName( GString platform, GString pyversion, GString arch, 
 }
 
 
-def doBuild(String stage_name, String platform, String pyversion, pyshort, String arch, BuildParams buildParams, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
+def doBuild(GString stage_name, GString platform, GString pyversion, pyshort, GString arch, BuildParams buildParams, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
 {
     timestamps {
         cleanWs()
@@ -1113,7 +1111,7 @@ twine check dist/*
 
 }
 
-def getBuildExtArgs(PLATFORM, WORKSPACE) {
+def getBuildExtArgs(GString PLATFORM, WORKSPACE) {
     if (isWindows(PLATFORM)){
         return "--library-dirs ${WORKSPACE}\\build\\lib\\RelWithDebInfo --include-dirs ${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\build\\generated"
     }
@@ -1129,20 +1127,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     def SERVER_VERSION="MOCK"
     def pairs = [:]
     
-    def combis = [:]
-    def hasWindows = false
-    def hasWinDefaultPlat = false
-    for (j in PLATFORMS) {
-        hasWindows|=j.startsWith("windows")
-        for (k in PY_VERSIONS) {
-            hasWinDefaultPlat|=k.startsWith("${WIN_PY_DEFAULT_VERSION}")
-            for (l in PY_ARCHES)
-            {
-                combis=addCombi(combis,j,k,l)
-            }          
-        }
-    }
-    echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
+    echo "Got PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
     boolean  done_sphinx=0
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
@@ -1152,7 +1137,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     GString pyversion = k
                     GString arch = l
                     boolean do_sphinx=false
-                    if (!done_sphinx && platform.contains("ubuntu16") && pyversion.contains("3.7"))
+                    def sphinx_platform="ubuntu16"
+                    def sphinx_py_version="3.7"
+                    if (!done_sphinx && platform.contains("${sphinx_platform}") && platform.contains("${sphinx_py_version}"))
                     {
                         do_sphinx=true
                         done_sphinx=true
@@ -1194,7 +1181,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             BuildParams x=new BuildParams(PYCBC_LCB_API, PYCBC_DEBUG_SYMBOLS, do_sphinx)
 
                             withEnv(envStr) {
-                                Exception exception_received=null;
+                                def exception_received=null;
                                 try {
                                     stage("build ${stage_name}") {
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, buildParams, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
@@ -1203,7 +1190,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                     }
                                 }
-                                catch(Exception e){
+                                catch(e){
                                     exception_received=e
                                     if(!try_invalid_combo)
                                     {
@@ -1213,7 +1200,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 if (try_invalid_combo)
                                 {
                                     if (!exception_received){
-                                        throw new RuntimeException("Invalid combo unexpectedly succeeded")
+                                        throw new GroovyRuntimeException("Invalid combo unexpectedly succeeded")
                                     }
                                     else
                                     {
