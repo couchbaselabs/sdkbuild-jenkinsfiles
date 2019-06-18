@@ -129,7 +129,7 @@ pipeline {
 
                 dir('libcouchbase') {
                     dir('build') {
-                        sh('cmake -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
+                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
@@ -163,7 +163,7 @@ pipeline {
                             steps {
                                 dir('ws_debian9_x64') {
                                     dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG ../libcouchbase')
+                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
@@ -208,7 +208,7 @@ pipeline {
                             steps {
                                 dir('ws_centos7_x64') {
                                     dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG ../libcouchbase')
+                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
