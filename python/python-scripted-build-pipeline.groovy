@@ -1152,7 +1152,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     GString pyversion = k
                     GString arch = l
                     boolean do_sphinx=false
-                    if (!done_sphinx && platform.contains("ubuntu16".) && pyversion.contains("3.7"))
+                    if (!done_sphinx && platform.contains("ubuntu16") && pyversion.contains("3.7"))
                     {
                         do_sphinx=true
                         done_sphinx=true
