@@ -1153,7 +1153,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     if (!isWindows(platform) && arch == "x86") {
                         continue
                     }
-                    def label = platform
+                    def label = platform.replace("windows-2012","build-window-sdk-01")
                     if (platform == "windows") {
                         if (pyversion >= "3.5") {
                             label = "msvc-2015"
