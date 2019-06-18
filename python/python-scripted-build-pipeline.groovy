@@ -314,9 +314,19 @@ class Unix implements Platform
 }*/
 class BuildParams{
     public String PYCBC_LCB_API=null
+    boolean do_sphinx=false
+    boolean DEBUG_SYMBOLS=false
 
-    BuildParams(String PYCBC_LCB_API) {
+    boolean  buildLcb()
+    {
+        return (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
+
+    }
+
+    BuildParams(String PYCBC_LCB_API, boolean DEBUG_SYMBOLS, boolean do_sphinx) {
         this.PYCBC_LCB_API = PYCBC_LCB_API
+        this.do_sphinx=do_sphinx
+        this.DEBUG_SYMBOLS=DEBUG_SYMBOLS
     }
 }
 
@@ -410,7 +420,7 @@ def batWithEcho(String command) {
     return result
 }
 
-def cmdWithEcho(platform, command, quiet=false)
+static String cmdWithEcho(String platform, String command, boolean quiet=false)
 {
     try{
         if (isWindows(platform)){
@@ -420,7 +430,7 @@ def cmdWithEcho(platform, command, quiet=false)
             return shWithEcho(command)
         }
     }
-    catch (Exception e)
+    catch (Throwable e)
     {
         if (quiet)
         {
@@ -433,7 +443,7 @@ def cmdWithEcho(platform, command, quiet=false)
     }
 }
 
-def isWindows(platform)
+static boolean isWindows(GString platform)
 {
     
     return platform.toLowerCase().contains("windows")
@@ -515,7 +525,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
+def getEnvStr2(platform, pyversion, String arch = "", String server_version = "MOCK", String PYCBC_LCB_API="DEFAULT", String PYCBC_VALGRIND="") {
     envStr=[]
     PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
     if (isWindows(platform)) {
@@ -759,8 +769,9 @@ EOF
                     """
 }
 
-def kill_clusters(clusters_running) {
-    for (cluster in clusters_running.split('\n')) {
+def kill_clusters(GString clusters_running) {
+
+    for (cluster in clusters_running.eachLine {return it})
         // May need to remove some if they're stuck.  -f forces, allows deleting cluster we didn't open
         if (cluster.contains("node_")) {
             continue
@@ -971,13 +982,13 @@ def getAttribs() {
     return COMMIT_MSG_ATTRIBS
 }
 
-def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_VERSION="MOCK") {
+static GString getStageName( GString platform, GString pyversion, GString arch, GString PYCBC_LCB_API, GString SERVER_VERSION) {
 
     return "${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}_${SERVER_VERSION}"
 }
 
 
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+def doBuild(String stage_name, String platform, String pyversion, pyshort, String arch, BuildParams buildParams, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
 {
     timestamps {
         cleanWs()
@@ -998,7 +1009,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             batWithEcho("python --version")
             batWithEcho("pip --version")
-            if (BUILD_LCB) {
+            if (buildParams.buildLcb()) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
                     batWithEcho("git checkout ${LCB_VERSION}")
@@ -1136,16 +1147,16 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
                 for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
-                    String platform = j
-                    String pyversion = k
-                    String arch = l
+                    GString platform = j
+                    GString pyversion = k
+                    GString arch = l
                     boolean do_sphinx=false
-                    if (!done_sphinx && platform.contains("ubuntu16") && pyversion.contains("3.7"))
+                    if (!done_sphinx && platform.contains("ubuntu16".) && pyversion.contains("3.7"))
                     {
                         do_sphinx=true
                         done_sphinx=true
                     }
-                    def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
+                    boolean try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
                     if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
                         continue
                     }
@@ -1163,7 +1174,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             label = "msvc-2015"
                         }
                     }
-                    def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
+                    GString stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
 
                     pairs[stage_name] = {
@@ -1175,17 +1186,17 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def win_arch = [x86: [], x64: ['Win64']][arch]
                             def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
                             def sep = getSep(platform)
-                            def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
-                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
+                            def envStr = getEnvStr2(platform, pyversion, PYCBC_LCB_API, PYCBC_VALGRIND)
                             def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
+                            BuildParams x=new BuildParams(PYCBC_LCB_API, PYCBC_DEBUG_SYMBOLS, do_sphinx)
+
                             withEnv(envStr) {
                                 Exception exception_received=null;
                                 try {
                                     stage("build ${stage_name}") {
-                                        def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, buildParams, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT)
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
