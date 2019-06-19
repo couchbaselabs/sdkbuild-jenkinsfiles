@@ -287,7 +287,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win64_vc14/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
                                 }
                             }
@@ -349,7 +349,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win32_vc14/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86.zip", fingerprint: true)
                                 }
                             }
@@ -411,7 +411,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win64_vc15/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
                                 }
                             }
@@ -473,7 +473,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win32_vc15/build') {
-                                    bat('cmake --build . --target package -- -maxcpucount')
+                                    bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86.zip", fingerprint: true)
                                 }
                             }
