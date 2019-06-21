@@ -260,20 +260,20 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     def install = false
 
-	dir("deps") {
-		dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
-			install = !fileExists("dotnet")
-		}
-	}
+    dir("deps") {
+        dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
+            install = !fileExists("dotnet")
+        }
+    }
 
     if (install) {
-		echo "Installing .NET SDK ${DOTNET_SDK_VERSION}"
+        echo "Installing .NET SDK ${DOTNET_SDK_VERSION}"
         if (PLATFORM.contains("windows")) {
             batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         }
-	} else {
-		echo ".NET SDK ${DOTNET_SDK_VERSION} already installed"
-	}
+    } else {
+        echo ".NET SDK ${DOTNET_SDK_VERSION} already installed"
+    }
 }
