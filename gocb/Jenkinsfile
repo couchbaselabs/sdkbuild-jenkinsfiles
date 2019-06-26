@@ -101,6 +101,7 @@ pipeline {
                                 shWithEcho("make devsetup")
                             }
                         }
+                    }
                     shWithEcho("go test -race -coverprofile=$WORKSPACE/cover.out ./")
                 }
             }
