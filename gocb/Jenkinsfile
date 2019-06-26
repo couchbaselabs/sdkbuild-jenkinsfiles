@@ -35,7 +35,7 @@ pipeline {
                             shWithEcho("make devsetup && make lint")
                         } else {
                             withEnv(['GO111MODULE=on']) {
-                                shWithEcho("go get -t ./")
+                                shWithEcho("go get ./")
                                 // make sure that we've vendored and updated mod file correctly
                                 shWithEcho("go mod vendor")
                                 shWithEcho("go mod tidy")
@@ -92,7 +92,15 @@ pipeline {
                 unstash "gocb-build-"+ PLATFORMS[0]
                 dir("src/github.com/couchbase/gocb") {
                     shWithEcho("go version")
-                    shWithEcho("go get -t ./")
+                    script {
+                        if (env.GOCB_VERSION == "v1") {
+                            shWithEcho("go get -t ./")
+                        } else {
+                            withEnv(['GO111MODULE=on']) {
+                                shWithEcho("go get ./")
+                                shWithEcho("make devsetup")
+                            }
+                        }
                     shWithEcho("go test -race -coverprofile=$WORKSPACE/cover.out ./")
                 }
             }
@@ -136,7 +144,7 @@ pipeline {
                     if (env.GOCB_VERSION != "v1") {
                         build job: "gocb-test-integration", parameters: [
                             string(name: "GO_VERSION", value: GO_VERSION),
-                    string(name: "GOCB_VERSION", value: GOCB_VERSION),
+                            string(name: "GOCB_VERSION", value: GOCB_VERSION),
                             string(name: "CB_SERVER_VERSION", value: "6.5.0-3143"),
                             string(name: "EXTRA_PARAMS", value: "--collection-name=test")
                         ]
