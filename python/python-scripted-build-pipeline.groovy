@@ -25,7 +25,7 @@ def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
-
+def PYCBC_COLL_ENABLE=false
 pipeline {
     agent none
     stages {
@@ -515,16 +515,19 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
-    envStr=[]
-    PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
+def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", TestParams testParams) {
+    def envStr=[]
+    def PY_LCB_API=testParams.buildParams.PYCBC_LCB_API
+    echo "Got PY_LCB_API ${PY_LCB_API}"
+    PYCBC_LCB_API_SECTION=(PY_LCB_API && PY_LCB_API!="DEFAULT")?["PYCBC_LCB_API="+PY_LCB_API]:[]
+    echo "Got PYCBC_LCB_API_SECTION ${PYCBC_LCB_API_SECTION}"
     if (isWindows(platform)) {
         envStr = PYCBC_LCB_API_SECTION+["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
     } else {
         envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
     }
     fullEnvStr=envStr+getCommitEnvStrAdditions()
-    echo "returned endstr ${fullEnvStr}"
+    echo "returned endstr ${fullEnvStr} from buildParams ${testParams.buildParams.PYCBC_LCB_API}"
     return fullEnvStr
 }
 
@@ -825,6 +828,10 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
                 print cmd_str
                 // Create the cluster
                 shWithEcho("cbdyncluster ${cmd_str} --storage-mode plasma --bucket default setup " + clusterId)
+                // Turn on collections
+                if (${PYCBC_COLL_ENABLE}) {
+                    shWithEcho("""curl -vv -XPOST http://Administrator:password@${ip}:8091/settings/developerPreview -d "enabled=true""")
+                }
                 // Make the bucket flushable
                 shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
                 shWithEcho("""curl -v -X POST -u Administrator:password -d '["beer-sample"]' http://${ip}:8091/sampleBuckets/install""")
@@ -1167,11 +1174,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     }
                     def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
+                    BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
+                    TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, PYCBC_VALGRIND)
 
                     pairs[stage_name] = {
                         node(label) {
-                            BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
-                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, PYCBC_VALGRIND)
 
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
@@ -1180,7 +1187,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
-                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
+                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", testParams)
                             def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
                                 Exception exception_received=null;
