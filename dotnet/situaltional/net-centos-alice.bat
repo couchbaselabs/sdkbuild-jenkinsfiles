@@ -111,9 +111,16 @@ if %NET_CLIENT_BRANCH% == "master" (
 
 echo ===============================================================STEP5 build sdkd-net
 cd %WORKSPACE%
-echo Cloning SDKD-NET using branch %SDKD_CLIENT_BRANCH%
+rd /q/s %SDKD-NET% 2>nul
+
+echo Cloning SDKD-NET Client using branch %SDKD_CLIENT_BRANCH%
 git clone http://Oferya:oferhub11@github.com/couchbase/sdkd-net --single-branch --branch %SDKD_CLIENT_BRANCH%
 cd %SDKD-NET%
+
+if %SDKD_CLIENT_SHA% neq 0 (
+    echo Applying SHA %SDKD_CLIENT_SHA%
+    git checkout %SDKD_CLIENT_SHA%
+)
 
 git log -n 2
 

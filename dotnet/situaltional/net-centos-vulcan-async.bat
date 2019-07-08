@@ -18,12 +18,6 @@ del /q/s c:\temp\*.txt
 del %WORKSPACE%\log.txt
 del %WORKSPACE%\report.xls
 
-cd %WORKSPACE%
-::::git clone -b %SDKD_CLIENT_BRANCH% git@github.com/couchbase/sdkd-net
-echo Cloning SDKD-NET using branch %SDKD_CLIENT_BRANCH%
-git clone http://Oferya:oferhub11@github.com/couchbase/sdkd-net --single-branch --branch %SDKD_CLIENT_BRANCH%
-cd %SDKD-NET%
-
 echo ===============================================================STEP3 build sdkdclient-ng
 cd %WORKSPACE%
 ::git clone git@github.com:couchbaselabs/sdkdclient-ng
@@ -99,13 +93,17 @@ cd %COUCHBASE-NET-CLIENT%\src
 dotnet restore .\Couchbase\Couchbase.csproj && dotnet build .\Couchbase\Couchbase.csproj
 
 echo ===============================================================STEP5 build sdkd-net
-
-cd %SDKD-NET%
-git checkout %SDKD_CLIENT_BRANCH%
 cd %WORKSPACE%
-echo Cloning SDKD-NET using branch %SDKD_CLIENT_BRANCH%
+rd /q/s %SDKD-NET% 2>nul
+
+echo Cloning SDKD-NET Client using branch %SDKD_CLIENT_BRANCH%
 git clone http://Oferya:oferhub11@github.com/couchbase/sdkd-net --single-branch --branch %SDKD_CLIENT_BRANCH%
 cd %SDKD-NET%
+
+if %SDKD_CLIENT_SHA% neq 0 (
+    echo Applying SHA %SDKD_CLIENT_SHA%
+    git checkout %SDKD_CLIENT_SHA%
+)
 
 git log -n 2
 copy pylib\s3upload.py c:\pylib\s3upload.py
