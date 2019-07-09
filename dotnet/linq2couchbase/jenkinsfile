@@ -63,7 +63,7 @@ pipeline {
                     }
 
                     // pack in Release mode (no SNK because some dependencies are not signed)
-                    batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack linq2couchbase\\Src\\Couchbase.Linq\\Couchbase.Linq.csproj -c Release /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                    batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack linq2couchbase\\Src\\Couchbase.Linq\\Couchbase.Linq.csproj -c Release /p:Version=${version} /p:IncludeSymbols=false /p:IncludeSource=false /p:SourceLinkCreate=false")
                 }
                 archiveArtifacts artifacts: "linq2couchbase\\**\\*.nupkg", fingerprint: true
                 stash includes: "linq2couchbase\\**\\*.nupkg", name: "linq2couchbase-package", useDefaultExcludes: false
@@ -80,7 +80,7 @@ pipeline {
             }
         }
         stage("publish") {
-            agent { label "ubuntu14||ubuntu16||centos6||centos7" }
+            agent { label "windows-2012" }
             when {
                 expression
                     {  return IS_RELEASE.toBoolean() == true }
@@ -88,7 +88,19 @@ pipeline {
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "linq2couchbase-package"
-                // TODO: PUBLISH!
+
+				script {
+                    withCredentials([string(credentialsId: 'netsdk-nugetkey', variable: 'NUGETKEY')]) {
+                        if (!NUGETKEY?.trim()) {
+                            echo "No Nuget key configured, unable to publish package"
+                        } else {
+                            unstash "linq2couchbase-package"
+                            echo "Publishing package to Nuget .."
+
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push linq2couchbase\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json --no-symbols true")
+                        }
+                    }
+                }
             }
             post {
                 always {
