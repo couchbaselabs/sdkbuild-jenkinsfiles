@@ -1,7 +1,8 @@
 def PLATFORMS = [
     "windows-2012",
     "ubuntu16",
-    "centos7"
+    "centos7",
+	"macos"
 ]
 def DOTNET_SDK_VERSION = "2.1.403"
 def SUFFIX = "ci-${BUILD_NUMBER}"
