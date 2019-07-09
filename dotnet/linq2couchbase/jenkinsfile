@@ -120,13 +120,9 @@ def doBuild(PLATFORMS, DOTNET_SDK_VERSION) {
                     installSDK(platform, DOTNET_SDK_VERSION)
 
                     if (platform.contains("windows")) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build linq2couchbase\\Src\\Couchbase.Linq\\Couchbase.Linq.csproj")
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build linq2couchbase\\Src\\Couchbase.Linq.UnitTests\\Couchbase.Linq.UnitTests.csproj")
-                        stash includes: "linq2couchbase/", name: "linq2couchbase-build", useDefaultExcludes: false
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build linq2couchbase\\Src\\couchbase-net-linq.sln")
                     } else {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq/Couchbase.Linq.csproj -f netstandard1.5")
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -f netcoreapp1.1")
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/Couchbase.Linq.UnitTests/Couchbase.Linq.UnitTests.csproj -f netcoreapp2.0")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build linq2couchbase/Src/couchbase-net-linq.sln")
                     }
 
                     stash includes: "linq2couchbase/", name: "linq2couchbase-${platform}", useDefaultExcludes: false
