@@ -4,7 +4,7 @@ def PLATFORMS = [
     "centos7",
 	"macos"
 ]
-def DOTNET_SDK_VERSION = "2.1.403"
+def DOTNET_SDK_VERSION = "2.2.300"
 def SUFFIX = "ci-${BUILD_NUMBER}"
 
 pipeline {
