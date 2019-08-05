@@ -721,16 +721,16 @@ echo "quit" >>"${TMPCMDS}"
     }
 }
 
-def doNoseTests(GString platform, GString nosetests_args) {
-    if (isWindows(platform)) {
+def doNoseTests(platform, nosetests_args) {
+    if (true || isWindows(platform)) {
         try{
             batWithEcho("drwtsn32.exe -i")
-            batWithEcho("nosetests ${nosetests_args}")
 
         }
         catch (e){
 
         }
+        batWithEcho("nosetests ${nosetests_args}")
 
     }
 }
