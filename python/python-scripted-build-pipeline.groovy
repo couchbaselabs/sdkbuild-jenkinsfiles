@@ -133,7 +133,7 @@ pip install --verbose Twisted gevent""")
             }
         }
         stage('test-integration-server') {
-            agent { label 'qe-slave-linux1' }
+            agent { label 'sdk-integration-test-linux' }
             when {
                 expression
                         { return IS_GERRIT_TRIGGER.toBoolean() == false }
