@@ -1,5 +1,3 @@
-import org.junit.Test
-
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
@@ -436,7 +434,7 @@ def cmdWithEcho(platform, command, quiet=false)
 def isWindows(platform)
 {
     
-    return platform.toLowerCase().contains("windows")
+    return platform.toLowerCase().contains("window")
 }
 
 def installReqs(platform, NOSE_GIT)
@@ -608,7 +606,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     ''')
                     batWithEcho("python updateTests.py")
                     installReqsIfNeeded(testParams,platform)
-                    batWithEcho("nosetests ${nosetests_args}")
+                    doNoseTests(platform, nosetests_args)
                 }
             } else {
                 shWithEcho("python --version")
@@ -720,6 +718,20 @@ echo "quit" >>"${TMPCMDS}"
                 shWithEcho("rm -rf ${test_full_path}")
             }
         }
+    }
+}
+
+def doNoseTests(GString platform, GString nosetests_args) {
+    if (isWindows(platform)) {
+        try{
+            batWithEcho("drwtsn32.exe -i")
+            batWithEcho("nosetests ${nosetests_args}")
+
+        }
+        catch (e){
+
+        }
+
     }
 }
 
