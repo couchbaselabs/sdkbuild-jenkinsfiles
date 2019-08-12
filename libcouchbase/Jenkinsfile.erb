@@ -18,12 +18,8 @@ ubuntu_dists = [
     ['bionic', 'i386', 'ubuntu1804', 32],
     ['stretch', 'amd64', 'debian9', 64],
     ['stretch', 'i386', 'debian9', 32],
-#   ['jessie', 'amd64', 'debian8', 64],
-#   ['jessie', 'i386', 'debian8', 32],
 #   ['xenial', 'amd64', 'ubuntu1604', 64],
 #   ['xenial', 'i386', 'ubuntu1604', 32],
-#   ['trusty', 'amd64', 'ubuntu1404', 64],
-#   ['trusty', 'i386', 'ubuntu1404', 32],
 ]
 
 linux_test_builds = [
@@ -56,7 +52,9 @@ elsif ENV['LINUX_ONLY']
         ['stretch', 'amd64', 'debian9', 64],
         ['stretch', 'i386', 'debian9', 32],
         ['xenial', 'amd64', 'ubuntu1604', 64],
-        ['xenial', 'i386', 'ubuntu1604', 32]
+        ['xenial', 'i386', 'ubuntu1604', 32],
+        ['buster', 'amd64', 'debian10', 64],
+        ['buster', 'i386', 'debian10', 32],
     ]
     integration_enabled = false
 end
