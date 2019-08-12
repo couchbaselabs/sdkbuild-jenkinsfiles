@@ -1,6 +1,6 @@
 // vim:ft=groovy
 // DO NOT EDIT: this file was generated from Jenkinsfile.erb
-@Library('lcb-version') _
+@Library('lcb') _
 import com.couchbase.lcb.Version
 def VERSION = new Version('0.0.0')
 
