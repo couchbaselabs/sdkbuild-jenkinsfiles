@@ -18,14 +18,13 @@ pipeline {
         stage('prepare and validate') {
             agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
             environment {
-                GOPATH = "/data/go/"
-                GOROOT = "${GOPATH}/${GO_VERSION}" + "/go" + "${GO_VERSION}"
+                GOPATH = "${WORKSPACE}"
+                GOROOT = "${GOPATH}" + "/deps/go${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
             steps {
                 cleanWs()
-                shWithEcho("[ ! -d ${GOPATH}/${GO_VERSION}/ ] && mkdir -p ${GOPATH}/${GO_VERSION}/")
-                shWithEcho("[ ! -d ${GOPATH}/${GO_VERSION}/go${GO_VERSION} ] && cbdep install -d ${GOPATH}/${GO_VERSION}/ golang ${GO_VERSION}")
+                shWithEcho("cbdep install -d deps golang ${GO_VERSION}")
                 dir('src/github.com/couchbase/gocb') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     shWithEcho("go version")
