@@ -18,7 +18,7 @@ pipeline {
         stage('prepare and validate') {
             agent { label 'centos6||centos7||ubuntu16||ubuntu14' }
             environment {
-                GOPATH = "$/data/go/"
+                GOPATH = "/data/go/"
                 GOROOT = "${GOPATH}/${GO_VERSION}" + "/go" + "${GO_VERSION}"
                 PATH = "${WORKSPACE}" + "/bin:" + "${GOROOT}" + "/bin:" + "${PATH}"
             }
