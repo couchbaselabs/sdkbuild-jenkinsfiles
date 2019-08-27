@@ -1,9 +1,10 @@
 def PLATFORMS = [
-    "windows-2012",
+    "windows",
     "ubuntu16",
-    "centos7"
+    "centos7",
+	"macos"
 ]
-def DOTNET_SDK_VERSION = "2.1.403"
+def DOTNET_SDK_VERSION = "2.2.104"
 def SUFFIX = "ci-${BUILD_NUMBER}"
 
 pipeline {
@@ -36,11 +37,11 @@ pipeline {
             }
         }
         stage("package") {
-            agent { label "windows-2012" }
+            agent { label "windows" }
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                unstash "Couchbase.Extensions.Locks-windows-2012"
-                installSDK("windows-2012", DOTNET_SDK_VERSION)
+                unstash "Couchbase.Extensions.Locks-windows"
+                installSDK("windows", DOTNET_SDK_VERSION)
 
                 script {
                     // get package version and apply suffix if not release build
@@ -56,30 +57,30 @@ pipeline {
                 stash includes: "Couchbase.Extensions\\**\\*.nupkg", name: "Couchbase.Extensions.Locks-package", useDefaultExcludes: false
             }
         }
-        stage("approval") {
-            agent none
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                input "Publish Couchbase.Extensions.Locks .NET to Nuget?"
-            }
-        }
-        stage("publish") {
-            agent { label "windows-2012" }
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                unstash "Couchbase.Extensions.Locks"
-                echo "Publishing to nuget!"
-                // TODO: PUBLISH!
-            }
-        }
+        // stage("approval") {
+        //     agent none
+        //     when {
+        //         expression {
+        //             return IS_RELEASE.toBoolean() == true
+        //         }
+        //     }
+        //     steps {
+        //         input "Publish Couchbase.Extensions.Locks .NET to Nuget?"
+        //     }
+        // }
+        // stage("publish") {
+        //     agent { label "windows" }
+        //     when {
+        //         expression {
+        //             return IS_RELEASE.toBoolean() == true
+        //         }
+        //     }
+        //     steps {
+        //         unstash "Couchbase.Extensions.Locks-package"
+        //         echo "Publishing to nuget!"
+        //         // TODO: PUBLISH!
+        //     }
+        // }
     }
 }
 
