@@ -10,6 +10,9 @@ def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
 
 pipeline {
+	options {
+		timeout(time: 10, unit: 'MINUTES')
+	}
     agent none
     stages {
         stage("job valid?") {
