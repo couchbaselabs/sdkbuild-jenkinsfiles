@@ -775,12 +775,12 @@ pipeline {
                         }
                     }
 
-                    stage('pkg debian9 amd64') {
+                    stage('pkg debian10 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
-                            stage('d64v9') {
+                            stage('d64v10') {
                                 steps {
-                                    dir('ws_debian9_amd64') {
+                                    dir('ws_debian10_amd64') {
                                         sh("sudo chown couchbase:couchbase -R .")
                                         deleteDir()
                                         unstash 'libcouchbase'
@@ -790,14 +790,14 @@ pipeline {
                             stage('cow1') {
                                 when {
                                     expression {
-                                        !fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
+                                        !fileExists("/var/cache/pbuilder/buster-amd64.cow/etc/os-release")
                                     }
                                 }
                                 steps {
                                     sh("""
                                         sudo cowbuilder --create \
-                                        --basepath /var/cache/pbuilder/stretch-amd64.cow \
-                                        --distribution stretch \
+                                        --basepath /var/cache/pbuilder/buster-amd64.cow \
+                                        --distribution buster \
                                         --debootstrapopts --arch=amd64 \
                                          --components 'main'
                                     """.stripIndent())
@@ -806,22 +806,22 @@ pipeline {
                             stage('cow2') {
                                 when {
                                     expression {
-                                        fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
+                                        fileExists("/var/cache/pbuilder/buster-amd64.cow/etc/os-release")
                                     }
                                 }
                                 steps {
-                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/stretch-amd64.cow')
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/buster-amd64.cow')
                                 }
                             }
                             stage('src') {
                                 post {
                                     failure {
-                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
+                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
                                     }
                                 }
                                 steps {
-                                    dir('ws_debian9_amd64/build') {
+                                    dir('ws_debian10_amd64/build') {
                                         unstash 'tarball'
                                         sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
                                         sh("tar -xf ${VERSION.tarName()}.tar.gz")
@@ -839,36 +839,36 @@ pipeline {
                             stage('deb') {
                                 post {
                                     failure {
-                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
+                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
                                     }
                                 }
                                 steps {
-                                    dir('ws_debian9_amd64/build') {
+                                    dir('ws_debian10_amd64/build') {
                                         sh("""
                                            sudo cowbuilder --build \
-                                           --basepath /var/cache/pbuilder/stretch-amd64.cow \
-                                           --buildresult libcouchbase-${VERSION.deb()}_debian9_stretch_amd64 \
+                                           --basepath /var/cache/pbuilder/buster-amd64.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_debian10_buster_amd64 \
                                            --debbuildopts -j8 \
                                            --debbuildopts "-us -uc" \
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
-                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_amd64/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
-                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar", fingerprint: true)
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian10_buster_amd64/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_amd64.tar libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian10_buster_amd64.tar", fingerprint: true)
                                     }
                                 }
                             }
                         }
                     }
 
-                    stage('pkg debian9 i386') {
+                    stage('pkg debian10 i386') {
                         agent { label 'cowbuilder' }
                         stages {
-                            stage('d32v9') {
+                            stage('d32v10') {
                                 steps {
-                                    dir('ws_debian9_i386') {
+                                    dir('ws_debian10_i386') {
                                         sh("sudo chown couchbase:couchbase -R .")
                                         deleteDir()
                                         unstash 'libcouchbase'
@@ -878,14 +878,14 @@ pipeline {
                             stage('cow1') {
                                 when {
                                     expression {
-                                        !fileExists("/var/cache/pbuilder/stretch-i386.cow/etc/os-release")
+                                        !fileExists("/var/cache/pbuilder/buster-i386.cow/etc/os-release")
                                     }
                                 }
                                 steps {
                                     sh("""
                                         sudo cowbuilder --create \
-                                        --basepath /var/cache/pbuilder/stretch-i386.cow \
-                                        --distribution stretch \
+                                        --basepath /var/cache/pbuilder/buster-i386.cow \
+                                        --distribution buster \
                                         --debootstrapopts --arch=i386 \
                                          --components 'main'
                                     """.stripIndent())
@@ -894,22 +894,22 @@ pipeline {
                             stage('cow2') {
                                 when {
                                     expression {
-                                        fileExists("/var/cache/pbuilder/stretch-i386.cow/etc/os-release")
+                                        fileExists("/var/cache/pbuilder/buster-i386.cow/etc/os-release")
                                     }
                                 }
                                 steps {
-                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/stretch-i386.cow')
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/buster-i386.cow')
                                 }
                             }
                             stage('src') {
                                 post {
                                     failure {
-                                        sh("tar cf failure-ws_debian9_i386.tar ws_debian9_i386")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_i386.tar", fingerprint: false)
+                                        sh("tar cf failure-ws_debian10_i386.tar ws_debian10_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_debian10_i386.tar", fingerprint: false)
                                     }
                                 }
                                 steps {
-                                    dir('ws_debian9_i386/build') {
+                                    dir('ws_debian10_i386/build') {
                                         unstash 'tarball'
                                         sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
                                         sh("tar -xf ${VERSION.tarName()}.tar.gz")
@@ -927,24 +927,24 @@ pipeline {
                             stage('deb') {
                                 post {
                                     failure {
-                                        sh("tar cf failure-ws_debian9_i386.tar ws_debian9_i386")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_i386.tar", fingerprint: false)
+                                        sh("tar cf failure-ws_debian10_i386.tar ws_debian10_i386")
+                                        archiveArtifacts(artifacts: "failure-ws_debian10_i386.tar", fingerprint: false)
                                     }
                                 }
                                 steps {
-                                    dir('ws_debian9_i386/build') {
+                                    dir('ws_debian10_i386/build') {
                                         sh("""
                                            sudo cowbuilder --build \
-                                           --basepath /var/cache/pbuilder/stretch-i386.cow \
-                                           --buildresult libcouchbase-${VERSION.deb()}_debian9_stretch_i386 \
+                                           --basepath /var/cache/pbuilder/buster-i386.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_debian10_buster_i386 \
                                            --debbuildopts -j8 \
                                            --debbuildopts "-us -uc" \
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
-                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_i386/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
-                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar", fingerprint: true)
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian10_buster_i386")
+                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian10_buster_i386/libcouchbase_${VERSION.deb()}*")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_i386.tar libcouchbase-${VERSION.deb()}_debian10_buster_i386")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian10_buster_i386.tar", fingerprint: true)
                                     }
                                 }
                             }
