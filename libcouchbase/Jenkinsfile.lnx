@@ -381,8 +381,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64.tar", fingerprint: true)
                                     }
                                 }
@@ -469,8 +468,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_i386.tar", fingerprint: true)
                                     }
                                 }
@@ -557,8 +555,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_amd64.tar", fingerprint: true)
                                     }
                                 }
@@ -645,8 +642,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386.tar libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386.tar libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_ubuntu1604_xenial_i386.tar", fingerprint: true)
                                     }
                                 }
@@ -733,8 +729,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_amd64/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar libcouchbase-${VERSION.deb()}_debian9_stretch_amd64")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar libcouchbase-${VERSION.deb()}_debian9_stretch_amd64 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_amd64.tar", fingerprint: true)
                                     }
                                 }
@@ -821,8 +816,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian9_stretch_i386/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar libcouchbase-${VERSION.deb()}_debian9_stretch_i386")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar libcouchbase-${VERSION.deb()}_debian9_stretch_i386 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian9_stretch_i386.tar", fingerprint: true)
                                     }
                                 }
@@ -909,8 +903,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian10_buster_amd64/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_amd64.tar libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_amd64.tar libcouchbase-${VERSION.deb()}_debian10_buster_amd64 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian10_buster_amd64.tar", fingerprint: true)
                                     }
                                 }
@@ -997,8 +990,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian10_buster_i386")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_debian10_buster_i386/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_i386.tar libcouchbase-${VERSION.deb()}_debian10_buster_i386")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_debian10_buster_i386.tar libcouchbase-${VERSION.deb()}_debian10_buster_i386 libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_debian10_buster_i386.tar", fingerprint: true)
                                     }
                                 }

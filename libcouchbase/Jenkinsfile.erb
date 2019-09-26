@@ -501,8 +501,7 @@ pipeline {
                                            libcouchbase_${VERSION.deb()}-1.dsc
                                         """.stripIndent())
                                         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>")
-                                        sh("rm -rfv libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>/libcouchbase_${VERSION.deb()}*")
-                                        sh("tar cf libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>.tar libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>")
+                                        sh("tar cf libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>.tar libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %> libcouchbase_${VERSION.deb()}*")
                                         archiveArtifacts(artifacts: "libcouchbase-${VERSION.deb()}_<%= name %>_<%= codename %>_<%= arch %>.tar", fingerprint: true)
                                     }
                                 }
