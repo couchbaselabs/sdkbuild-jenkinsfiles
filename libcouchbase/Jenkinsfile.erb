@@ -511,6 +511,19 @@ pipeline {
 <% end %>
             }
         }
+<% if ENV['LINUX_ONLY'] %>
+        stage('repositories') {
+            when {
+                expression {
+                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                }
+            }
+            agent none
+            steps {
+                build(job: 'lcb-repo-pipeline')
+            }
+        }
+<% end %>
 <% end %>
     }
 }

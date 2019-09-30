@@ -1,0 +1,129 @@
+<% # vim: ft=eruby et ts=4 sw=4 sts=4
+%>
+// DO NOT EDIT: this file was generated from Jenkinsfile.signing.erb
+
+<%
+selector = "specific('40')"
+selector = 'upstream()'
+%>
+
+pipeline {
+    agent none
+    stages {
+        stage('repos') {
+            parallel {
+<%
+distro = 'centos7'
+distro_id = 'el7'
+arch = 'x86_64'
+repo_dir = "repo/#{distro_id}/#{arch}"
+repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/#{distro_id}/#{arch}"
+key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key"
+%>
+                stage(<%= distro %>) {
+                    agent { label 'centos7-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: <%= selector %>, filter: 'libcouchbase-*<%= distro %>*.tar')
+                        writeFile(file: "rpmsign-wrapper.expect", text: """
+set pkgName [lrange \$argv 0 0]
+spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
+expect -exact "Enter pass phrase: "
+send -- "\\r"
+expect eof
+wait
+""")
+                        sh("tar xf libcouchbase-*.tar")
+                        sh('mkdir -p <%= repo_dir %>')
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-<%= distro %>-<%= arch %>.repo', text: """
+[couchbase]
+enabled = 1
+name = libcouchbase package for <%= distro %> <%= arch %>
+baseurl = <%= repo_url %>
+gpgcheck = 1
+gpgkey = <%= key_url %>
+""")
+                        }
+                        sh('cp -a libcouchbase-*/*rpm <%= repo_dir %>')
+                        sh('for p in <%= repo_dir %>/*.rpm; do expect rpmsign-wrapper.expect \$p; done')
+                        sh('createrepo --checksum sha <%= repo_dir %>')
+                        sh("gpg --batch --yes --local-user ${GPG_NAME} --detach-sign --armor <%= repo_dir %>/repodata/repomd.xml")
+                        sh("rm -rf <%= repo_dir %>@tmp")
+                        sh("tar cf repo-${BUILD_NUMBER}-<%= distro %>.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-<%= distro %>.tar", fingerprint: true)
+                        s3Upload(
+                            profileName: 'sdk-jenkins-docs',
+                            consoleLogLevel: 'INFO',
+                            dontWaitForConcurrentBuildCompletion: false,
+                            pluginFailureResultConstraint: 'FAILURE',
+                            userMetadata: [],
+                            entries: [[
+                                selectedRegion: 'us-east-1',
+                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
+                                sourceFile: 'repo/'
+                            ]]
+                        )
+                    }
+                }
+<%
+apt_distros = [
+    ['buster', 'debian10'],
+    ['bionic', 'ubuntu1804'],
+    ['stretch', 'debian9'],
+    ['xenial', 'ubuntu1604'],
+]
+%>
+<% apt_distros.each do |(distro, distro_id)| %>
+                stage(<%= distro_id %>) {
+<%
+repo_dir = "repo/#{distro_id}"
+repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/#{distro_id}"
+key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key"
+%>
+                    agent { label 'debian10-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: <%= selector %>, filter: 'libcouchbase-*<%= distro %>*.tar')
+                        sh('mkdir -p <%= repo_dir %>/conf')
+                        writeFile(file: "<%= repo_dir %>/conf/distributions", text: """
+Origin: couchbase
+SignWith: ${GPG_NAME}
+Suite: <%= distro %>
+Codename: <%= distro %>
+Version: <%= distro_id %>
+Components: <%= distro %>/main
+Architectures: amd64 i386
+Description: libcouchbase package repository for <%= distro %> <%= distro_id %>
+""")
+                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-<%= distro_id %>.list', text: """
+# curl <%= key_url %> | sudo apt-key add -
+deb <%= repo_url %> <%= distro %> <%= distro %>/main
+""")
+                        }
+                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b <%= repo_dir %> include <%= distro %> \$p; done")
+                        sh("tar cf repo-${BUILD_NUMBER}-<%= distro_id %>.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-<%= distro_id %>.tar", fingerprint: true)
+                        s3Upload(
+                            profileName: 'sdk-jenkins-docs',
+                            consoleLogLevel: 'INFO',
+                            dontWaitForConcurrentBuildCompletion: false,
+                            pluginFailureResultConstraint: 'FAILURE',
+                            userMetadata: [],
+                            entries: [[
+                                selectedRegion: 'us-east-1',
+                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
+                                sourceFile: 'repo/'
+                            ]]
+                        )
+                    }
+                }
+<% end %>
+            }
+        }
+    }
+}
