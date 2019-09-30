@@ -298,6 +298,20 @@ pipeline {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip", fingerprint: true)
+<% if ENV['WINDOWS_ONLY'] %>
+                                    s3Upload(
+                                        profileName: 'sdk-jenkins-docs',
+                                        consoleLogLevel: 'INFO',
+                                        dontWaitForConcurrentBuildCompletion: false,
+                                        pluginFailureResultConstraint: 'FAILURE',
+                                        userMetadata: [],
+                                        entries: [[
+                                            selectedRegion: 'us-east-1',
+                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
+                                            sourceFile: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip"
+                                        ]]
+                                    )
+<% end %>
                                 }
                             }
                         }
