@@ -17,7 +17,7 @@ class Version {
 
     @NonCPS
     void parse() {
-        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(alpha.\d+))?(-(\d+)-g([0-9a-f]+))?$/)
+        def res = (gitVersion =~ /^(\d+)\.(\d+)\.(\d+)(-(beta.\d+))?(-(\d+)-g([0-9a-f]+))?$/)
         res.find()
         this.major = res.group(1) as Integer
         this.minor = res.group(2) as Integer
