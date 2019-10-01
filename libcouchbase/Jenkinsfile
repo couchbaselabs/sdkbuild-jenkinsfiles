@@ -133,6 +133,7 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
+
                     }
                 }
             }

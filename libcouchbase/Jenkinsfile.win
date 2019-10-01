@@ -133,6 +133,15 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
+
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: "${VERSION.tarName()}.tar.gz",
+                                path: 'libcouchbase/'
+                            )
+                        }
+
                     }
                 }
             }
@@ -200,18 +209,13 @@ pipeline {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
 
-                                    s3Upload(
-                                        profileName: 'sdk-jenkins-docs',
-                                        consoleLogLevel: 'INFO',
-                                        dontWaitForConcurrentBuildCompletion: false,
-                                        pluginFailureResultConstraint: 'FAILURE',
-                                        userMetadata: [],
-                                        entries: [[
-                                            selectedRegion: 'us-east-1',
-                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                            sourceFile: "${VERSION.tarName()}_vc14_amd64.zip"
-                                        ]]
-                                    )
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc14_amd64.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
 
                                 }
                             }
@@ -276,18 +280,13 @@ pipeline {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86.zip", fingerprint: true)
 
-                                    s3Upload(
-                                        profileName: 'sdk-jenkins-docs',
-                                        consoleLogLevel: 'INFO',
-                                        dontWaitForConcurrentBuildCompletion: false,
-                                        pluginFailureResultConstraint: 'FAILURE',
-                                        userMetadata: [],
-                                        entries: [[
-                                            selectedRegion: 'us-east-1',
-                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                            sourceFile: "${VERSION.tarName()}_vc14_x86.zip"
-                                        ]]
-                                    )
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc14_x86.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
 
                                 }
                             }
@@ -352,18 +351,13 @@ pipeline {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
 
-                                    s3Upload(
-                                        profileName: 'sdk-jenkins-docs',
-                                        consoleLogLevel: 'INFO',
-                                        dontWaitForConcurrentBuildCompletion: false,
-                                        pluginFailureResultConstraint: 'FAILURE',
-                                        userMetadata: [],
-                                        entries: [[
-                                            selectedRegion: 'us-east-1',
-                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                            sourceFile: "${VERSION.tarName()}_vc15_amd64.zip"
-                                        ]]
-                                    )
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc15_amd64.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
 
                                 }
                             }
@@ -428,18 +422,13 @@ pipeline {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86.zip", fingerprint: true)
 
-                                    s3Upload(
-                                        profileName: 'sdk-jenkins-docs',
-                                        consoleLogLevel: 'INFO',
-                                        dontWaitForConcurrentBuildCompletion: false,
-                                        pluginFailureResultConstraint: 'FAILURE',
-                                        userMetadata: [],
-                                        entries: [[
-                                            selectedRegion: 'us-east-1',
-                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                            sourceFile: "${VERSION.tarName()}_vc15_x86.zip"
-                                        ]]
-                                    )
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc15_x86.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
 
                                 }
                             }

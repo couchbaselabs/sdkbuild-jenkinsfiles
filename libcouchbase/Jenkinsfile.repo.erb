@@ -3,7 +3,6 @@
 // DO NOT EDIT: this file was generated from Jenkinsfile.signing.erb
 
 <%
-selector = "specific('40')"
 selector = 'upstream()'
 %>
 
@@ -17,8 +16,8 @@ distro = 'centos7'
 distro_id = 'el7'
 arch = 'x86_64'
 repo_dir = "repo/#{distro_id}/#{arch}"
-repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/#{distro_id}/#{arch}"
-key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key"
+repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/#{distro_id}/#{arch}"
+key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
 %>
                 stage(<%= distro %>) {
                     agent { label 'centos7-signing' }
@@ -53,18 +52,13 @@ gpgkey = <%= key_url %>
                         sh("rm -rf <%= repo_dir %>@tmp")
                         sh("tar cf repo-${BUILD_NUMBER}-<%= distro %>.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-<%= distro %>.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/',
+                            )
+                        }
                     }
                 }
 <%
@@ -79,8 +73,8 @@ apt_distros = [
                 stage(<%= distro_id %>) {
 <%
 repo_dir = "repo/#{distro_id}"
-repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/#{distro_id}"
-key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key"
+repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/#{distro_id}"
+key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
 %>
                     agent { label 'debian10-signing' }
                     steps {
@@ -108,18 +102,13 @@ deb <%= repo_url %> <%= distro %> <%= distro %>/main
                         sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b <%= repo_dir %> include <%= distro %> \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-<%= distro_id %>.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-<%= distro_id %>.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
                     }
                 }
 <% end %>

@@ -187,6 +187,15 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
+<% if ENV['WINDOWS_ONLY'] %>
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: "${VERSION.tarName()}.tar.gz",
+                                path: 'libcouchbase/'
+                            )
+                        }
+<% end %>
                     }
                 }
             }
@@ -299,18 +308,13 @@ pipeline {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip", fingerprint: true)
 <% if ENV['WINDOWS_ONLY'] %>
-                                    s3Upload(
-                                        profileName: 'sdk-jenkins-docs',
-                                        consoleLogLevel: 'INFO',
-                                        dontWaitForConcurrentBuildCompletion: false,
-                                        pluginFailureResultConstraint: 'FAILURE',
-                                        userMetadata: [],
-                                        entries: [[
-                                            selectedRegion: 'us-east-1',
-                                            bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                            sourceFile: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip"
-                                        ]]
-                                    )
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
 <% end %>
                                 }
                             }

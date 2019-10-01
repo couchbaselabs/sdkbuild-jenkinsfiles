@@ -30,9 +30,9 @@ wait
 [couchbase]
 enabled = 1
 name = libcouchbase package for centos7 x86_64
-baseurl = https://sdk-snapshots.couchbase.com/libcouchbase/repo/el7/x86_64
+baseurl = https://sdk-snapshots.couchbase.com/libcouchbase/el7/x86_64
 gpgcheck = 1
-gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key
+gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
 """)
                         }
                         sh('cp -a libcouchbase-*/*rpm repo/el7/x86_64')
@@ -42,18 +42,13 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key
                         sh("rm -rf repo/el7/x86_64@tmp")
                         sh("tar cf repo-${BUILD_NUMBER}-centos7.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-centos7.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/',
+                            )
+                        }
                     }
                 }
 
@@ -79,25 +74,20 @@ Description: libcouchbase package repository for buster debian10
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
                             writeFile(file: 'libcouchbase-debian10.list', text: """
-# curl https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key | sudo apt-key add -
-deb https://sdk-snapshots.couchbase.com/libcouchbase/repo/debian10 buster buster/main
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/debian10 buster buster/main
 """)
                         }
                         sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian10 include buster \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-debian10.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian10.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
                     }
                 }
 
@@ -122,25 +112,20 @@ Description: libcouchbase package repository for bionic ubuntu1804
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
                             writeFile(file: 'libcouchbase-ubuntu1804.list', text: """
-# curl https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key | sudo apt-key add -
-deb https://sdk-snapshots.couchbase.com/libcouchbase/repo/ubuntu1804 bionic bionic/main
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1804 bionic bionic/main
 """)
                         }
                         sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1804 include bionic \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-ubuntu1804.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu1804.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
                     }
                 }
 
@@ -165,25 +150,20 @@ Description: libcouchbase package repository for stretch debian9
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
                             writeFile(file: 'libcouchbase-debian9.list', text: """
-# curl https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key | sudo apt-key add -
-deb https://sdk-snapshots.couchbase.com/libcouchbase/repo/debian9 stretch stretch/main
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/debian9 stretch stretch/main
 """)
                         }
                         sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian9 include stretch \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-debian9.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian9.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
                     }
                 }
 
@@ -208,25 +188,20 @@ Description: libcouchbase package repository for xenial ubuntu1604
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
                             writeFile(file: 'libcouchbase-ubuntu1604.list', text: """
-# curl https://sdk-snapshots.couchbase.com/libcouchbase/repo/couchbase.key | sudo apt-key add -
-deb https://sdk-snapshots.couchbase.com/libcouchbase/repo/ubuntu1604 xenial xenial/main
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1604 xenial xenial/main
 """)
                         }
                         sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1604 include xenial \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-ubuntu1604.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu1604.tar", fingerprint: true)
-                        s3Upload(
-                            profileName: 'sdk-jenkins-docs',
-                            consoleLogLevel: 'INFO',
-                            dontWaitForConcurrentBuildCompletion: false,
-                            pluginFailureResultConstraint: 'FAILURE',
-                            userMetadata: [],
-                            entries: [[
-                                selectedRegion: 'us-east-1',
-                                bucket: "sdk-snapshots.couchbase.com/libcouchbase",
-                                sourceFile: 'repo/'
-                            ]]
-                        )
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
                     }
                 }
 
