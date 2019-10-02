@@ -1,9 +1,9 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 windows_dists = [
     [2015, 14, 64],
-    [2015, 14, 32],
+    # [2015, 14, 32],
     [2017, 15, 64],
-    [2017, 15, 32],
+    # [2017, 15, 32],
 ]
 centos_dists = [
     [7, 'x86_64', 64],
@@ -11,9 +11,9 @@ centos_dists = [
 
 ubuntu_dists = [
     ['bionic', 'amd64', 'ubuntu1804', 64],
-    ['bionic', 'i386', 'ubuntu1804', 32],
+    # ['bionic', 'i386', 'ubuntu1804', 32],
     ['buster', 'amd64', 'debian10', 64],
-    ['buster', 'i386', 'debian10', 32],
+    # ['buster', 'i386', 'debian10', 32],
 ]
 
 linux_test_builds = [
@@ -25,9 +25,9 @@ integration_enabled = true
 if ENV['WINDOWS_ONLY']
     windows_dists = [
         [2015, 14, 64],
-        [2015, 14, 32],
+        # [2015, 14, 32],
         [2017, 15, 64],
-        [2017, 15, 32],
+        # [2017, 15, 32],
     ]
     centos_dists = ubuntu_dists = linux_test_builds = []
     integration_enabled = false
@@ -38,14 +38,14 @@ elsif ENV['LINUX_ONLY']
     ]
     ubuntu_dists = [
         ['bionic', 'amd64', 'ubuntu1804', 64],
-        ['bionic', 'i386', 'ubuntu1804', 32],
+        # ['bionic', 'i386', 'ubuntu1804', 32],
         ['xenial', 'amd64', 'ubuntu1604', 64],
-        ['xenial', 'i386', 'ubuntu1604', 32],
+        # ['xenial', 'i386', 'ubuntu1604', 32],
 
         ['stretch', 'amd64', 'debian9', 64],
-        ['stretch', 'i386', 'debian9', 32],
+        # ['stretch', 'i386', 'debian9', 32],
         ['buster', 'amd64', 'debian10', 64],
-        ['buster', 'i386', 'debian10', 32],
+        # ['buster', 'i386', 'debian10', 32],
     ]
     integration_enabled = false
 end
