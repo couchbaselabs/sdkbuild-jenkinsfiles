@@ -4,7 +4,7 @@ def PLATFORMS = [
     //"centos7",
 	"macos"
 ]
-def DOTNET_SDK_VERSION = "2.2.401"
+def DOTNET_SDK_VERSION = "2.2.402"
 def CB_VERSIONS = ["5.5.2", "6.0.0"]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
