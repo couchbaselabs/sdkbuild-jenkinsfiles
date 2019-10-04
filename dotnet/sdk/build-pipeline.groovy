@@ -275,7 +275,11 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
 
     dir("deps") {
         dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
-            install = !fileExists("dotnet")
+            if (PLATFORM.contains("windows")) {
+                install = !fileExists("dotnet.exe")
+            } else {
+                install = !fileExists("dotnet")
+            }
         }
     }
 
@@ -286,7 +290,5 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         }
-    } else {
-        echo ".NET SDK ${DOTNET_SDK_VERSION} already installed"
     }
 }
