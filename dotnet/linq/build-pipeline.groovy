@@ -25,7 +25,21 @@ pipeline {
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 dir("linq2couchbase") {
-                    checkout([$class: "GitSCM", userRemoteConfigs: [[url: "git@github.com:couchbaselabs/Linq2Couchbase.git", poll: false]]])
+                    script {
+						if (env.PR_NUMBER != "") {
+							echo "Building Github PR #: ${env.PR_NUMBER}"
+							checkout([$class: 'GitSCM',
+								branches: [[name: "FETCH_HEAD"]],
+								doGenerateSubmoduleConfigurations: false,
+								extensions: [[$class: 'LocalBranch']],
+								userRemoteConfigs: [[refspec: "+refs/pull/${env.PR_NUMBER}/head:refs/remotes/origin/PR-${env.PR_NUMBER} +refs/heads/master:refs/remotes/origin/master",
+													url: "git@github.com:couchbaselabs/Linq2Couchbase.git"]]
+							])
+						} else {
+							echo "Building HEAD"
+							checkout([$class: "GitSCM", userRemoteConfigs: [[url: "git@github.com:couchbaselabs/Linq2Couchbase.git", poll: false]]])
+						}
+					}
                 }
 
                 // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
