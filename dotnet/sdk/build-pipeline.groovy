@@ -5,14 +5,15 @@ def PLATFORMS = [
 	"macos"
 ]
 def DOTNET_SDK_VERSION = "2.2.402"
-def CB_VERSIONS = ["5.5.2", "6.0.0"]
+def CB_SERVER_VERSIONS = [
+	// "5.5.2",
+	// "6.0.0",
+	"6.5.0-4380"
+]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
 
 pipeline {
-	options {
-		timeout(time: 10, unit: 'MINUTES')
-	}
     agent none
     stages {
         stage("job valid?") {
@@ -66,12 +67,15 @@ pipeline {
         //         doMockTests(PLATFORMS, DOTNET_SDK_VERSION)
         //     }
         // }
-        // stage("combintation-test") {
-        //     agent { label "master" }
-        //     steps {
-        //         doCombintationTests(PLATFORMS, DOTNET_SDK_VERSION)
-        //     }
-        // }
+        stage("combintation-test") {
+            agent { label "qe-slave-linux1||qe-slave-linux2" }
+			when {
+                expression { return IS_GERRIT_TRIGGER.toBoolean() != true }
+            }
+            steps {
+                doCombintationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION)
+            }
+        }
         stage("package") {
             agent { label "windows" }
             when {
@@ -253,22 +257,47 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 //     parallel pairs
 // }
 
-// def doCombintationTests(PLATFORMS, DOTNET_SDK_VERSION) {
-//     def pairs = [:]
-//     for (j in PLATFORMS) {
-//         def platform = j
+def doCombintationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION) {
+    installSDK("ubuntu16", DOTNET_SDK_VERSION)
 
-//         pairs[platform] = {
-//             node(platform) {
-//                 stage("combintation-test ${platform}") {
+	for (j in CB_SERVER_VERSIONS) {
+        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+        unstash "couchbase-net-client-ubuntu16"
+		def cluster_version = j
 
-//                 }
-//             }
-//         }
-//     }
+        stage("combintation-test ${cluster_version}") {
+            def clusterId = null
+            try {
+                // Allocate the cluster
+                clusterId = sh(script: "cbdyncluster allocate --num-nodes=2 --server-version=" + cluster_version, returnStdout: true)
+                echo "Got cluster ID $clusterId"
 
-//     parallel pairs
-// }
+                // Find the cluster IP
+                def ips = sh(script: "cbdyncluster ips $clusterId", returnStdout: true).trim()
+                echo "Got raw cluster IPs " + ips
+                def ip = ips.tokenize(',')[0]
+                echo "Got cluster IP http://" + ip + ":8091"
+
+                // Create the cluster
+                shWithEcho("cbdyncluster --node kv,n1ql --node kv,n1ql --bucket default setup $clusterId")
+
+                // replace hostname in config.json
+                shWithEcho("sed -i -e 's/localhost/${ip}/' couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
+                shWithEcho("cat couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
+
+                // // run integration tests
+                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
+            }
+            finally {
+                if (clusterId != null) {
+                    // Easy to run out of resources during iterating, so cleanup even
+                    // though cluster will be auto-removed after a time
+                    shWithEcho("cbdyncluster rm $clusterId")
+                }
+            }
+        }
+	}
+}
 
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     def install = false
