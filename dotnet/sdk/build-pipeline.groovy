@@ -1,7 +1,7 @@
 def PLATFORMS = [
     "windows",
     "ubuntu16",
-    //"centos7",
+    "centos7",
 	"macos"
 ]
 def DOTNET_SDK_VERSION = "2.2.402"
