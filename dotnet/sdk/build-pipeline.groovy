@@ -61,12 +61,6 @@ pipeline {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
             }
         }
-        // stage("mock-test") {
-        //     agent { label "master" }
-        //     steps {
-        //         doMockTests(PLATFORMS, DOTNET_SDK_VERSION)
-        //     }
-        // }
         stage("combintation-test") {
             agent { label "qe-slave-linux1||qe-slave-linux2" }
 			when {
@@ -239,23 +233,6 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 
     parallel pairs
 }
-
-// def doMockTests(PLATFORMS, DOTNET_SDK_VERSION) {
-//     def pairs = [:]
-//     for (j in PLATFORMS) {
-//         def platform = j
-
-//         pairs[platform] = {
-//             node(platform) {
-//                 stage("mock-test ${platform}") {
-
-//                 }
-//             }
-//         }
-//     }
-
-//     parallel pairs
-// }
 
 def doCombintationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION) {
     installSDK("ubuntu16", DOTNET_SDK_VERSION)
