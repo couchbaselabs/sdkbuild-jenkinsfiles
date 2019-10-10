@@ -131,9 +131,9 @@ class Version {
     String deb() {
         def ver = version()
         if (prerelease) {
-            ver += "+${prerelease}"
+            ver += "~${prerelease}"
         } else if (commitCount) {
-            ver += "+r${commitCount}git${commitSha1}"
+            ver += "~r${commitCount}git${commitSha1}"
         }
         return ver
     }
