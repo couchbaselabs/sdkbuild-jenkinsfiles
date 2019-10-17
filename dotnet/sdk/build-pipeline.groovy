@@ -6,9 +6,9 @@ def PLATFORMS = [
 ]
 def DOTNET_SDK_VERSION = "2.2.402"
 def CB_SERVER_VERSIONS = [
-	// "5.5.2",
-	// "6.0.0",
-	"6.5.0-4380"
+	"5.5.2",
+	"6.0.0",
+	"6.5.0-4380" // mad-hatter beta-refresh
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
@@ -64,7 +64,7 @@ pipeline {
         stage("combintation-test") {
             agent { label "qe-slave-linux1||qe-slave-linux2" }
 			when {
-                expression { return IS_GERRIT_TRIGGER.toBoolean() != true }
+                expression { return IS_GERRIT_TRIGGER.toBoolean() != true && BRANCH == "master" }
             }
             steps {
                 doCombintationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION)
@@ -258,12 +258,20 @@ def doCombintationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION) {
                 // Create the cluster
                 shWithEcho("cbdyncluster --node kv,n1ql --node kv,n1ql --bucket default setup $clusterId")
 
-                // replace hostname in config.json
-                shWithEcho("sed -i -e 's/localhost/${ip}/' couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
-                shWithEcho("cat couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
+				if (BRANCH == "master") {
+					// replace hostname in config.json
+					shWithEcho("sed -i -e 's/localhost/${ip}/' couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
+					shWithEcho("cat couchbase-net-client/tests/Couchbase.IntegrationTests/config.json")
 
-                // // run integration tests
-                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
+					// run integration tests
+					shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
+				}
+				else if (BRANCH == "release27") {
+					//TODO: run release 27 integration tests
+				}
+				else {
+					echo "Unknown gerrit branch ${BRANCH}"
+				}
             }
             finally {
                 if (clusterId != null) {
