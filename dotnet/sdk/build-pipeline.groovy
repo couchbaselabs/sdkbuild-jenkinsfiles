@@ -1,5 +1,5 @@
 def PLATFORMS = [
-    "windows",
+    "build-window-sdk-01",
     "ubuntu16",
     "centos7",
 	"macos"
@@ -79,7 +79,7 @@ pipeline {
             }
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                unstash "couchbase-net-client-windows"
+                unstash "couchbase-net-client-build-window-sdk-01"
                 installSDK("windows", DOTNET_SDK_VERSION)
 
                 script {
@@ -166,13 +166,13 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                     installSDK(platform, DOTNET_SDK_VERSION)
 
                     if (BRANCH == "master") {
-                        if (platform.contains("windows")) {
+                        if (platform.contains("window")) {
                             batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
                         }
                     } else if (BRANCH == "release27") {
-                        if (platform.contains("windows")) {
+                        if (platform.contains("window")) {
                             batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
@@ -203,13 +203,13 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                     installSDK(platform, DOTNET_SDK_VERSION)
 
                     if (BRANCH == "master") {
-                        if (platform.contains("windows")) {
+                        if (platform.contains("window")) {
                             batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj --no-build")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj --no-build")
                         }
                     } else if (BRANCH == "release27") {
-                        if (platform.contains("windows")) {
+                        if (platform.contains("window")) {
                             batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
                             batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
                             //batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
@@ -289,7 +289,7 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
 
     dir("deps") {
         dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
-            if (PLATFORM.contains("windows")) {
+            if (PLATFORM.contains("window")) {
                 install = !fileExists("dotnet.exe")
             } else {
                 install = !fileExists("dotnet")
@@ -299,7 +299,7 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
 
     if (install) {
         echo "Installing .NET SDK ${DOTNET_SDK_VERSION}"
-        if (PLATFORM.contains("windows")) {
+        if (PLATFORM.contains("window")) {
             batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
