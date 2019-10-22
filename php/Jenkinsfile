@@ -413,8 +413,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.1.30-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.1-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1_8_gee5e0e0c6f-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.1_8_gee5e0e0c6f-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1_8_gee5e0e0c6f-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -507,8 +507,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.1.30-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.1-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1_8_gee5e0e0c6f-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.1_8_gee5e0e0c6f-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1_8_gee5e0e0c6f-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -601,8 +601,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.19-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.1-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1_8_gee5e0e0c6f-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.1_8_gee5e0e0c6f-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1_8_gee5e0e0c6f-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -695,8 +695,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.19-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.1-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.1_8_gee5e0e0c6f-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.1_8_gee5e0e0c6f-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.1_8_gee5e0e0c6f-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
