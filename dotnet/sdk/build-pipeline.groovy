@@ -96,7 +96,7 @@ pipeline {
 
 					// create zip file of release files
 					zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
-					// stash includes: "couchbase-net-client-${version}.zip", name: "couchbase-net-client-package-zip", useDefaultExcludes: false
+					stash includes: "couchbase-net-client-${version}.zip", name: "couchbase-net-client-package-zip", useDefaultExcludes: false
                 }
                 archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg", fingerprint: true
                 stash includes: "couchbase-net-client\\**\\*.nupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
@@ -135,10 +135,16 @@ pipeline {
                         }
                     }
 
-					// TODO: S3 credentials not configured yet
-					// unstash "couchbase-net-client-package-zip"
-					// echo "Pushing ZIP to S3 .."
-					// s3Upload(file:'*.zip', bucket:'packages.couchbase.com', path:'clients/net/3.0/', acl:'PublicRead')
+					unstash "couchbase-net-client-package-zip"
+					echo "Pushing ZIP to pacakges.couchbase.com .."
+					withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+						s3Upload(
+							bucket: 'packages.couchbase.com',
+							file: "${VERSION.tarName()}.tar.gz",
+							path: 'clients/net/3.0/',
+							acl: 'PublicRead'
+						)
+					}
                 }
             }
         }
