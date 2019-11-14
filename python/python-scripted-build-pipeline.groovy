@@ -375,7 +375,44 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             ${FIXED_DIR}/bin/python -m virtualenv ${INSTALL_DIR}/python${VERSION}""")
         }*/
     } else {
-        def cmd = "cbdep install python ${version} -d ${path}"
+        def miniconda_plat_code = "Windows"
+        if (platform.contains("ubuntu") || platform.contains("centos"))
+        {
+            miniconda_plat_code="Linux"
+        }
+        def miniconda_arch_code = "${arch}".contains("64")?"x86_64":"x86"
+        def miniconda2_url="https://repo.anaconda.com/miniconda/Miniconda2-latest-${miniconda_plat_code}-${miniconda_arch_code}.sh"
+        def miniconda_versions = ['3.8.0':['miniconda3','4.6.14'], '3.7.0':['miniconda3','4.6.14'], '2.7.0':['miniconda2']]
+        def package_details = miniconda_versions.getOrDefault("$version",['python',"$version"])
+        def cmd=""
+        boolean isConda = false
+        echo "version is ${version}"
+        if ("$version"<"3.0.0")
+        {
+            cmd=("""curl -o conda_installer.sh ${miniconda2_url}
+            bash conda_installer.sh -b -p ${path}
+""")
+        }
+        else {
+            cmd = """cbdep install ${package_details[0]} ${package_details[1]} -d ${path}
+"""
+        }
+        if (isWindows(platform))
+        {
+            cmd+="""
+dir ${path}"""
+        }
+        else
+        {
+            cmd+="""
+ls ${path} -al"""
+        }
+        
+        if (!isWindows(platform) && isConda) {
+            cmd += """
+            ${path}/conda install -c anaconda python=${version}
+"""
+        }
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
