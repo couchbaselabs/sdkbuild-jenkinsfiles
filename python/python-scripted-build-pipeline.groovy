@@ -387,10 +387,11 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
         def cmd=""
         boolean isConda = false
         echo "version is ${version}"
+        def condaroot="${path}/python${version}"
         if ("$version"<"3.0.0")
         {
             cmd=("""curl -o conda_installer.sh ${miniconda2_url}
-            bash conda_installer.sh -b -p ${path}
+            bash conda_installer.sh -b -p ${condaroot}
 """)
         }
         else {
@@ -410,7 +411,7 @@ ls ${path} -al"""
         
         if (!isWindows(platform) && isConda) {
             cmd += """
-            ${path}/conda install -c anaconda python=${version}
+            ${condaroot}/bin/conda install -c anaconda python=${version}
 """
         }
         if (arch == "x86") {
