@@ -1001,10 +1001,10 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL, pyversion) {
     pythonWithEcho("""
 set
 pip --version
-                            pip install restructuredtext-lint
-                            echo `bash -c "ls -al ${WORKSPACE}/deps/python${pyversion}_root/bin"`
-                            restructuredtext-lint README.md
-                            """
+pip install restructuredtext-lint
+echo `bash -c "ls -al ${WORKSPACE}/deps/python${pyversion}_root/bin"`
+restructuredtext-lint README.md
+"""
     ,null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
