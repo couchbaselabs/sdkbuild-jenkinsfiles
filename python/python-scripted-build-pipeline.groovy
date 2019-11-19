@@ -1002,7 +1002,6 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 set
 pip --version
                             pip install restructuredtext-lint
-                            ls -al ${WORKSPACE}/deps/python2.7.15_root/bin
                             restructuredtext-lint README.md"""
     ,null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
