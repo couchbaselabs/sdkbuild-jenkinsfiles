@@ -995,14 +995,16 @@ def buildLibCouchbase(platform, arch)
     }    
 }
 
-def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
+def installPythonClient(platform, build_ext_args, PIP_INSTALL, pyversion) {
     def installCmd=""
 
     pythonWithEcho("""
 set
 pip --version
                             pip install restructuredtext-lint
-                            restructuredtext-lint README.md"""
+                            echo `bash -c "ls -al ${WORKSPACE}/deps/python${pyversion}_root/bin"`
+                            restructuredtext-lint README.md
+                            """
     ,null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
@@ -1128,7 +1130,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 }
 
                 withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
+                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", pyversion)
                     batWithEcho("pip install wheel")
                 }
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
@@ -1161,7 +1163,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 pythonWithEcho("""
 set
 pip install cython""")
-                installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
+                installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", pyversion)
 
                 withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installReqs(platform, "${NOSE_GIT}")
