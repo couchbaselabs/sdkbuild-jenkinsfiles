@@ -124,7 +124,7 @@ pip install --verbose Twisted gevent""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
                     installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
-                    shWithEcho("python setup.py build_sphinx")
+                    pythonWithEcho("python setup.py build_sphinx", )
                     shWithEcho("mkdir -p dist")
                 }
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
@@ -381,13 +381,16 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             miniconda_plat_code="Linux"
         }
         def miniconda_arch_code = "${arch}".contains("64")?"x86_64":"x86"
+        def major_version="${version}".split("\\.")[0..1].join('.')
         def miniconda2_url="https://repo.anaconda.com/miniconda/Miniconda2-latest-${miniconda_plat_code}-${miniconda_arch_code}.sh"
-        def miniconda_versions = ['3.8.0':['miniconda3','4.6.14'], '3.7.0':['miniconda3','4.6.14'], '2.7.0':['miniconda2']]
-        def package_details = miniconda_versions.getOrDefault("$version",['python',"$version"])
+        def miniconda_versions = ['3.8':['miniconda3','4.6.14'], '3.7':['miniconda3','4.6.14'], '2.7':['miniconda2','LATEST']]
+        def package_details = miniconda_versions.getOrDefault("$major_version",['python',"$version"])
         def cmd=""
         boolean isConda = false
-        echo "version is ${version}"
-        def condaroot="${path}/python${version}"
+        def pkg="${package_details[0]}"
+        def pkg_version="${package_details[1]}"
+        echo "version is ${version}, pkg is ${pkg}, pkg_version is ${pkg_version}"
+        def condaroot="${path}/python${version}_root"
         if ("$version"<"3.0.0")
         {
             cmd=("""curl -o conda_installer.sh ${miniconda2_url}
@@ -395,7 +398,7 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
 """)
         }
         else {
-            cmd = """cbdep install ${package_details[0]} ${package_details[1]} -d ${path}
+            cmd = """cbdep install ${pkg} ${pkg_version} -d ${path}
 """
         }
         if (isWindows(platform))
@@ -417,7 +420,11 @@ ls ${path} -al"""
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
-
+        if (false && pkg!="python") {
+            cmd += """
+    ${condaroot}/bin/conda create -p deps/python${version}
+"""
+        }
         def plat_class = null
         if (isWindows(platform)) {
             //plat_class = Windows()
@@ -438,6 +445,26 @@ def shWithEcho(String command) {
     result=sh(script: command, returnStdout: true)
     echo "[$STAGE_NAME]:${command}:"+ result
     return result
+}
+
+def pythonWithEcho(String command, python_version="2.7.15", platform="linux")
+{
+    if (python_version && !isWindows(platform))
+    {
+        command="""
+export PATH="${WORKSPACE}/deps/python${python_version}_root/bin:$PATH"
+"""+command
+    }
+
+    if (isWindows(platform))
+    {
+        return batWithEcho(command)
+
+    }
+    else {
+        return shWithEcho(command)
+
+    }
 }
 
 def batWithEcho(String command) {
@@ -647,8 +674,8 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     doNoseTests(platform, nosetests_args)
                 }
             } else {
-                shWithEcho("python --version")
-                shWithEcho("pip --version")
+                pythonWithEcho("python --version")
+                pythonWithEcho("pip --version")
                 if (testParams.PYCBC_VALGRIND != "") {
                     shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
                     shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
@@ -672,23 +699,23 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                 dir("${WORKSPACE}/couchbase-python-client") {
                     mkdir(test_full_path,platform)
                     shWithEcho("echo $PWD && mkdir -p ${test_rel_path}")
-                    shWithEcho("pip install configparser")
+                    pythonWithEcho("pip install configparser")
                     shWithEcho(genTestIniModifier(SERVER_VERSION, first_ip, cbas_ip))
 
 
-                    shWithEcho("python updateTests.py")
+                    pythonWithEcho("python updateTests.py")
                     shWithEcho("ls -alrt")
                     shWithEcho("cat tests.ini")
                     installReqsIfNeeded(testParams, platform)
                     if (testParams.PYCBC_VALGRIND != "") {
-                        shWithEcho("""
+                        pythonWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${testParams.PYCBC_VALGRIND}"
                             mkdir -p \$VALGRIND_REPORT_DIR
                             valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` `which nosetests` -v "${
                             testParams.PYCBC_VALGRIND
                         }" > build/valgrind.txt""")
                         if (PARSE_SUPPRESSIONS) {
-                            shWithEcho("python jenkins/parse_suppressions.py")
+                            pythonWithEcho("python jenkins/parse_suppressions.py")
                         }
                         publishValgrind(
                                 failBuildOnInvalidReports: false,
@@ -705,11 +732,11 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                                 unstableThresholdTotal: ''
                         )
                     }
-                    shWithEcho("echo $PWD && ls -alrt")
+                    pythonWithEcho("echo $PWD && ls -alrt")
 
                     if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "") {
-                        shWithEcho("which nosetests")
-                        shWithEcho("nosetests ${nosetests_args}")
+                        pythonWithEcho("which nosetests")
+                        pythonWithEcho("nosetests ${nosetests_args}")
                     } else {
                         def TMPCMDS = "${pyversion}_${LCB_VERSION}_cmds"
                         def batchFile = ""
@@ -733,7 +760,7 @@ echo "quit" >>"${TMPCMDS}"
 """
                             invoke = "gdb -batch -x \"${TMPCMDS}\" `which python`"
                         }
-                        shWithEcho("""
+                        pythonWithEcho("""
                         
                         echo "trying to write to: ["
                         echo "${TMPCMDS}"
@@ -741,7 +768,7 @@ echo "quit" >>"${TMPCMDS}"
                         ${batchFile}
                         ${invoke}""")
                     }
-                    shWithEcho("echo $PWD && ls -alrt")
+                    pythonWithEcho("echo $PWD && ls -alrt")
                 }
             }
         } catch (Exception e) {
@@ -960,10 +987,14 @@ def buildLibCouchbase(platform, arch)
 
 def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     def installCmd=""
-    cmdWithEcho(platform, """
+
+    pythonWithEcho("""
+set
+pip --version
                             pip install restructuredtext-lint
+                            ls -al ${WORKSPACE}/deps/python2.7.15_root/bin
                             restructuredtext-lint README.md"""
-    )
+    , null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
@@ -1027,7 +1058,7 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
 }
 
 
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx, envStr)
 {
     timestamps {
         cleanWs()
@@ -1081,7 +1112,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
                 }
 
-                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                     batWithEcho("pip install wheel")
                 }
@@ -1093,8 +1124,8 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             shWithEcho('env')
             installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
 
-            shWithEcho("python --version")
-            shWithEcho("pip --version")
+            pythonWithEcho("python --version")
+            pythonWithEcho("pip --version")
             if (BUILD_LCB) {
 
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
@@ -1112,19 +1143,22 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 build_ext_args+=getBuildExtArgs(platform, "${WORKSPACE}")
             }
             dir("couchbase-python-client") {
-                shWithEcho("pip install cython")
+                pythonWithEcho("""
+set
+pip install cython""")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
-                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+
+                withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installReqs(platform, "${NOSE_GIT}")
                     if (do_sphinx) {
                         try {
-                            shWithEcho("python setup.py build_sphinx")
+                            pythonWithEcho("python setup.py build_sphinx")
                         }
                         catch (e) {
                             echo("Got exception ${e} while trying to build docs")
                         }
                     }
-                    shWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
+                    pythonWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
                 }
             }
         }
@@ -1235,7 +1269,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx, envStr)
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
