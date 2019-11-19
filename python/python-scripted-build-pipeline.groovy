@@ -124,7 +124,7 @@ pip install --verbose Twisted gevent""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
                     installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
-                    pythonWithEcho("python setup.py build_sphinx", )
+                    pythonWithEcho("python setup.py build_sphinx" )
                     shWithEcho("mkdir -p dist")
                 }
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
@@ -447,9 +447,10 @@ def shWithEcho(String command) {
     return result
 }
 
-def pythonWithEcho(String command, python_version="2.7.15", platform="linux")
+def pythonWithEcho(String command, python_version=null, platform="linux")
 {
-    if (python_version && !isWindows(platform))
+    python_version = python_version?python_version:"2.7.15"
+    if (!isWindows(platform))
     {
         command="""
 export PATH="${WORKSPACE}/deps/python${python_version}_root/bin:$PATH"
@@ -476,6 +477,9 @@ def batWithEcho(String command) {
 def cmdWithEcho(platform, command, quiet=false)
 {
     try{
+        command="""
+set
+"""+command
         if (isWindows(platform)){
             return batWithEcho(command)
         }
@@ -558,6 +562,10 @@ def getCommitEnvStrAdditions() {
     }
     return commit_env_additions
 }
+def getCondaPath(platform, pyversion)
+{
+    return "${WORKSPACE}/deps/python${pyversion}_root/bin"
+}
 
 def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
@@ -568,11 +576,12 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
     if ("${PYCBC_ASSERT_CONTINUE}"!="")
     {
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
-    }        
+    }
+    condaPath=getCondaPath(platform, pyversion)
     if (isWindows(platform)) {
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
-        envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
+        envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${condaPath}:${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
     return envStr+common_vars+getCommitEnvStrAdditions()
 }
@@ -581,10 +590,11 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
     envStr=[]
     PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
+    condaPath=getCondaPath(platform, pyversion)
     if (isWindows(platform)) {
         envStr = PYCBC_LCB_API_SECTION+["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
     } else {
-        envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+        envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${condaPath}:${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
     }
     return envStr+getCommitEnvStrAdditions()
 }
@@ -994,7 +1004,7 @@ pip --version
                             pip install restructuredtext-lint
                             ls -al ${WORKSPACE}/deps/python2.7.15_root/bin
                             restructuredtext-lint README.md"""
-    , null, platform)
+    ,null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
@@ -1002,7 +1012,13 @@ pip --version
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
     }
-    cmdWithEcho(platform, installCmd)
+    if (isWindows(platform))
+    {
+        batWithEcho(installCmd)
+    }
+    else {
+        pythonWithEcho(installCmd)
+    }
 }
 
 
