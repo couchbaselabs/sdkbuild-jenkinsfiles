@@ -745,7 +745,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     }
                     pythonWithEcho("echo $PWD && ls -alrt")
 
-                    if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "") {
+                    if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "" || true) {
                         pythonWithEcho("which nosetests")
                         pythonWithEcho("nosetests ${nosetests_args}")
                     } else {
