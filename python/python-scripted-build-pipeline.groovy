@@ -24,6 +24,7 @@ def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 
+def PIP_NAME="pip"
 pipeline {
     agent none
     stages {
@@ -120,7 +121,7 @@ echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
 
-pip install --verbose Twisted gevent""")
+python -m pip install --verbose Twisted gevent --ignore-installed""")
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
                     installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
@@ -224,7 +225,7 @@ def doOptionalPublishing()
                     withCredentials([usernameColonPassword(credentialsId: 'twine', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
                             sh("""
-                                pip install twine
+                                python -m pip install twine --ignore-installed
                                 twine upload -u $USER -p $PASSWORD dist/* -r pypi"""
                             )
                     }
@@ -510,11 +511,11 @@ def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+        cmdWithEcho(platform,"""python -m pip install -r dev_requirements.txt --ignore-installed
 """)
         if (!isWindows(platform)){
             if (NOSE_GIT) {
-                shWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
+                shWithEcho("python -m pip uninstall --yes nose && pip install ${NOSE_GIT} --ignore-installed")
             }
         }
     }
@@ -564,7 +565,7 @@ def getCommitEnvStrAdditions() {
 }
 def getCondaPath(platform, pyversion)
 {
-    return "${WORKSPACE}/deps/python${pyversion}_root/bin"
+    return "${WORKSPACE}/deps/python${pyversion}_root/bin:${WORKSPACE}/deps/python${pyversion}_root/condabin:${WORKSPACE}/deps/pyenv/bin:${WORKSPACE}/deps/pyenv/versions/${pyversion}/bin"
 }
 
 def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
@@ -709,7 +710,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                 dir("${WORKSPACE}/couchbase-python-client") {
                     mkdir(test_full_path,platform)
                     shWithEcho("echo $PWD && mkdir -p ${test_rel_path}")
-                    pythonWithEcho("pip install configparser")
+                    pythonWithEcho("python -m pip install configparser --ignore-installed")
                     shWithEcho(genTestIniModifier(SERVER_VERSION, first_ip, cbas_ip))
 
 
@@ -1000,15 +1001,15 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL, pyversion) {
 
     pythonWithEcho("""
 set
-pip --version
-pip install restructuredtext-lint
+python -m pip --version
+python -m pip install restructuredtext-lint --ignore-installed
 echo `bash -c "ls -al ${WORKSPACE}/deps/python${pyversion}_root/bin"`
 restructuredtext-lint README.md
 """
     ,null, platform)
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
-        //cmdWithEcho(platform, "pip install --upgrade pip")
-        installCmd="pip install -e . -v -v -v"
+        //cmdWithEcho(platform, "python -m pip install --upgrade pip")
+        installCmd="python -m pip install -e . -v -v -v --ignore-installed"
     } else {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
@@ -1095,7 +1096,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             }
 
             batWithEcho("python --version")
-            batWithEcho("pip --version")
+            batWithEcho("python -m pip --version")
             if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
@@ -1131,7 +1132,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
                 withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", pyversion)
-                    batWithEcho("pip install wheel")
+                    batWithEcho("python -m pip install wheel --ignore-installed")
                 }
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                 batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -1142,7 +1143,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
 
             pythonWithEcho("python --version")
-            pythonWithEcho("pip --version")
+            //pythonWithEcho("python -m pip --version")
             if (BUILD_LCB) {
 
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
@@ -1162,7 +1163,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             dir("couchbase-python-client") {
                 pythonWithEcho("""
 set
-pip install cython""")
+python -m pip install cython --ignore-installed""")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", pyversion)
 
                 withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
@@ -1181,7 +1182,7 @@ pip install cython""")
         }
         dir("couchbase-python-client") {
             cmdWithEcho(platform, """
-pip install twine
+python -m pip install twine --ignore-installed
 twine check dist/*
 """)
         }
