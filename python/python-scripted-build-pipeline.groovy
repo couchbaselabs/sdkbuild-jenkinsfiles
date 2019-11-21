@@ -668,8 +668,8 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                         )
                     }
                     shWithEcho("echo $PWD && ls -alrt")
-
-                    if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "") {
+                    boolean blacklisted = platform.contains("ubuntu16") && pyversion<"3.0.0"
+                    if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "" || blacklisted) {
                         shWithEcho("which nosetests")
                         shWithEcho("nosetests ${nosetests_args}")
                     } else {
