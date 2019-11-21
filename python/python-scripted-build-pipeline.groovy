@@ -115,16 +115,16 @@ pipeline {
                 unstash "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
-                shWithEcho("""
+                pythonWithEcho("""
                 
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
 
-python -m pip install --verbose Twisted gevent --ignore-installed""")
+python -m pip install --verbose Twisted gevent --ignore-installed""",PACKAGE_PY_VERSION,PACKAGE_PLATFORM)
                 unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
-                    installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
+                    installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}",PACKAGE_PY_VERSION)
                     pythonWithEcho("python setup.py build_sphinx" )
                     shWithEcho("mkdir -p dist")
                 }
@@ -507,15 +507,15 @@ def isWindows(platform)
     return platform.toLowerCase().contains("window")
 }
 
-def installReqs(platform, NOSE_GIT)
+def installReqs(platform, NOSE_GIT=null, py_version="2.7.15")
 {
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        cmdWithEcho(platform,"""python -m pip install -r dev_requirements.txt --ignore-installed
-""")
+        pythonWithEcho("""python -m pip install -r dev_requirements.txt --ignore-installed
+""",py_version, platform)
         if (!isWindows(platform)){
             if (NOSE_GIT) {
-                shWithEcho("python -m pip uninstall --yes nose && pip install ${NOSE_GIT} --ignore-installed")
+                pythonWithEcho("python -m pip uninstall --yes nose && pip install ${NOSE_GIT} --ignore-installed",py_version,platform)
             }
         }
     }
@@ -644,10 +644,10 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
 }
 
 
-def installReqsIfNeeded(TestParams params, def platform) {
+def installReqsIfNeeded(TestParams params, platform, pyversion ) {
 
     if (params.INSTALL_REQS){
-        installReqs(platform,params.NOSE_GIT)
+        installReqs(platform,params.NOSE_GIT,pyversion)
     }
 }
 
@@ -717,7 +717,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     pythonWithEcho("python updateTests.py")
                     shWithEcho("ls -alrt")
                     shWithEcho("cat tests.ini")
-                    installReqsIfNeeded(testParams, platform)
+                    installReqsIfNeeded(testParams, platform,pyversion)
                     if (testParams.PYCBC_VALGRIND != "") {
                         pythonWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${testParams.PYCBC_VALGRIND}"
@@ -755,6 +755,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                         if (platform.contains("macos")) {
                             batchFile = """
 echo "run `which nosetests` ${nosetests_args}" >> "${TMPCMDS}"
+echo "continue" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
@@ -765,6 +766,7 @@ echo "quit" >>"${TMPCMDS}"
 echo "break abort" > "${TMPCMDS}"
 echo "handle all stop" > "${TMPCMDS}"
 echo "run `which nosetests` ${nosetests_args}" >> "${TMPCMDS}"
+echo "continue" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
@@ -1034,7 +1036,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
     {
-        installReqs(platform, NOSE_GIT)
+        installReqs(platform, NOSE_GIT,pyversion)
     }
     for (server_version in SERVER_VERSIONS)
     {
@@ -1167,7 +1169,7 @@ python -m pip install cython --ignore-installed""")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", pyversion)
 
                 withEnv(envStr+["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
-                    installReqs(platform, "${NOSE_GIT}")
+                    installReqs(platform, "${NOSE_GIT}",pyversion)
                     if (do_sphinx) {
                         try {
                             pythonWithEcho("python setup.py build_sphinx")
@@ -1180,11 +1182,13 @@ python -m pip install cython --ignore-installed""")
                 }
             }
         }
-        dir("couchbase-python-client") {
-            cmdWithEcho(platform, """
+        if (pyversion>="3.0.0" && !isWindows(platform)) {
+            dir("couchbase-python-client") {
+                pythonWithEcho("""
 python -m pip install twine --ignore-installed
 twine check dist/*
-""")
+""", pyversion, platform)
+            }
         }
         if (do_sphinx)
         {
