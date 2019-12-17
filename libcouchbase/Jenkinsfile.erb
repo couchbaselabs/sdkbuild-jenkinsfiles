@@ -18,7 +18,7 @@ ubuntu_dists = [
 
 server_versions = [
     '5.5.6',
-    '6.0.2',
+    '6.0.3',
     '6.5.0-4947'
 ]
 
@@ -355,11 +355,11 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=2 --server-version=<%= server_version %>", returnStdout: true).trim()
-                                    CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.id}", returnStdout: true).trim()
+                                    CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=<%= server_version %>", returnStdout: true).trim()
+                                    CLUSTER.connstr = sh(script: "cbdyncluster ips ${CLUSTER.id}", returnStdout: true).trim()
                                 }
                                 echo "Allocated ${CLUSTER.inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql --node=kv,index,n1ql --bucket=default")
+                                sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                             }
                         }
                         stage('test') {
