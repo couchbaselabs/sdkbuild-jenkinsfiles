@@ -302,6 +302,62 @@ pipeline {
                     }
                 }
 
+                stage('pkg centos8 x86_64') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('c64v8') {
+                            steps {
+                                dir('ws_centos64_v8') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos64_v8.tar ws_centos64_v8")
+                                    archiveArtifacts(artifacts: "failure-ws_centos64_v8.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos64_v8/build') {
+                                    unstash 'tarball'
+                                    sh("""
+                                        sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+                                        < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
+                                    """.stripIndent())
+                                    sh("""
+                                        sudo mock --buildsrpm -r epel-8-x86_64 --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
+                                        --resultdir="libcouchbase-${VERSION.tar()}_centos8_srpm"
+                                    """.stripIndent())
+                                }
+                            }
+                        }
+                        stage('rpm') {
+                            post {
+                                failure {
+                                    sh("tar cf failure-ws_centos64_v8.tar ws_centos64_v8")
+                                    archiveArtifacts(artifacts: "failure-ws_centos64_v8.tar", fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_centos64_v8/build') {
+                                    sh("""
+                                        sudo mock --rebuild -r epel-8-x86_64 --resultdir="libcouchbase-${VERSION.tar()}_centos8_x86_64" --old-chroot \
+                                        libcouchbase-${VERSION.tar()}_centos8_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el8.src.rpm
+                                    """.stripIndent())
+                                    sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos8_x86_64")
+                                    sh("rm -rf libcouchbase-${VERSION.tar()}_centos8_x86_64/*.log")
+                                    sh("tar cf libcouchbase-${VERSION.tar()}_centos8_x86_64.tar libcouchbase-${VERSION.tar()}_centos8_x86_64")
+                                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos8_x86_64.tar", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+
 
                     stage('pkg ubuntu1804 amd64') {
                         agent { label 'cowbuilder' }
