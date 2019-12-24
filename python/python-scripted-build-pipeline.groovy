@@ -4,7 +4,7 @@ def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
-def PACKAGE_PY_VERSION = "2.7.15"
+def PACKAGE_PY_VERSION = "3.7.0"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
 def PACKAGE_PY_ARCH = "x64"
 echo "Got platforms ${PLATFORMS}"
@@ -111,7 +111,11 @@ pipeline {
             steps {
                 cleanWs()
                 //unstash "lcb-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
-                unstash "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                script {
+                    def PACKAGE_STASH_NAME = get_package_stash_name(PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH)
+                    echo "Unstashing ${PACKAGE_STASH_NAME}"
+                    unstash "${PACKAGE_STASH_NAME}"
+                }
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
@@ -195,6 +199,10 @@ pip install --verbose Twisted gevent""")
             }
         }
     }
+}
+
+def  get_package_stash_name(PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH) {
+    "couchbase-python-client-build-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
 }
 
 def tag_version(String PYCBC_VERSION, platform) {
@@ -960,6 +968,8 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
                 BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
 
                 TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
+                doBuild("Integration", platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, false, "x64", false, getBuildExtArgs(platform,"${WORKSPACE}"), "${WORKSPACE}/dist", "dist", NOSE_GIT, false)
+
                 testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
             }
         }
@@ -1077,7 +1087,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             }
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
-                installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
+                installPythonClient(platform, build_ext_args, "TRUE")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installReqs(platform, "${NOSE_GIT}")
                     if (do_sphinx) {
