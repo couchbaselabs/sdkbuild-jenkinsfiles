@@ -34,6 +34,8 @@ if ENV['WINDOWS_ONLY']
         [2015, 14, 32],
         [2017, 15, 64],
         [2017, 15, 32],
+        [2019, 16, 64],
+        [2019, 16, 32],
     ]
     centos_dists = ubuntu_dists = linux_test_builds = []
     integration_enabled = false
@@ -57,7 +59,8 @@ elsif ENV['LINUX_ONLY']
     integration_enabled = false
 end
 
-reltype = 'DEBUG' # 'RelWithDebInfo'
+reltype = 'DEBUG'
+reltype = 'RelWithDebInfo'
 
 %>
 // DO NOT EDIT: this file was generated from Jenkinsfile.erb

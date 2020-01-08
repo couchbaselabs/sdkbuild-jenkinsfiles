@@ -129,7 +129,7 @@ pipeline {
 
                 dir('libcouchbase') {
                     dir('build') {
-                        sh('cmake -DCMAKE_BUILD_TYPE=DEBUG -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
+                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
@@ -426,6 +426,148 @@ pipeline {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
                                             file: "${VERSION.tarName()}_vc15_x86.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('win64 vc16') {
+                    agent { label 'msvc-2019' }
+                    stages {
+                        stage('w64v16') {
+                            steps {
+                                dir('ws_win64_vc16') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake -G"Visual Studio 16 2019 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win64_vc16/', name: 'ws-vs2019-w64', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_amd64.zip", fingerprint: true)
+
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc16_amd64.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('win32 vc16') {
+                    agent { label 'msvc-2019' }
+                    stages {
+                        stage('w32v16') {
+                            steps {
+                                dir('ws_win32_vc16') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc16.zip', archive: false, dir: 'ws_win32_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc16/build') {
+                                    bat('cmake -G"Visual Studio 16 2019" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                                stash includes: 'ws_win32_vc16/', name: 'ws-vs2019-w32', useDefaultExcludes: false
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc16.zip', archive: false, dir: 'ws_win32_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc16/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc16.zip', archive: false, dir: 'ws_win32_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc16/build') {
+                                    bat('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_x86.zip", fingerprint: true)
+
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc16_x86.zip",
                                             path: 'libcouchbase/'
                                         )
                                     }
