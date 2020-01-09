@@ -130,7 +130,7 @@ end
 %>
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.4/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 stage('w<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
@@ -266,7 +266,7 @@ end
                     sh('tar xf couchbase-*.tgz')
                 }
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.4/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
                 sh("""
