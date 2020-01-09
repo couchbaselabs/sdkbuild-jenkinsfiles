@@ -106,7 +106,7 @@ pipeline {
     agent none
     stages {
         stage('prepare and validate') {
-            agent { label 'centos7||centos6' }
+            agent { label 'centos8 || centos7 || centos6' }
             steps {
                 cleanWs()
                 script {
