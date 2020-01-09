@@ -260,14 +260,19 @@ pipeline {
                     }
                 }
 <% end %>
+<% openssl_ver = '1.1.1d-cb1' -%>
 <% windows_dists.each do |(msvs_ver, msvcc_ver, arch)| %>
                 stage('win<%= arch %> vc<%= msvcc_ver %>') {
                     agent { label 'msvc-<%= msvs_ver %>' }
+<% has_ssl = msvs_ver == 2017 && arch == 64 -%>
                     stages {
                         stage('w<%= arch %>v<%= msvcc_ver %>') {
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>') {
                                     deleteDir()
+<% if has_ssl -%>
+                                    bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
+<% end -%>
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -281,7 +286,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
-                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 %>" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 %>" <%= has_ssl ? "-DOPENSSL_ROOT_DIR=install\\\\openssl-#{openssl_ver}": "-DLCB_NO_SSL=1" %> ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                                 stash includes: 'ws_win<%= arch %>_vc<%= msvcc_ver %>/', name: 'ws-vs<%= msvs_ver %>-w<%= arch %>', useDefaultExcludes: false
