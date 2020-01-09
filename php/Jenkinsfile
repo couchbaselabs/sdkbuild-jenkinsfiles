@@ -422,6 +422,7 @@ pipeline {
                                 dir('7.3.13-zts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
                                     bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -473,7 +474,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-zts-x64\\php-couchbase') {
-                                    bat('copy ..\\openssl-1.1.1d-cb1\\bin\\*.dll .')
+                                    bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
                                     bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
                                     bat('c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
@@ -518,6 +519,7 @@ pipeline {
                                 dir('7.3.13-nts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
                                     bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -569,7 +571,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-nts-x64\\php-couchbase') {
-                                    bat('copy ..\\openssl-1.1.1d-cb1\\bin\\*.dll .')
+                                    bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
                                     bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
                                     bat('c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')

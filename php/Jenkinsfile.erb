@@ -188,6 +188,9 @@ openssl_ver = '1.1.1d-cb1'
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
                                     bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb3_root %> <%= lcb_root %>')
+<% if has_ssl %>
+                                    bat('copy install\\openssl-<%= openssl_ver %>\\bin\\*.dll <%= lcb_root %>\\bin\\')
+<% end %>
                                     bat('<%= lcb_root %>\\bin\\cbc.exe version')
                                 }
                             }
@@ -246,7 +249,7 @@ openssl_ver = '1.1.1d-cb1'
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>\\php-couchbase') {
 <% if has_ssl %>
-                                    bat('copy ..\\openssl-<%= openssl_ver %>\\bin\\*.dll .')
+                                    bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll .')
 <% end %>
                                     bat('copy ..\\<%= lcb_root %>\\bin\\libcouchbase.dll libcouchbase.dll')
                                     bat('<%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
