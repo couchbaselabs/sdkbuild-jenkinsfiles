@@ -28,7 +28,7 @@ pipeline {
             parallel {
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
 <%     ['nts', 'zts'].each do |ts| %>
                 stage('l<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
@@ -45,7 +45,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.0.0_beta.1_8_gee5e0e0c6f-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_15_g45c54ceb8b-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
@@ -107,6 +107,8 @@ pipeline {
 <%
 def msvc_ver(php)
     case php
+    when /7.4/
+        'msvc2019'
     when /7.3/
         'msvc2017'
     when /7.2/, /7.1/
@@ -116,6 +118,8 @@ end
 
 def msvs_ver(php)
     case php
+    when /7.4/
+        '16.0'
     when /7.3/
         '15.0'
     when /7.2/, /7.1/
@@ -125,7 +129,7 @@ end
 %>
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.3/}.each do |php_ver| %>
+<%   php_versions.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 stage('w<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
@@ -143,7 +147,7 @@ end
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.0.0_beta.1_8_gee5e0e0c6f-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_15_g45c54ceb8b-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
@@ -239,7 +243,7 @@ end
 
             }
         }
-<% php_ver = '7.3.5' %>
+<% php_ver = php_versions.find {|v| v =~ /7.3/} %>
 <% ts = 'zts' %>
 <% patch = 'cb4' %>
         stage('package') {
@@ -262,7 +266,7 @@ end
                     sh('tar xf couchbase-*.tgz')
                 }
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.3/}.each do |php_ver| %>
+<%   php_versions.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
                 sh("""
