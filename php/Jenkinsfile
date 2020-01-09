@@ -419,8 +419,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb2')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb2\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb2 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -513,8 +513,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb2')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb2\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb2 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
