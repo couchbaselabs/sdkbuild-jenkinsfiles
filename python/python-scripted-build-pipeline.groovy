@@ -558,7 +558,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
 
-    nosetests_args = " --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
+    nosetests_args = " couchbase.tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name"
@@ -582,7 +582,9 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = get
+        
+        (SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
             if (isWindows(platform)) {
