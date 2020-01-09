@@ -286,6 +286,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                    bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 %>" <%= has_ssl ? "-DOPENSSL_ROOT_DIR=install\\\\openssl-#{openssl_ver}": "-DLCB_NO_SSL=1" %> ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }

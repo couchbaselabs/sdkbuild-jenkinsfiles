@@ -172,6 +172,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win64_vc14/build') {
+                                    bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio 14 2015 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
@@ -243,6 +244,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win32_vc14/build') {
+                                    bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio 14 2015" -DLCB_NO_SSL=1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
@@ -315,6 +317,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win64_vc15/build') {
+                                    bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=install\\openssl-1.1.1d-cb1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
@@ -386,6 +389,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_win32_vc15/build') {
+                                    bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio 15 2017" -DLCB_NO_SSL=1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
