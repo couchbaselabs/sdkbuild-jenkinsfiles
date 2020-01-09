@@ -18,15 +18,268 @@ pipeline {
         stage('build and test') {
             parallel {
 
+                stage('ln7.4') {
+                    agent { label 'centos7' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                cleanWs()
+                                sh('cbdep install --dir /tmp/php php-nts 7.4.1-cb1')
+                                sh(script: '/tmp/php/php-nts-7.4.1-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-7.4.1-cb1/bin/php-config', returnStatus: true)
+                            }
+                        }
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('7.4.1-nts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
+                                    sh('mv install/libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1/libcouchbase-centos7-x86_64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.6'
+                                }
+                            }
+                            steps {
+                                dir('7.4.1-nts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
+                                    sh('mv install/libcouchbase-2.10.3-cb1/libcouchbase-centos7-x86_64-2.10.3-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('7.4.1-nts-x64') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+                                        sh('/tmp/php/php-nts-7.4.1-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.1-cb1/bin/php-config \$(/tmp/php/php-nts-7.4.1-cb1/bin/php-config --configure-options)")
+                                        sh('make clean all')
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+                            steps {
+                                dir('7.4.1-nts-x64/php-couchbase') {
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.1-cb1/bin/php -d extension=phar.so -d extension=igbinary.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.1-cb1/phpunit.phar tests/")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('lz7.4') {
+                    agent { label 'centos7' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                cleanWs()
+                                sh('cbdep install --dir /tmp/php php-zts 7.4.1-cb1')
+                                sh(script: '/tmp/php/php-zts-7.4.1-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-7.4.1-cb1/bin/php-config', returnStatus: true)
+                            }
+                        }
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('7.4.1-zts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
+                                    sh('mv install/libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1/libcouchbase-centos7-x86_64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.6'
+                                }
+                            }
+                            steps {
+                                dir('7.4.1-zts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
+                                    sh('mv install/libcouchbase-2.10.3-cb1/libcouchbase-centos7-x86_64-2.10.3-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('7.4.1-zts-x64') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+                                        sh('/tmp/php/php-zts-7.4.1-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.1-cb1/bin/php-config \$(/tmp/php/php-zts-7.4.1-cb1/bin/php-config --configure-options)")
+                                        sh('make clean all')
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+                            steps {
+                                dir('7.4.1-zts-x64/php-couchbase') {
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.1-cb1/bin/php -d extension=phar.so -d extension=igbinary.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.1-cb1/phpunit.phar tests/")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('ln7.3') {
+                    agent { label 'centos7' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                cleanWs()
+                                sh('cbdep install --dir /tmp/php php-nts 7.3.13-cb1')
+                                sh(script: '/tmp/php/php-nts-7.3.13-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-7.3.13-cb1/bin/php-config', returnStatus: true)
+                            }
+                        }
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('7.3.13-nts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
+                                    sh('mv install/libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1/libcouchbase-centos7-x86_64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.6'
+                                }
+                            }
+                            steps {
+                                dir('7.3.13-nts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
+                                    sh('mv install/libcouchbase-2.10.3-cb1/libcouchbase-centos7-x86_64-2.10.3-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('7.3.13-nts-x64') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+                                        sh('/tmp/php/php-nts-7.3.13-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.13-cb1/bin/php-config \$(/tmp/php/php-nts-7.3.13-cb1/bin/php-config --configure-options)")
+                                        sh('make clean all')
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+                            steps {
+                                dir('7.3.13-nts-x64/php-couchbase') {
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.13-cb1/bin/php -d extension=phar.so -d extension=igbinary.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.13-cb1/phpunit.phar tests/")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('lz7.3') {
+                    agent { label 'centos7' }
+                    stages {
+                        stage('php') {
+                            steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                cleanWs()
+                                sh('cbdep install --dir /tmp/php php-zts 7.3.13-cb1')
+                                sh(script: '/tmp/php/php-zts-7.3.13-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-7.3.13-cb1/bin/php-config', returnStatus: true)
+                            }
+                        }
+                        stage('lcb3') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            steps {
+                                dir('7.3.13-zts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
+                                    sh('mv install/libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1/libcouchbase-centos7-x86_64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('lcb2') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'release-2.6'
+                                }
+                            }
+                            steps {
+                                dir('7.3.13-zts-x64') {
+                                    sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
+                                    sh('mv install/libcouchbase-2.10.3-cb1/libcouchbase-centos7-x86_64-2.10.3-cb1 install/libcouchbase-linux-amd64')
+                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('7.3.13-zts-x64') {
+                                    unstash 'php-couchbase'
+                                    dir('php-couchbase') {
+                                        sh('/tmp/php/php-zts-7.3.13-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.13-cb1/bin/php-config \$(/tmp/php/php-zts-7.3.13-cb1/bin/php-config --configure-options)")
+                                        sh('make clean all')
+                                    }
+                                }
+                            }
+                        }
+                        stage('test') {
+                            steps {
+                                dir('7.3.13-zts-x64/php-couchbase') {
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.13-cb1/bin/php -d extension=phar.so -d extension=igbinary.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.13-cb1/phpunit.phar tests/")
+                                }
+                            }
+                        }
+                    }
+                }
                 stage('ln7.2') {
                     agent { label 'centos7' }
                     stages {
                         stage('php') {
                             steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-nts 7.2.26-cb1')
-                                sh('/tmp/php/php-nts-7.2.26-cb1/bin/php -i || true')
-                                sh('/tmp/php/php-nts-7.2.26-cb1/bin/php-config || true')
+                                sh(script: '/tmp/php/php-nts-7.2.26-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-7.2.26-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -85,10 +338,11 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-zts 7.2.26-cb1')
-                                sh('/tmp/php/php-zts-7.2.26-cb1/bin/php -i || true')
-                                sh('/tmp/php/php-zts-7.2.26-cb1/bin/php-config || true')
+                                sh(script: '/tmp/php/php-zts-7.2.26-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-7.2.26-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -145,382 +399,6 @@ pipeline {
 
 
 
-                stage('wz7.4') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('php') {
-                            steps {
-                                cleanWs()
-                                dir('7.4.1-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -i')
-                                }
-                            }
-                        }
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
-                            steps {
-                                dir('7.4.1-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2019-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.4.1-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2019-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('7.4.1-zts-x64') {
-                                    unstash 'php-couchbase'
-                                    dir('php-couchbase') {
-                                        bat('c:\\php\\php-zts-default-7.4.1-cb1\\SDK\\phpize.bat')
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
-""")
-                                    }
-                                }
-                            }
-                        }
-                        stage('test') {
-                            environment {
-                                CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 1741
-                            }
-                            steps {
-                                dir('7.4.1-zts-x64\\php-couchbase') {
-                                    bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
-                                    bat('java -version')
-                                    bat('java -jar tests\\CouchbaseMock.jar --version')
-                                    bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1741
- c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
-""")
-                                    bat("""
- mkdir php_couchbase-7.4.1-zts-x64
- copy libcouchbase.dll php_couchbase-7.4.1-zts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-zts-x64
-""")
-                                    stash includes: 'php_couchbase-7.4.1-zts-x64/', name: 'php_couchbase-7.4.1-zts-x64', useDefaultExcludes: false
-
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('wn7.4') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('php') {
-                            steps {
-                                cleanWs()
-                                dir('7.4.1-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -i')
-                                }
-                            }
-                        }
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
-                            steps {
-                                dir('7.4.1-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2019-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.4.1-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2019-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('7.4.1-nts-x64') {
-                                    unstash 'php-couchbase'
-                                    dir('php-couchbase') {
-                                        bat('c:\\php\\php-nts-default-7.4.1-cb1\\SDK\\phpize.bat')
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 16.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
-""")
-                                    }
-                                }
-                            }
-                        }
-                        stage('test') {
-                            environment {
-                                CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 2741
-                            }
-                            steps {
-                                dir('7.4.1-nts-x64\\php-couchbase') {
-                                    bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
-                                    bat('java -version')
-                                    bat('java -jar tests\\CouchbaseMock.jar --version')
-                                    bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2741
- c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
-""")
-                                    bat("""
- mkdir php_couchbase-7.4.1-nts-x64
- copy libcouchbase.dll php_couchbase-7.4.1-nts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-nts-x64
-""")
-                                    stash includes: 'php_couchbase-7.4.1-nts-x64/', name: 'php_couchbase-7.4.1-nts-x64', useDefaultExcludes: false
-
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('wz7.3') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('php') {
-                            steps {
-                                cleanWs()
-                                dir('7.3.13-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -i')
-                                }
-                            }
-                        }
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
-                            steps {
-                                dir('7.3.13-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.3.13-zts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('7.3.13-zts-x64') {
-                                    unstash 'php-couchbase'
-                                    dir('php-couchbase') {
-                                        bat('c:\\php\\php-zts-default-7.3.13-cb1\\SDK\\phpize.bat')
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
-""")
-                                    }
-                                }
-                            }
-                        }
-                        stage('test') {
-                            environment {
-                                CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 8313
-                            }
-                            steps {
-                                dir('7.3.13-zts-x64\\php-couchbase') {
-                                    bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
-                                    bat('java -version')
-                                    bat('java -jar tests\\CouchbaseMock.jar --version')
-                                    bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8313
- c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
-""")
-                                    bat("""
- mkdir php_couchbase-7.3.13-zts-x64
- copy libcouchbase.dll php_couchbase-7.3.13-zts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-zts-x64
-""")
-                                    stash includes: 'php_couchbase-7.3.13-zts-x64/', name: 'php_couchbase-7.3.13-zts-x64', useDefaultExcludes: false
-
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('wn7.3') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('php') {
-                            steps {
-                                cleanWs()
-                                dir('7.3.13-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -i')
-                                }
-                            }
-                        }
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
-                            steps {
-                                dir('7.3.13-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_15_g45c54ceb8b-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_15_g45c54ceb8b-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_15_g45c54ceb8b-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.3.13-nts-x64') {
-                                    bat('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('7.3.13-nts-x64') {
-                                    unstash 'php-couchbase'
-                                    dir('php-couchbase') {
-                                        bat('c:\\php\\php-nts-default-7.3.13-cb1\\SDK\\phpize.bat')
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
-""")
-                                    }
-                                }
-                            }
-                        }
-                        stage('test') {
-                            environment {
-                                CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 9313
-                            }
-                            steps {
-                                dir('7.3.13-nts-x64\\php-couchbase') {
-                                    bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
-                                    bat('java -version')
-                                    bat('java -jar tests\\CouchbaseMock.jar --version')
-                                    bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9313
- c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
-""")
-                                    bat("""
- mkdir php_couchbase-7.3.13-nts-x64
- copy libcouchbase.dll php_couchbase-7.3.13-nts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-nts-x64
-""")
-                                    stash includes: 'php_couchbase-7.3.13-nts-x64/', name: 'php_couchbase-7.3.13-nts-x64', useDefaultExcludes: false
-
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('wz7.2') {
                     agent { label 'msvc-2015' }
                     stages {
@@ -717,49 +595,17 @@ pipeline {
             steps {
                 cleanWs()
                 sh('sudo yum install -y perl-XML-XPath')
-                sh('cbdep install --base-url http://packages.couchbase.com/clients/c/cbdeps/php --dir /tmp/php php-zts 7.3.13-cb4')
-                sh('/tmp/php/php-zts-7.3.13-cb4/bin/php --version')
-                sh('/tmp/php/php-zts-7.3.13-cb4/bin/pear version')
+                sh('cbdep install --dir /tmp/php php-zts 7.3.13-cb1')
+                sh('/tmp/php/php-zts-7.3.13-cb1/bin/php --version')
+                sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear version')
                 unstash 'php-couchbase'
                 dir('php-couchbase') {
                     sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
-                    sh('/tmp/php/php-zts-7.3.13-cb4/bin/pear package')
+                    sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear package')
                     archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
                     stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
                     sh('tar xf couchbase-*.tgz')
                 }
-                unstash 'php_couchbase-7.4.1-zts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-zts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
-pkg_name="php_couchbase-\${version}-7.4-zts-x64"
-mv php_couchbase-7.4.1-zts-x64 \${pkg_name}
-zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.4.1-nts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-nts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
-pkg_name="php_couchbase-\${version}-7.4-nts-x64"
-mv php_couchbase-7.4.1-nts-x64 \${pkg_name}
-zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-zts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-zts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
-pkg_name="php_couchbase-\${version}-7.3-zts-x64"
-mv php_couchbase-7.3.13-zts-x64 \${pkg_name}
-zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-nts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-nts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
-pkg_name="php_couchbase-\${version}-7.3-nts-x64"
-mv php_couchbase-7.3.13-nts-x64 \${pkg_name}
-zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
                 unstash 'php_couchbase-7.2.26-zts-x64'
                 sh("""
 cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.2.26-zts-x64/

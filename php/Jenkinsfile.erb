@@ -28,7 +28,7 @@ pipeline {
             parallel {
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
+<%   php_versions.each do |php_ver| %>
 <%     ['nts', 'zts'].each do |ts| %>
                 stage('l<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
@@ -38,10 +38,11 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
+                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
-                                sh('<%= php %> -i || true')
-                                sh('<%= php_config %> || true')
+                                sh(script: '<%= php %> -i', returnStatus: true)
+                                sh(script: '<%= php_config %>', returnStatus: true)
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
@@ -129,7 +130,7 @@ end
 %>
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 stage('w<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
@@ -245,13 +246,12 @@ end
         }
 <% php_ver = php_versions.find {|v| v =~ /7.3/} %>
 <% ts = 'zts' %>
-<% patch = 'cb4' %>
         stage('package') {
             agent { label 'centos7' }
             steps {
                 cleanWs()
                 sh('sudo yum install -y perl-XML-XPath')
-                sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps/php --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
+                sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
 <% pear = "#{php_root}/bin/pear" %>
@@ -266,7 +266,7 @@ end
                     sh('tar xf couchbase-*.tgz')
                 }
 <% ['x64'].each do |arch| %>
-<%   php_versions.each do |php_ver| %>
+<%   php_versions.reject{|v| v =~ /7.(3|4)/}.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
                 sh("""
