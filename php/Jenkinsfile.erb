@@ -149,6 +149,8 @@ def agent_label(php)
         'msvc-2015'
     end
 end
+
+openssl_ver = '1.1.1d-cb1'
 %>
 
 <% ['x64'].each do |arch| %>
@@ -164,6 +166,10 @@ end
                             steps {
                                 cleanWs()
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
+<% has_ssl = php_ver =~ /7.3/ && arch == 'x64' %>
+<% if has_ssl %>
+                                    bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
+<% end %>
                                     bat('<%= cbdep_install %> --dir c:\\php php-<%=ts %>-default <%= php_ver %>-<%= patch %>')
                                     bat('<%= php %> -i')
                                 }
@@ -239,6 +245,9 @@ end
                             }
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>\\php-couchbase') {
+<% if has_ssl %>
+                                    bat('copy ..\\openssl-<%= openssl_ver %>\\bin\\*.dll .')
+<% end %>
                                     bat('copy ..\\<%= lcb_root %>\\bin\\libcouchbase.dll libcouchbase.dll')
                                     bat('<%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
                                     bat('<%= php_root %>\\msys2\\usr\\bin\\wget.exe -O <%= mock_jar %> http://packages.couchbase.com/clients/c/mock/CouchbaseMock-<%= mock_ver %>.jar')
