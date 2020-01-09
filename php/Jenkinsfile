@@ -446,20 +446,21 @@ pipeline {
                                 dir('7.3.13-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
+
                                         bat('c:\\php\\php-zts-default-7.3.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
  nmake
 """)
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
  nmake install
 """)
@@ -543,20 +544,21 @@ pipeline {
                                 dir('7.3.13-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
+
                                         bat('c:\\php\\php-nts-default-7.3.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
  nmake
 """)
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 15.0\\VC\\vcvarsall.bat" x86_amd64
+ call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
  nmake install
 """)
@@ -638,6 +640,7 @@ pipeline {
                                 dir('7.2.26-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
+
                                         bat('c:\\php\\php-zts-default-7.2.26-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat" x86_amd64
@@ -732,6 +735,7 @@ pipeline {
                                 dir('7.2.26-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
+
                                         bat('c:\\php\\php-nts-default-7.2.26-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat" x86_amd64
