@@ -127,6 +127,28 @@ def msvs_ver(php)
         '14.0'
     end
 end
+
+def cbdep_platform(php)
+    case php
+    when /7.4/
+        'windows_msvc2019'
+    when /7.3/
+        'windows_msvc2017'
+    when /7.2/, /7.1/
+        'windows_msvc2015'
+    end
+end
+
+def agent_label(php)
+    case php
+    when /7.4/
+        'msvc-2019'
+    when /7.3/
+        'msvc-2017'
+    when /7.2/, /7.1/
+        'msvc-2015'
+    end
+end
 %>
 
 <% ['x64'].each do |arch| %>
@@ -136,7 +158,7 @@ end
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}\\\\php" %>
 <% phpize = "#{php_root}\\\\SDK\\\\phpize.bat" %>
-                    agent { label 'msvc-2015' }
+                    agent { label '<%= agent_label(php_ver) %>' }
                     stages {
                         stage('php') {
                             steps {
@@ -158,7 +180,7 @@ end
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
-                                    bat('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb3_root %> <%= lcb_root %>')
                                     bat('<%= lcb_root %>\\bin\\cbc.exe version')
                                 }
