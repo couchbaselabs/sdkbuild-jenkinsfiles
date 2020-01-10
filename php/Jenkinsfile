@@ -420,8 +420,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-zts-x64') {
-                                    bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_18_g51a4fe090a-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_18_g51a4fe090a-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_18_g51a4fe090a-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
@@ -518,8 +518,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-nts-x64') {
-                                    bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --platform windows_msvc2017 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_18_g51a4fe090a-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_18_g51a4fe090a-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0_beta.2_18_g51a4fe090a-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
@@ -615,8 +615,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-zts-x64') {
-                                    bat('cbdep --platform windows_msvc2015 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep --platform windows_msvc2015 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_18_g51a4fe090a-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_18_g51a4fe090a-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_18_g51a4fe090a-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -710,8 +710,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-nts-x64') {
-                                    bat('cbdep --platform windows_msvc2015 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_17_gd74167d822-cb1')
-                                    bat('move install\\libcouchbase-3.0.0_beta.2_17_gd74167d822-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_17_gd74167d822-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep --platform windows_msvc2015 install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase 3.0.0_beta.2_18_g51a4fe090a-cb1')
+                                    bat('move install\\libcouchbase-3.0.0_beta.2_18_g51a4fe090a-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0_beta.2_18_g51a4fe090a-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
