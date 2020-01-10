@@ -260,19 +260,19 @@ pipeline {
                     }
                 }
 <% end %>
-<% openssl_ver = '1.1.1d-cb1' -%>
+<% openssl_ver = '1.1.1d-cb1' %>
 <% windows_dists.each do |(msvs_ver, msvcc_ver, arch)| %>
                 stage('win<%= arch %> vc<%= msvcc_ver %>') {
                     agent { label 'msvc-<%= msvs_ver %>' }
-<% has_ssl = msvs_ver == 2017 && arch == 64 -%>
+<% has_ssl = msvs_ver == 2017 && arch == 64 %>
                     stages {
                         stage('w<%= arch %>v<%= msvcc_ver %>') {
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>') {
                                     deleteDir()
-<% if has_ssl -%>
+<% if has_ssl %>
                                     bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
-<% end -%>
+<% end %>
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -303,9 +303,9 @@ pipeline {
                             steps {
                                 dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
                                     bat('cmake --build . --target alltests')
-<% if has_ssl -%>
+<% if has_ssl %>
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
-<% end -%>
+<% end %>
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -402,7 +402,7 @@ pipeline {
         }
 <% end %>
 <% if (centos_dists + ubuntu_dists).any? %>
-        stage('linux package') {
+        stage('package') {
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -460,6 +460,9 @@ pipeline {
                                     sh("rm -rf libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>/*.log")
                                     sh("tar cf libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>.tar libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>")
                                     archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>.tar", fingerprint: true)
+<% if relno == 8 && arch == 'x86_64' %>
+                                    stash(includes: "libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>/*.src.rpm", name: 'centos8-srpm')
+<% end %>
                                 }
                             }
                         }
@@ -556,6 +559,22 @@ pipeline {
 <% end %>
             }
         }
+<% if centos_dists.any? {|(relno, arch, bits)| relno == 8 && arch = 'x86_64' } %>
+        stage('amzn2') {
+            agent { label 'amzn2' }
+            steps {
+                sh('sudo yum install -y rpm-build yum-utils')
+                unstash('centos8-srpm')
+                sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
+                sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
+                dir('output') {
+                    sh("mv x86_64 libcouchbase-${VERSION.tar()}_amzn2_x86_64")
+                    sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_x86_64.tar libcouchbase-${VERSION.tar()}_amzn2_x86_64")
+                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_x86_64.tar", fingerprint: true)
+                }
+            }
+        }
+<% end %>
 <% if ENV['LINUX_ONLY'] %>
         stage('repositories') {
             when {

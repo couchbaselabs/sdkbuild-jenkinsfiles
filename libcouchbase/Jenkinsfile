@@ -133,7 +133,6 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
-
                     }
                 }
             }
@@ -141,7 +140,6 @@ pipeline {
 
         stage('build and test') {
             parallel {
-
 
                 stage('debian9 mock') {
                     agent { label 'debian9' }
@@ -187,7 +185,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('centos7 mock') {
                     agent { label 'centos7' }
                     stages {
@@ -232,8 +229,6 @@ pipeline {
                         }
                     }
                 }
-
-
                 stage('win64 vc14') {
                     agent { label 'msvc-2015' }
                     stages {
@@ -291,13 +286,11 @@ pipeline {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
-
                                 }
                             }
                         }
                     }
                 }
-
                 stage('win64 vc15') {
                     agent { label 'msvc-2017' }
                     stages {
@@ -357,19 +350,15 @@ pipeline {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
-
                                 }
                             }
                         }
                     }
                 }
-
             }
         }
-
         stage('integration test') {
             parallel {
-
                 stage('5.5.6') {
                     agent { label 'sdk-integration-test-linux' }
                     when {
@@ -420,7 +409,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('6.0.3') {
                     agent { label 'sdk-integration-test-linux' }
                     when {
@@ -471,7 +459,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('6.5.0-4947') {
                     agent { label 'sdk-integration-test-linux' }
                     when {
@@ -522,19 +509,15 @@ pipeline {
                         }
                     }
                 }
-
             }
         }
-
-
-        stage('linux package') {
+        stage('package') {
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
                 }
             }
             parallel {
-
                 stage('pkg centos7 x86_64') {
                     agent { label 'mock' }
                     stages {
@@ -590,8 +573,6 @@ pipeline {
                         }
                     }
                 }
-
-
                     stage('pkg ubuntu1804 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -678,7 +659,6 @@ pipeline {
                             }
                         }
                     }
-
                     stage('pkg debian10 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -765,10 +745,7 @@ pipeline {
                             }
                         }
                     }
-
             }
         }
-
-
     }
 }

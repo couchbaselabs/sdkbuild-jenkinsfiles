@@ -133,7 +133,6 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
-
                     }
                 }
             }
@@ -141,7 +140,6 @@ pipeline {
 
         stage('build and test') {
             parallel {
-
 
                 stage('debian9 mock') {
                     agent { label 'debian9' }
@@ -187,7 +185,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('centos7 mock') {
                     agent { label 'centos7' }
                     stages {
@@ -232,20 +229,15 @@ pipeline {
                         }
                     }
                 }
-
-
             }
         }
-
-
-        stage('linux package') {
+        stage('package') {
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
                 }
             }
             parallel {
-
                 stage('pkg centos7 x86_64') {
                     agent { label 'mock' }
                     stages {
@@ -301,7 +293,6 @@ pipeline {
                         }
                     }
                 }
-
                 stage('pkg centos8 x86_64') {
                     agent { label 'mock' }
                     stages {
@@ -352,13 +343,12 @@ pipeline {
                                     sh("rm -rf libcouchbase-${VERSION.tar()}_centos8_x86_64/*.log")
                                     sh("tar cf libcouchbase-${VERSION.tar()}_centos8_x86_64.tar libcouchbase-${VERSION.tar()}_centos8_x86_64")
                                     archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos8_x86_64.tar", fingerprint: true)
+                                    stash(includes: "libcouchbase-${VERSION.tar()}_centos8_x86_64/*.src.rpm", name: 'centos8-srpm')
                                 }
                             }
                         }
                     }
                 }
-
-
                     stage('pkg ubuntu1804 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -445,7 +435,6 @@ pipeline {
                             }
                         }
                     }
-
                     stage('pkg ubuntu1604 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -532,7 +521,6 @@ pipeline {
                             }
                         }
                     }
-
                     stage('pkg debian9 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -619,7 +607,6 @@ pipeline {
                             }
                         }
                     }
-
                     stage('pkg debian10 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
@@ -706,10 +693,22 @@ pipeline {
                             }
                         }
                     }
-
             }
         }
-
+        stage('amzn2') {
+            agent { label 'amzn2' }
+            steps {
+                sh('sudo yum install -y rpm-build yum-utils')
+                unstash('centos8-srpm')
+                sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
+                sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
+                dir('output') {
+                    sh("mv x86_64 libcouchbase-${VERSION.tar()}_amzn2_x86_64")
+                    sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_x86_64.tar libcouchbase-${VERSION.tar()}_amzn2_x86_64")
+                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_x86_64.tar", fingerprint: true)
+                }
+            }
+        }
         stage('repositories') {
             when {
                 expression {
@@ -721,7 +720,5 @@ pipeline {
                 build(job: 'lcb-repo-pipeline')
             }
         }
-
-
     }
 }

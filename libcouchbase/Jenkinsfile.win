@@ -133,7 +133,6 @@ pipeline {
                         sh('make dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
-
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                             s3Upload(
                                 bucket: 'sdk-snapshots.couchbase.com',
@@ -141,7 +140,6 @@ pipeline {
                                 path: 'libcouchbase/'
                             )
                         }
-
                     }
                 }
             }
@@ -149,8 +147,6 @@ pipeline {
 
         stage('build and test') {
             parallel {
-
-
 
                 stage('win64 vc14') {
                     agent { label 'msvc-2015' }
@@ -209,7 +205,6 @@ pipeline {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
-
                                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
@@ -217,13 +212,11 @@ pipeline {
                                             path: 'libcouchbase/'
                                         )
                                     }
-
                                 }
                             }
                         }
                     }
                 }
-
                 stage('win32 vc14') {
                     agent { label 'msvc-2015' }
                     stages {
@@ -281,7 +274,6 @@ pipeline {
                                 dir('ws_win32_vc14/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86.zip", fingerprint: true)
-
                                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
@@ -289,13 +281,11 @@ pipeline {
                                             path: 'libcouchbase/'
                                         )
                                     }
-
                                 }
                             }
                         }
                     }
                 }
-
                 stage('win64 vc15') {
                     agent { label 'msvc-2017' }
                     stages {
@@ -355,7 +345,6 @@ pipeline {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
-
                                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
@@ -363,13 +352,11 @@ pipeline {
                                             path: 'libcouchbase/'
                                         )
                                     }
-
                                 }
                             }
                         }
                     }
                 }
-
                 stage('win32 vc15') {
                     agent { label 'msvc-2017' }
                     stages {
@@ -427,7 +414,6 @@ pipeline {
                                 dir('ws_win32_vc15/build') {
                                     bat('cmake --build . --target package')
                                     archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86.zip", fingerprint: true)
-
                                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
@@ -435,16 +421,12 @@ pipeline {
                                             path: 'libcouchbase/'
                                         )
                                     }
-
                                 }
                             }
                         }
                     }
                 }
-
             }
         }
-
-
     }
 }
