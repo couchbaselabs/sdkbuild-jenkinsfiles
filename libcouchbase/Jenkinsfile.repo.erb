@@ -3,6 +3,7 @@
 // DO NOT EDIT: this file was generated from Jenkinsfile.signing.erb
 
 <%
+selector = "specific('199')"
 selector = 'upstream()'
 %>
 
@@ -12,14 +13,20 @@ pipeline {
         stage('repos') {
             parallel {
 <%
-distro = 'centos7'
-distro_id = 'el7'
+yum_distros = [
+    ['centos7', 'el7'],
+    ['centos8', 'el8'],
+    ['amzn2', 'amzn2'],
+]
 arch = 'x86_64'
+%>
+<% yum_distros.each do |(distro, distro_id)| %>
+<%
 repo_dir = "repo/#{distro_id}/#{arch}"
 repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/#{distro_id}/#{arch}"
 key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
 %>
-                stage(<%= distro %>) {
+                stage('<%= distro %>') {
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
@@ -61,6 +68,7 @@ gpgkey = <%= key_url %>
                         }
                     }
                 }
+<% end %>
 <%
 apt_distros = [
     ['buster', 'debian10'],
@@ -70,7 +78,7 @@ apt_distros = [
 ]
 %>
 <% apt_distros.each do |(distro, distro_id)| %>
-                stage(<%= distro_id %>) {
+                stage('<%= distro_id %>') {
 <%
 repo_dir = "repo/#{distro_id}"
 repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/#{distro_id}"
