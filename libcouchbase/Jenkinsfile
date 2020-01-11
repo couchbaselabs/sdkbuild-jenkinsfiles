@@ -229,7 +229,7 @@ pipeline {
                         }
                     }
                 }
-                stage('win64 vc14') {
+                stage('w64vc14') {
                     agent { label 'msvc-2015' }
                     stages {
                         stage('w64v14') {
@@ -291,7 +291,7 @@ pipeline {
                         }
                     }
                 }
-                stage('win64 vc15') {
+                stage('w64vc15') {
                     agent { label 'msvc-2017' }
                     stages {
                         stage('w64v15') {

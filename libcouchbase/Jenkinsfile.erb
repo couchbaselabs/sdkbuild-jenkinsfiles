@@ -262,7 +262,7 @@ pipeline {
 <% end %>
 <% openssl_ver = '1.1.1d-cb1' %>
 <% windows_dists.each do |(msvs_ver, msvcc_ver, arch)| %>
-                stage('win<%= arch %> vc<%= msvcc_ver %>') {
+                stage('w<%= arch %>vc<%= msvcc_ver %>') {
                     agent { label 'msvc-<%= msvs_ver %>' }
 <% has_ssl = msvs_ver == 2017 && arch == 64 %>
                     stages {
