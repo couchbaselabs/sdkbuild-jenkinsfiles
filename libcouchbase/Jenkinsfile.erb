@@ -564,6 +564,7 @@ pipeline {
             agent { label 'amzn2' }
             steps {
                 sh('sudo yum install -y rpm-build yum-utils')
+                cleanWs()
                 unstash('centos8-srpm')
                 sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
                 sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
