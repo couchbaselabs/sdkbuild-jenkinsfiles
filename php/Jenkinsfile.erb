@@ -46,7 +46,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.0.0_beta.2_25_g1199d75ac9-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_26_g396a3d3df6-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
@@ -56,7 +56,7 @@ pipeline {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
-                                    sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    sh('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     sh('mv <%= lcb3_root %> <%= lcb_root %>')
                                     sh('ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/bin/cbc version')
@@ -73,7 +73,7 @@ pipeline {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb2_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
-                                    sh('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    sh('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     sh('mv <%= lcb2_root %> <%= lcb_root %>')
                                     sh('ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/bin/cbc version')
@@ -176,7 +176,7 @@ openssl_ver = '1.1.1d-cb1'
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.0.0_beta.2_25_g1199d75ac9-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_26_g396a3d3df6-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
@@ -186,7 +186,7 @@ openssl_ver = '1.1.1d-cb1'
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
-                                    bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb3_root %> <%= lcb_root %>')
 <% if has_ssl %>
                                     bat('copy install\\openssl-<%= openssl_ver %>\\bin\\*.dll <%= lcb_root %>\\bin\\')
@@ -205,7 +205,7 @@ openssl_ver = '1.1.1d-cb1'
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb2_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
-                                    bat('<%= cbdep_install %> --base-url http://packages.couchbase.com/clients/c/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb2_root %> <%= lcb_root %>')
                                     bat('<%= lcb_root %>\\bin\\cbc.exe version')
                                 }
