@@ -166,7 +166,7 @@ openssl_ver = '1.1.1d-cb1'
                             steps {
                                 cleanWs()
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
-<% has_ssl = php_ver =~ /7.3/ && arch == 'x64' %>
+<% has_ssl = php_ver =~ /7.[3-4]/ && arch == 'x64' %>
 <% if has_ssl %>
                                     bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
 <% end %>
