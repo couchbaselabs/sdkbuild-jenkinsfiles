@@ -46,7 +46,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.0.0_beta.2_26_g396a3d3df6-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_27_g0760be5916-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
@@ -176,7 +176,7 @@ openssl_ver = '1.1.1d-cb1'
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.0.0_beta.2_26_g396a3d3df6-cb1' %>
+<% lcb_ver = '3.0.0_beta.2_27_g0760be5916-cb1' %>
                         stage('lcb3') {
                             when {
                                 expression {
