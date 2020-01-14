@@ -108,9 +108,9 @@ pipeline {
 <%
 def msvc_ver(php)
     case php
-    when /7.4/
+    when /8.0/
         'msvc2019'
-    when /7.3/
+    when /7.4/, /7.3/
         'msvc2017'
     when /7.2/, /7.1/
         'msvc2015'
@@ -119,9 +119,9 @@ end
 
 def msvs_ver(php)
     case php
-    when /7.4/
+    when /8.0/
         '16.0'
-    when /7.3/
+    when /7.4/, /7.3/
         '15.0'
     when /7.2/, /7.1/
         '14.0'
@@ -130,9 +130,9 @@ end
 
 def cbdep_platform(php)
     case php
-    when /7.4/
+    when /8.0/
         'windows_msvc2019'
-    when /7.3/
+    when /7.4/, /7.3/
         'windows_msvc2017'
     when /7.2/, /7.1/
         'windows_msvc2015'
@@ -141,9 +141,9 @@ end
 
 def agent_label(php)
     case php
-    when /7.4/
+    when /8.0/
         'msvc-2019'
-    when /7.3/
+    when /7.4/, /7.3/
         'msvc-2017'
     when /7.2/, /7.1/
         'msvc-2015'
@@ -154,7 +154,7 @@ openssl_ver = '1.1.1d-cb1'
 %>
 
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.4/}.each do |php_ver| %>
+<%   php_versions.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 stage('w<%= ts[0] %><%= php_ver.to_f %>') {
 <% php_root = "c:\\\\php\\\\php-#{ts}-default-#{php_ver}-#{patch}" %>
@@ -306,7 +306,7 @@ vc_vars = if php_ver.to_f > 7.2
                     sh('tar xf couchbase-*.tgz')
                 }
 <% ['x64'].each do |arch| %>
-<%   php_versions.reject{|v| v =~ /7.4/}.each do |php_ver| %>
+<%   php_versions.each do |php_ver| %>
 <%     ['zts', 'nts'].each do |ts| %>
                 unstash 'php_couchbase-<%= php_ver %>-<%= ts %>-<%= arch %>'
                 sh("""
