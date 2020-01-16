@@ -1,9 +1,10 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
+openssl_ver = '1.1.1d-cb1'
 windows_dists = [
-    [2015, 14, 64],
-    # [2015, 14, 32],
-    [2017, 15, 64],
-    # [2017, 15, 32],
+    [2015, 14, 64, false],
+    # [2015, 14, 32, false],
+    [2017, 15, 64, true],
+    # [2017, 15, 32, false],
 ]
 centos_dists = [
     [7, 'x86_64', 64],
@@ -30,11 +31,12 @@ linux_test_builds = [
 integration_enabled = true
 if ENV['WINDOWS_ONLY']
     windows_dists = [
-        [2015, 14, 64],
-        [2015, 14, 32],
-        [2017, 15, 64],
-        [2017, 15, 32],
-        [2019, 16, 64],
+        [2015, 14, 64, false],
+        [2015, 14, 32, false],
+        [2017, 15, 64, true],
+        [2017, 15, 64, false],
+        [2017, 15, 32, false],
+        [2019, 16, 64, false],
     ]
     centos_dists = ubuntu_dists = linux_test_builds = []
     integration_enabled = false
@@ -259,15 +261,14 @@ pipeline {
                     }
                 }
 <% end %>
-<% openssl_ver = '1.1.1d-cb1' %>
-<% windows_dists.each do |(msvs_ver, msvcc_ver, arch)| %>
-                stage('w<%= arch %>vc<%= msvcc_ver %>') {
+<% windows_dists.each do |(msvs_ver, msvcc_ver, arch, has_ssl)| %>
+<% build_id = "#{arch}_vc#{msvcc_ver}#{'_ssl' if has_ssl}" %>
+                stage('w<%= arch %>v<%= msvcc_ver %><%= 's' if has_ssl %>') {
                     agent { label 'msvc-<%= msvs_ver %>' }
-<% has_ssl = msvs_ver == 2017 && arch == 64 %>
                     stages {
-                        stage('w<%= arch %>v<%= msvcc_ver %>') {
+                        stage('prep') {
                             steps {
-                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>') {
+                                dir('ws_win<%= build_id %>') {
                                     deleteDir()
 <% if has_ssl %>
                                     bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
@@ -279,28 +280,27 @@ pipeline {
                         stage('build') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
+                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
                                     archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
                                 }
                             }
                             steps {
-                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --version --help')
                                     bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" <%= has_ssl ? "-DOPENSSL_ROOT_DIR=..\\\\install\\\\openssl-#{openssl_ver}": "-DLCB_NO_SSL=1" %> ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
-                                stash includes: 'ws_win<%= arch %>_vc<%= msvcc_ver %>/', name: 'ws-vs<%= msvs_ver %>-w<%= arch %>', useDefaultExcludes: false
                             }
                         }
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
-                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
                                 }
                             }
                             steps {
-                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --build . --target alltests')
 <% if has_ssl %>
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
@@ -312,8 +312,8 @@ pipeline {
                         stage("pack") {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', archive: false, dir: 'ws_win<%= arch %>_vc<%= msvcc_ver %>')
-                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
+                                    archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
                                 }
                             }
                             when {
@@ -322,14 +322,17 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('ws_win<%= arch %>_vc<%= msvcc_ver %>/build') {
+                                dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip", fingerprint: true)
+<% if has_ssl %>
+                                    bat("move ${VERSION.tarName()}_vc<%= msvcc_ver %>_amd64.zip ${VERSION.tarName()}_vc<%= msvcc_ver %>_amd64_openssl.zip")
+<% end %>
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %><%= '_openssl' if has_ssl %>.zip", fingerprint: true)
 <% if ENV['WINDOWS_ONLY'] %>
                                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip",
+                                            file: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %><%= '_openssl' if has_ssl %>.zip",
                                             path: 'libcouchbase/'
                                         )
                                     }
