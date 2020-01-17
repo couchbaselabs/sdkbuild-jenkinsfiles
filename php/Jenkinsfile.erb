@@ -303,6 +303,7 @@ vc_vars = if php_ver.to_f > 7.2
 
             }
         }
+<% if ENV['WINDOWS_ONLY'] %>
 <% php_ver = php_versions.map(&:first).find {|v| v =~ /7.3/} %>
 <% ts = 'zts' %>
         stage('package') {
@@ -342,5 +343,6 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
             }
         }
+<% end %>
     }
 }
