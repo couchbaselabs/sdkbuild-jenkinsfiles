@@ -307,40 +307,63 @@ vc_vars = if php_ver.to_f > 7.2
 <% php_ver = php_versions.map(&:first).find {|v| v =~ /7.3/} %>
 <% ts = 'zts' %>
         stage('package') {
-            agent { label 'centos7' }
-            steps {
-                cleanWs()
-                sh('sudo yum install -y perl-XML-XPath')
-                sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
+            stages {
+                stage('src') {
+                    agent { label 'centos7' }
+                    steps {
+                        cleanWs()
+                        sh('sudo yum install -y perl-XML-XPath')
+                        sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
 <% pear = "#{php_root}/bin/pear" %>
-                sh('<%= php %> --version')
-                sh('<%= pear %> version')
-                unstash 'php-couchbase'
-                dir('php-couchbase') {
-                    sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
-                    sh('<%= pear %> package')
-                    archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
-                    stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
-                    sh('tar xf couchbase-*.tgz')
+                        sh('<%= php %> --version')
+                        sh('<%= pear %> version')
+                        unstash 'php-couchbase'
+                        dir('php-couchbase') {
+                            sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
+                            sh('<%= pear %> package')
+                            archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
+                            stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
+                            sh('tar xf couchbase-*.tgz')
+                        }
+                    }
                 }
+                stage('bin') {
+                    parallel {
 <% ['x64'].each do |arch| %>
 <%   php_versions.each do |(php_ver, has_ssl)| %>
 <%     ['zts', 'nts'].each do |ts| %>
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
-                unstash '<%= release_dir %>'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} <%= release_dir %>/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                        stage('w<%= ts[0] %><%= php_ver.to_f %><%= 's' if has_ssl %>') {
+<% if has_ssl %>
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+<% end %>
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash '<%= release_dir %>'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE <%= release_dir %>/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-<%= php_ver.to_f %>-<%= ts %>-x64<%= '-openssl' if has_ssl %>"
 mv <%= release_dir %> \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
 <%     end %>
 <%   end %>
 <% end %>
-                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                    }
+                }
             }
         }
 <% end %>

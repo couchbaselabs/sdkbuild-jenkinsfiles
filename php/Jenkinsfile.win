@@ -948,102 +948,219 @@ pipeline {
             }
         }
         stage('package') {
-            agent { label 'centos7' }
-            steps {
-                cleanWs()
-                sh('sudo yum install -y perl-XML-XPath')
-                sh('cbdep install --dir /tmp/php php-zts 7.3.13-cb1')
-                sh('/tmp/php/php-zts-7.3.13-cb1/bin/php --version')
-                sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear version')
-                unstash 'php-couchbase'
-                dir('php-couchbase') {
-                    sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
-                    sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear package')
-                    archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
-                    stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
-                    sh('tar xf couchbase-*.tgz')
+            stages {
+                stage('src') {
+                    agent { label 'centos7' }
+                    steps {
+                        cleanWs()
+                        sh('sudo yum install -y perl-XML-XPath')
+                        sh('cbdep install --dir /tmp/php php-zts 7.3.13-cb1')
+                        sh('/tmp/php/php-zts-7.3.13-cb1/bin/php --version')
+                        sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear version')
+                        unstash 'php-couchbase'
+                        dir('php-couchbase') {
+                            sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
+                            sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear package')
+                            archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
+                            stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
+                            sh('tar xf couchbase-*.tgz')
+                        }
+                    }
                 }
-                unstash 'php_couchbase-7.4.1-zts-x64-openssl'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-zts-x64-openssl/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                stage('bin') {
+                    parallel {
+                        stage('wz7.4s') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.4.1-zts-x64-openssl'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-zts-x64-openssl/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-zts-x64-openssl"
 mv php_couchbase-7.4.1-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.4.1-nts-x64-openssl'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-nts-x64-openssl/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wn7.4s') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.4.1-nts-x64-openssl'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-nts-x64-openssl/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-nts-x64-openssl"
 mv php_couchbase-7.4.1-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.4.1-zts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-zts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wz7.4') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.4.1-zts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-zts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-zts-x64"
 mv php_couchbase-7.4.1-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.4.1-nts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.4.1-nts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wn7.4') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.4.1-nts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-nts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-nts-x64"
 mv php_couchbase-7.4.1-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-zts-x64-openssl'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-zts-x64-openssl/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wz7.3s') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.3.13-zts-x64-openssl'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-zts-x64-openssl/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-zts-x64-openssl"
 mv php_couchbase-7.3.13-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-nts-x64-openssl'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-nts-x64-openssl/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wn7.3s') {
+                            when {
+                                expression {
+                                    env.GERRIT_BRANCH == 'master'
+                                }
+                            }
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.3.13-nts-x64-openssl'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-nts-x64-openssl/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-nts-x64-openssl"
 mv php_couchbase-7.3.13-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-zts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-zts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wz7.3') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.3.13-zts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-zts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-zts-x64"
 mv php_couchbase-7.3.13-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.3.13-nts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.3.13-nts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wn7.3') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.3.13-nts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-nts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-nts-x64"
 mv php_couchbase-7.3.13-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.2.26-zts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.2.26-zts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wz7.2') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.2.26-zts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.2.26-zts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.2-zts-x64"
 mv php_couchbase-7.2.26-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                unstash 'php_couchbase-7.2.26-nts-x64'
-                sh("""
-cp php-couchbase/{package.xml,LICENSE} php_couchbase-7.2.26-nts-x64/
-version=\$(xpath php-couchbase/package.xml '//package/version/release/text()')
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                        stage('wn7.2') {
+                            agent { label 'centos7' }
+                            steps {
+                                cleanWs()
+                                unstash 'tarball'
+                                unstash 'php_couchbase-7.2.26-nts-x64'
+                                sh("""
+tar xf couchbase-*tgz
+cp package.xml couchbase-*/LICENSE php_couchbase-7.2.26-nts-x64/
+version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.2-nts-x64"
 mv php_couchbase-7.2.26-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
-                """)
-                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                                """)
+                                archiveArtifacts(artifacts: "*.zip", fingerprint: true)
+                            }
+                        }
+                    }
+                }
             }
         }
     }
