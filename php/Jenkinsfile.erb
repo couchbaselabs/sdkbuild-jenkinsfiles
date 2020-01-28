@@ -72,7 +72,7 @@ pipeline {
                                 }
                             }
                         }
-<% lcb_ver = '2.10.3-cb1' %>
+<% lcb_ver = '2.10.5-cb1' %>
                         stage('lcb2') {
                             when {
                                 expression {
@@ -211,7 +211,7 @@ end
                             }
                         }
 <% unless has_ssl %>
-<% lcb_ver = '2.10.3-cb1' %>
+<% lcb_ver = '2.10.5-cb1' %>
                         stage('lcb2') {
                             when {
                                 expression {

@@ -230,8 +230,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.1-zts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -325,8 +325,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.1-nts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -598,8 +598,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-zts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -693,8 +693,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.13-nts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -788,8 +788,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-zts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
@@ -883,8 +883,8 @@ pipeline {
                             }
                             steps {
                                 dir('7.2.26-nts-x64') {
-                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.3-cb1')
-                                    bat('move install\\libcouchbase-2.10.3-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.3-cb1 install\\libcouchbase-windows_msvc2015-amd64')
+                                    bat('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
+                                    bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
                                 }
                             }
