@@ -221,7 +221,7 @@ end
                             steps {
                                 dir('<%= work_dir %>') {
 <% lcb2_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
-                                    bat('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb2_root %> <%= lcb_root %>')
                                     bat('<%= lcb_root %>\\bin\\cbc.exe version')
                                 }
