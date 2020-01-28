@@ -104,7 +104,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
-                                    sh("CB_MOCK=1 <%= php %> -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so <%= php_root %>/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 <%= php %> ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so <%= php_root %>/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -281,7 +281,7 @@ vc_vars = if php_ver.to_f > 7.2
                                     bat('java -jar <%= mock_jar %> --version')
                                     bat("""
  start /b cmd /c java -jar <%= mock_jar %> --harakiri-monitor 127.0.0.1:<%= mock_port %>
- <%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll <%= php_root %>\\php-phpunit.phar %cd%\\tests\\
+ <%= php %> ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll <%= php_root %>\\php-phpunit.phar %cd%\\tests\\
 """)
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
                                     bat("""

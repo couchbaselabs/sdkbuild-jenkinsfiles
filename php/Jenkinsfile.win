@@ -93,7 +93,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1741
- c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-zts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.1-zts-x64-openssl
@@ -182,7 +182,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2741
- c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-nts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.1-nts-x64-openssl
@@ -277,7 +277,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1741
- c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-zts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.1-zts-x64
@@ -372,7 +372,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2741
- c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-nts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.1-nts-x64
@@ -461,7 +461,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8313
- c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-zts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.13-zts-x64-openssl
@@ -550,7 +550,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9313
- c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-nts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.13-nts-x64-openssl
@@ -645,7 +645,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8313
- c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-zts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.13-zts-x64
@@ -740,7 +740,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9313
- c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-nts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.13-nts-x64
@@ -835,7 +835,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8226
- c:\\php\\php-zts-default-7.2.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-zts-default-7.2.26-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.2.26-zts-x64
@@ -930,7 +930,7 @@ pipeline {
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9226
- c:\\php\\php-nts-default-7.2.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
+ c:\\php\\php-nts-default-7.2.26-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.2.26-nts-x64

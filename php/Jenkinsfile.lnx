@@ -74,7 +74,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.1-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.1-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.1-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.1-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.1-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -137,7 +137,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.1-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.1-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.1-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.1-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.1-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -200,7 +200,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.13-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.13-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.13-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -263,7 +263,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.13-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.13-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.13-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -326,7 +326,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.2.26-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.2.26-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.2.26-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.2.26-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.2.26-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -389,7 +389,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.2.26-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.2.26-cb1/bin/php -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.2.26-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.2.26-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.2.26-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
