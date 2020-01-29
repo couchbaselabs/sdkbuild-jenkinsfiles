@@ -29,10 +29,10 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.4.1-zts-x64-ssl') {
+                                dir('7.4.2-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -i')
+                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.2-cb1')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\php -i')
                                 }
                             }
                         }
@@ -43,7 +43,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-zts-x64-ssl') {
+                                dir('7.4.2-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
@@ -53,14 +53,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.1-zts-x64-ssl') {
+                                dir('7.4.2-zts-x64-ssl') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.4.1-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-zts-default-7.4.2-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-zts-default-7.4.2-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -81,26 +81,26 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 1741
+                                CB_MOCK_CTL_PORT = 1742
                             }
                             steps {
-                                dir('7.4.1-zts-x64-ssl\\php-couchbase') {
+                                dir('7.4.2-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1741
- c:\\php\\php-zts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1742
+ c:\\php\\php-zts-default-7.4.2-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.2-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.4.1-zts-x64-openssl
- copy libcouchbase.dll php_couchbase-7.4.1-zts-x64-openssl
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-zts-x64-openssl
+ mkdir php_couchbase-7.4.2-zts-x64-openssl
+ copy libcouchbase.dll php_couchbase-7.4.2-zts-x64-openssl
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.4.2-zts-x64-openssl
 """)
-                                    stash includes: 'php_couchbase-7.4.1-zts-x64-openssl/', name: 'php_couchbase-7.4.1-zts-x64-openssl', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.4.2-zts-x64-openssl/', name: 'php_couchbase-7.4.2-zts-x64-openssl', useDefaultExcludes: false
 
                                 }
                             }
@@ -118,10 +118,10 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.4.1-nts-x64-ssl') {
+                                dir('7.4.2-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -i')
+                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.2-cb1')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\php -i')
                                 }
                             }
                         }
@@ -132,7 +132,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-nts-x64-ssl') {
+                                dir('7.4.2-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
@@ -142,14 +142,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.1-nts-x64-ssl') {
+                                dir('7.4.2-nts-x64-ssl') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.4.1-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-nts-default-7.4.2-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-nts-default-7.4.2-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -170,26 +170,26 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 2741
+                                CB_MOCK_CTL_PORT = 2742
                             }
                             steps {
-                                dir('7.4.1-nts-x64-ssl\\php-couchbase') {
+                                dir('7.4.2-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2741
- c:\\php\\php-nts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2742
+ c:\\php\\php-nts-default-7.4.2-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.2-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.4.1-nts-x64-openssl
- copy libcouchbase.dll php_couchbase-7.4.1-nts-x64-openssl
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-nts-x64-openssl
+ mkdir php_couchbase-7.4.2-nts-x64-openssl
+ copy libcouchbase.dll php_couchbase-7.4.2-nts-x64-openssl
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.4.2-nts-x64-openssl
 """)
-                                    stash includes: 'php_couchbase-7.4.1-nts-x64-openssl/', name: 'php_couchbase-7.4.1-nts-x64-openssl', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.4.2-nts-x64-openssl/', name: 'php_couchbase-7.4.2-nts-x64-openssl', useDefaultExcludes: false
 
                                 }
                             }
@@ -202,9 +202,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.4.1-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -i')
+                                dir('7.4.2-zts-x64') {
+                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.2-cb1')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\php -i')
                                 }
                             }
                         }
@@ -215,7 +215,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-zts-x64') {
+                                dir('7.4.2-zts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -229,7 +229,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-zts-x64') {
+                                dir('7.4.2-zts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -238,14 +238,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.1-zts-x64') {
+                                dir('7.4.2-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.4.1-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-zts-default-7.4.2-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-zts-default-7.4.2-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -266,25 +266,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 1741
+                                CB_MOCK_CTL_PORT = 1742
                             }
                             steps {
-                                dir('7.4.1-zts-x64\\php-couchbase') {
+                                dir('7.4.2-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-zts-default-7.4.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1741
- c:\\php\\php-zts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1742
+ c:\\php\\php-zts-default-7.4.2-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.2-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.4.1-zts-x64
- copy libcouchbase.dll php_couchbase-7.4.1-zts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-zts-x64
+ mkdir php_couchbase-7.4.2-zts-x64
+ copy libcouchbase.dll php_couchbase-7.4.2-zts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.4.2-zts-x64
 """)
-                                    stash includes: 'php_couchbase-7.4.1-zts-x64/', name: 'php_couchbase-7.4.1-zts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.4.2-zts-x64/', name: 'php_couchbase-7.4.2-zts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -297,9 +297,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.4.1-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.1-cb1')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -i')
+                                dir('7.4.2-nts-x64') {
+                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.2-cb1')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\php -i')
                                 }
                             }
                         }
@@ -310,7 +310,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-nts-x64') {
+                                dir('7.4.2-nts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -324,7 +324,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.4.1-nts-x64') {
+                                dir('7.4.2-nts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -333,14 +333,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.1-nts-x64') {
+                                dir('7.4.2-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.4.1-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-nts-default-7.4.2-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-nts-default-7.4.2-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -361,25 +361,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 2741
+                                CB_MOCK_CTL_PORT = 2742
                             }
                             steps {
-                                dir('7.4.1-nts-x64\\php-couchbase') {
+                                dir('7.4.2-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.4.1-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-nts-default-7.4.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2741
- c:\\php\\php-nts-default-7.4.1-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.1-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2742
+ c:\\php\\php-nts-default-7.4.2-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.2-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.4.1-nts-x64
- copy libcouchbase.dll php_couchbase-7.4.1-nts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.4.1-nts-x64
+ mkdir php_couchbase-7.4.2-nts-x64
+ copy libcouchbase.dll php_couchbase-7.4.2-nts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.4.2-nts-x64
 """)
-                                    stash includes: 'php_couchbase-7.4.1-nts-x64/', name: 'php_couchbase-7.4.1-nts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.4.2-nts-x64/', name: 'php_couchbase-7.4.2-nts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -397,10 +397,10 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.3.13-zts-x64-ssl') {
+                                dir('7.3.14-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -i')
+                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.14-cb1')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\php -i')
                                 }
                             }
                         }
@@ -411,7 +411,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-zts-x64-ssl') {
+                                dir('7.3.14-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
@@ -421,14 +421,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.13-zts-x64-ssl') {
+                                dir('7.3.14-zts-x64-ssl') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.3.13-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-zts-default-7.3.14-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-zts-default-7.3.14-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -449,26 +449,26 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 8313
+                                CB_MOCK_CTL_PORT = 8314
                             }
                             steps {
-                                dir('7.3.13-zts-x64-ssl\\php-couchbase') {
+                                dir('7.3.14-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8313
- c:\\php\\php-zts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8314
+ c:\\php\\php-zts-default-7.3.14-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.14-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.3.13-zts-x64-openssl
- copy libcouchbase.dll php_couchbase-7.3.13-zts-x64-openssl
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-zts-x64-openssl
+ mkdir php_couchbase-7.3.14-zts-x64-openssl
+ copy libcouchbase.dll php_couchbase-7.3.14-zts-x64-openssl
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.3.14-zts-x64-openssl
 """)
-                                    stash includes: 'php_couchbase-7.3.13-zts-x64-openssl/', name: 'php_couchbase-7.3.13-zts-x64-openssl', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.3.14-zts-x64-openssl/', name: 'php_couchbase-7.3.14-zts-x64-openssl', useDefaultExcludes: false
 
                                 }
                             }
@@ -486,10 +486,10 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.3.13-nts-x64-ssl') {
+                                dir('7.3.14-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -i')
+                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.14-cb1')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\php -i')
                                 }
                             }
                         }
@@ -500,7 +500,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-nts-x64-ssl') {
+                                dir('7.3.14-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1d-cb1\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
@@ -510,14 +510,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.13-nts-x64-ssl') {
+                                dir('7.3.14-nts-x64-ssl') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.3.13-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-nts-default-7.3.14-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-nts-default-7.3.14-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -538,26 +538,26 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 9313
+                                CB_MOCK_CTL_PORT = 9314
                             }
                             steps {
-                                dir('7.3.13-nts-x64-ssl\\php-couchbase') {
+                                dir('7.3.14-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9313
- c:\\php\\php-nts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9314
+ c:\\php\\php-nts-default-7.3.14-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.14-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.3.13-nts-x64-openssl
- copy libcouchbase.dll php_couchbase-7.3.13-nts-x64-openssl
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-nts-x64-openssl
+ mkdir php_couchbase-7.3.14-nts-x64-openssl
+ copy libcouchbase.dll php_couchbase-7.3.14-nts-x64-openssl
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.3.14-nts-x64-openssl
 """)
-                                    stash includes: 'php_couchbase-7.3.13-nts-x64-openssl/', name: 'php_couchbase-7.3.13-nts-x64-openssl', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.3.14-nts-x64-openssl/', name: 'php_couchbase-7.3.14-nts-x64-openssl', useDefaultExcludes: false
 
                                 }
                             }
@@ -570,9 +570,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.3.13-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -i')
+                                dir('7.3.14-zts-x64') {
+                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.14-cb1')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\php -i')
                                 }
                             }
                         }
@@ -583,7 +583,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-zts-x64') {
+                                dir('7.3.14-zts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -597,7 +597,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-zts-x64') {
+                                dir('7.3.14-zts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -606,14 +606,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.13-zts-x64') {
+                                dir('7.3.14-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.3.13-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-zts-default-7.3.14-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-zts-default-7.3.14-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -634,25 +634,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 8313
+                                CB_MOCK_CTL_PORT = 8314
                             }
                             steps {
-                                dir('7.3.13-zts-x64\\php-couchbase') {
+                                dir('7.3.14-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-zts-default-7.3.14-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8313
- c:\\php\\php-zts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8314
+ c:\\php\\php-zts-default-7.3.14-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.14-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.3.13-zts-x64
- copy libcouchbase.dll php_couchbase-7.3.13-zts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-zts-x64
+ mkdir php_couchbase-7.3.14-zts-x64
+ copy libcouchbase.dll php_couchbase-7.3.14-zts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.3.14-zts-x64
 """)
-                                    stash includes: 'php_couchbase-7.3.13-zts-x64/', name: 'php_couchbase-7.3.13-zts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.3.14-zts-x64/', name: 'php_couchbase-7.3.14-zts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -665,9 +665,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.3.13-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.13-cb1')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -i')
+                                dir('7.3.14-nts-x64') {
+                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.14-cb1')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\php -i')
                                 }
                             }
                         }
@@ -678,7 +678,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-nts-x64') {
+                                dir('7.3.14-nts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2017-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -692,7 +692,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.3.13-nts-x64') {
+                                dir('7.3.14-nts-x64') {
                                     bat('cbdep --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2017-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
@@ -701,14 +701,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.13-nts-x64') {
+                                dir('7.3.14-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.3.13-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-nts-default-7.3.14-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-nts-default-7.3.14-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
 """)
@@ -729,25 +729,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 9313
+                                CB_MOCK_CTL_PORT = 9314
                             }
                             steps {
-                                dir('7.3.13-nts-x64\\php-couchbase') {
+                                dir('7.3.14-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.3.13-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-nts-default-7.3.14-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9313
- c:\\php\\php-nts-default-7.3.13-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.13-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9314
+ c:\\php\\php-nts-default-7.3.14-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.14-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.3.13-nts-x64
- copy libcouchbase.dll php_couchbase-7.3.13-nts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.3.13-nts-x64
+ mkdir php_couchbase-7.3.14-nts-x64
+ copy libcouchbase.dll php_couchbase-7.3.14-nts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.3.14-nts-x64
 """)
-                                    stash includes: 'php_couchbase-7.3.13-nts-x64/', name: 'php_couchbase-7.3.13-nts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.3.14-nts-x64/', name: 'php_couchbase-7.3.14-nts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -760,9 +760,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.2.26-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.2.26-cb1')
-                                    bat('c:\\php\\php-zts-default-7.2.26-cb1\\php -i')
+                                dir('7.2.27-zts-x64') {
+                                    bat('cbdep install --dir c:\\php php-zts-default 7.2.27-cb1')
+                                    bat('c:\\php\\php-zts-default-7.2.27-cb1\\php -i')
                                 }
                             }
                         }
@@ -773,7 +773,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.2.26-zts-x64') {
+                                dir('7.2.27-zts-x64') {
                                     bat('cbdep --platform windows_msvc2015 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
@@ -787,7 +787,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.2.26-zts-x64') {
+                                dir('7.2.27-zts-x64') {
                                     bat('cbdep --platform windows_msvc2015 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
@@ -796,14 +796,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.2.26-zts-x64') {
+                                dir('7.2.27-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.2.26-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-zts-default-7.2.27-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-zts-default-7.2.26-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-zts-default-7.2.27-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2015-amd64 --with-prefix=release
 """)
@@ -824,25 +824,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 8226
+                                CB_MOCK_CTL_PORT = 8227
                             }
                             steps {
-                                dir('7.2.26-zts-x64\\php-couchbase') {
+                                dir('7.2.27-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2015-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-zts-default-7.2.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-zts-default-7.2.26-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-zts-default-7.2.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-zts-default-7.2.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8226
- c:\\php\\php-zts-default-7.2.26-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8227
+ c:\\php\\php-zts-default-7.2.27-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.2.27-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.2.26-zts-x64
- copy libcouchbase.dll php_couchbase-7.2.26-zts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.2.26-zts-x64
+ mkdir php_couchbase-7.2.27-zts-x64
+ copy libcouchbase.dll php_couchbase-7.2.27-zts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.2.27-zts-x64
 """)
-                                    stash includes: 'php_couchbase-7.2.26-zts-x64/', name: 'php_couchbase-7.2.26-zts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.2.27-zts-x64/', name: 'php_couchbase-7.2.27-zts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -855,9 +855,9 @@ pipeline {
                         stage('php') {
                             steps {
                                 cleanWs()
-                                dir('7.2.26-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.2.26-cb1')
-                                    bat('c:\\php\\php-nts-default-7.2.26-cb1\\php -i')
+                                dir('7.2.27-nts-x64') {
+                                    bat('cbdep install --dir c:\\php php-nts-default 7.2.27-cb1')
+                                    bat('c:\\php\\php-nts-default-7.2.27-cb1\\php -i')
                                 }
                             }
                         }
@@ -868,7 +868,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.2.26-nts-x64') {
+                                dir('7.2.27-nts-x64') {
                                     bat('cbdep --platform windows_msvc2015 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.0-cb1')
                                     bat('move install\\libcouchbase-3.0.0-cb1\\libcouchbase-windows_msvc2015-amd64-3.0.0-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
@@ -882,7 +882,7 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('7.2.26-nts-x64') {
+                                dir('7.2.27-nts-x64') {
                                     bat('cbdep --platform windows_msvc2015 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
                                     bat('move install\\libcouchbase-2.10.5-cb1\\libcouchbase-windows_msvc2015-amd64-2.10.5-cb1 install\\libcouchbase-windows_msvc2015-amd64')
                                     bat('install\\libcouchbase-windows_msvc2015-amd64\\bin\\cbc.exe version')
@@ -891,14 +891,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.2.26-nts-x64') {
+                                dir('7.2.27-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.2.26-cb1\\SDK\\phpize.bat')
+                                        bat('c:\\php\\php-nts-default-7.2.27-cb1\\SDK\\phpize.bat')
                                         bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio 14.0\\VC\\vcvarsall.bat" x86_amd64
- set PATH=c:\\php\\php-nts-default-7.2.26-cb1\\msys2\\usr\\bin;%PATH%
+ set PATH=c:\\php\\php-nts-default-7.2.27-cb1\\msys2\\usr\\bin;%PATH%
  @echo on
  configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2015-amd64 --with-prefix=release
 """)
@@ -919,25 +919,25 @@ pipeline {
                         stage('test') {
                             environment {
                                 CB_MOCK = 1
-                                CB_MOCK_CTL_PORT = 9226
+                                CB_MOCK_CTL_PORT = 9227
                             }
                             steps {
-                                dir('7.2.26-nts-x64\\php-couchbase') {
+                                dir('7.2.27-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2015-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('c:\\php\\php-nts-default-7.2.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
-                                    bat('c:\\php\\php-nts-default-7.2.26-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
+                                    bat('c:\\php\\php-nts-default-7.2.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
+                                    bat('c:\\php\\php-nts-default-7.2.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat('java -version')
                                     bat('java -jar tests\\CouchbaseMock.jar --version')
                                     bat("""
- start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9226
- c:\\php\\php-nts-default-7.2.26-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.2.26-cb1\\php-phpunit.phar %cd%\\tests\\
+ start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9227
+ c:\\php\\php-nts-default-7.2.27-cb1\\php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.dll' : ''} -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.2.27-cb1\\php-phpunit.phar %cd%\\tests\\
 """)
                                     bat("""
- mkdir php_couchbase-7.2.26-nts-x64
- copy libcouchbase.dll php_couchbase-7.2.26-nts-x64
- copy release\\ext\\php_couchbase.dll php_couchbase-7.2.26-nts-x64
+ mkdir php_couchbase-7.2.27-nts-x64
+ copy libcouchbase.dll php_couchbase-7.2.27-nts-x64
+ copy release\\ext\\php_couchbase.dll php_couchbase-7.2.27-nts-x64
 """)
-                                    stash includes: 'php_couchbase-7.2.26-nts-x64/', name: 'php_couchbase-7.2.26-nts-x64', useDefaultExcludes: false
+                                    stash includes: 'php_couchbase-7.2.27-nts-x64/', name: 'php_couchbase-7.2.27-nts-x64', useDefaultExcludes: false
 
                                 }
                             }
@@ -954,13 +954,13 @@ pipeline {
                     steps {
                         cleanWs()
                         sh('sudo yum install -y perl-XML-XPath')
-                        sh('cbdep install --dir /tmp/php php-zts 7.3.13-cb1')
-                        sh('/tmp/php/php-zts-7.3.13-cb1/bin/php --version')
-                        sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear version')
+                        sh('cbdep install --dir /tmp/php php-zts 7.3.14-cb1')
+                        sh('/tmp/php/php-zts-7.3.14-cb1/bin/php --version')
+                        sh('/tmp/php/php-zts-7.3.14-cb1/bin/pear version')
                         unstash 'php-couchbase'
                         dir('php-couchbase') {
                             sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
-                            sh('/tmp/php/php-zts-7.3.13-cb1/bin/pear package')
+                            sh('/tmp/php/php-zts-7.3.14-cb1/bin/pear package')
                             archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
                             stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
                             sh('tar xf couchbase-*.tgz')
@@ -979,13 +979,13 @@ pipeline {
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.4.1-zts-x64-openssl'
+                                unstash 'php_couchbase-7.4.2-zts-x64-openssl'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-zts-x64-openssl/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.2-zts-x64-openssl/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-zts-x64-openssl"
-mv php_couchbase-7.4.1-zts-x64-openssl \${pkg_name}
+mv php_couchbase-7.4.2-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1001,13 +1001,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.4.1-nts-x64-openssl'
+                                unstash 'php_couchbase-7.4.2-nts-x64-openssl'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-nts-x64-openssl/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.2-nts-x64-openssl/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-nts-x64-openssl"
-mv php_couchbase-7.4.1-nts-x64-openssl \${pkg_name}
+mv php_couchbase-7.4.2-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1018,13 +1018,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.4.1-zts-x64'
+                                unstash 'php_couchbase-7.4.2-zts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-zts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.2-zts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-zts-x64"
-mv php_couchbase-7.4.1-zts-x64 \${pkg_name}
+mv php_couchbase-7.4.2-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1035,13 +1035,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.4.1-nts-x64'
+                                unstash 'php_couchbase-7.4.2-nts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.4.1-nts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.4.2-nts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.4-nts-x64"
-mv php_couchbase-7.4.1-nts-x64 \${pkg_name}
+mv php_couchbase-7.4.2-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1057,13 +1057,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.3.13-zts-x64-openssl'
+                                unstash 'php_couchbase-7.3.14-zts-x64-openssl'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-zts-x64-openssl/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.14-zts-x64-openssl/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-zts-x64-openssl"
-mv php_couchbase-7.3.13-zts-x64-openssl \${pkg_name}
+mv php_couchbase-7.3.14-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1079,13 +1079,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.3.13-nts-x64-openssl'
+                                unstash 'php_couchbase-7.3.14-nts-x64-openssl'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-nts-x64-openssl/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.14-nts-x64-openssl/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-nts-x64-openssl"
-mv php_couchbase-7.3.13-nts-x64-openssl \${pkg_name}
+mv php_couchbase-7.3.14-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1096,13 +1096,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.3.13-zts-x64'
+                                unstash 'php_couchbase-7.3.14-zts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-zts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.14-zts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-zts-x64"
-mv php_couchbase-7.3.13-zts-x64 \${pkg_name}
+mv php_couchbase-7.3.14-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1113,13 +1113,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.3.13-nts-x64'
+                                unstash 'php_couchbase-7.3.14-nts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.3.13-nts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.3.14-nts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.3-nts-x64"
-mv php_couchbase-7.3.13-nts-x64 \${pkg_name}
+mv php_couchbase-7.3.14-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1130,13 +1130,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.2.26-zts-x64'
+                                unstash 'php_couchbase-7.2.27-zts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.2.26-zts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.2.27-zts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.2-zts-x64"
-mv php_couchbase-7.2.26-zts-x64 \${pkg_name}
+mv php_couchbase-7.2.27-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
@@ -1147,13 +1147,13 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
-                                unstash 'php_couchbase-7.2.26-nts-x64'
+                                unstash 'php_couchbase-7.2.27-nts-x64'
                                 sh("""
 tar xf couchbase-*tgz
-cp package.xml couchbase-*/LICENSE php_couchbase-7.2.26-nts-x64/
+cp package.xml couchbase-*/LICENSE php_couchbase-7.2.27-nts-x64/
 version=\$(xpath package.xml '//package/version/release/text()')
 pkg_name="php_couchbase-\${version}-7.2-nts-x64"
-mv php_couchbase-7.2.26-nts-x64 \${pkg_name}
+mv php_couchbase-7.2.27-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
                                 """)
                                 archiveArtifacts(artifacts: "*.zip", fingerprint: true)
