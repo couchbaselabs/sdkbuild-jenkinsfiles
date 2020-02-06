@@ -2,7 +2,7 @@ def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0", "3.8.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
+def SERVER_VERSIONS = "${SERVER_VERSIONS}"?"${SERVER_VERSIONS}".split(/s+/):[ "5.5.0", "6.0.0"]
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "${PACKAGE_PY_VERSION}" ?: "3.8.0"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
@@ -10,6 +10,7 @@ def PACKAGE_PY_ARCH = "x64"
 echo "Got platforms ${PLATFORMS}"
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
 echo "Got PY_ARCHES ${PY_ARCHES}"
+echo "Got SERVER_VERSIONS ${SERVER_VERSIONS}"
 
 def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
@@ -115,7 +116,7 @@ pipeline {
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
-                
+
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
@@ -292,7 +293,7 @@ trait Platform
     {
         def STAGE_NAME="fred"
         print "[$STAGE_NAME]:${command}:"+this.real_shell(script:command, returnStdout: returnStdout)
-        
+
     }
     abstract String real_shell(Map args)
 }
@@ -433,7 +434,7 @@ def cmdWithEcho(platform, command, quiet=false)
 
 def isWindows(platform)
 {
-    
+
     return platform.toLowerCase().contains("window")
 }
 
@@ -498,12 +499,12 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
     PYCBC_DEBUG_LOG_LEVEL = "${PYCBC_DEBUG_LOG_LEVEL}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
-    
+
     common_vars=["PIP_INSTALL=${PIP_INSTALL}","LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG_LEVEL=${PYCBC_DEBUG_LOG_LEVEL}","PYCBC_JENKINS_INVOCATION=TRUE","PYCBC_MIN_ANALYTICS=${PYCBC_MIN_ANALYTICS}","PYCBC_TEST_OLD_ANALYTICS=${PYCBC_TEST_OLD_ANALYTICS}"]
     if ("${PYCBC_ASSERT_CONTINUE}"!="")
     {
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
-    }        
+    }
     if (isWindows(platform)) {
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
@@ -698,7 +699,7 @@ echo "quit" >>"${TMPCMDS}"
                             invoke = "gdb -batch -x \"${TMPCMDS}\" `which python`"
                         }
                         shWithEcho("""
-                        
+
                         echo "trying to write to: ["
                         echo "${TMPCMDS}"
                         echo "]"
@@ -884,7 +885,7 @@ def buildLibCouchbase(platform, arch)
             dir("libcouchbase") {
                 batWithEcho("git checkout ${LCB_VERSION}")
             }
-            
+
             dir("build") {
                 if (IS_RELEASE == "true") {
                     batWithEcho("""
@@ -919,7 +920,7 @@ def buildLibCouchbase(platform, arch)
                 }
             }
         }
-    }    
+    }
 }
 
 def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
@@ -1130,7 +1131,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
-    
+
     def combis = [:]
     def hasWindows = false
     def hasWinDefaultPlat = false
@@ -1141,7 +1142,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
             for (l in PY_ARCHES)
             {
                 combis=addCombi(combis,j,k,l)
-            }          
+            }
         }
     }
     echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
