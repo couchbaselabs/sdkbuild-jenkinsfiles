@@ -2,7 +2,7 @@ def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0", "3.8.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-def SERVER_VERSIONS = "${SERVER_VERSIONS}" ? "${SERVER_VERSIONS}".split() : [ "5.5.0", "6.0.0"]
+def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "${PACKAGE_PY_VERSION}" ?: "3.8.0"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
@@ -10,7 +10,6 @@ def PACKAGE_PY_ARCH = "x64"
 echo "Got platforms ${PLATFORMS}"
 echo "Got PY_VERSIONS ${PY_VERSIONS}"
 echo "Got PY_ARCHES ${PY_ARCHES}"
-echo "Got SERVER_VERSIONS ${SERVER_VERSIONS}"
 
 def DEFAULT_PY_VERSION = PY_VERSIONS[0]
 def DEFAULT_VERSION_SHORT=DEFAULT_PY_VERSION.tokenize(".")[0] + "." + DEFAULT_PY_VERSION.tokenize(".")[1]
@@ -116,7 +115,7 @@ pipeline {
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
-
+                
 echo "Path:${PATH}"
 echo "Pip is:"
 echo `which pip`
@@ -133,7 +132,7 @@ pip install --verbose Twisted gevent""")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
         }
-        /*stage('test-integration-server') {
+        stage('test-integration-server') {
             agent { label 'sdk-integration-test-linux' }
             when {
                 expression
@@ -142,7 +141,7 @@ pip install --verbose Twisted gevent""")
             steps {
                 doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT, "${PIP_INSTALL}", PYCBC_VERSION)
             }
-        }*/
+        }
         stage('quality') {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             when {
@@ -293,7 +292,7 @@ trait Platform
     {
         def STAGE_NAME="fred"
         print "[$STAGE_NAME]:${command}:"+this.real_shell(script:command, returnStdout: returnStdout)
-
+        
     }
     abstract String real_shell(Map args)
 }
@@ -434,7 +433,7 @@ def cmdWithEcho(platform, command, quiet=false)
 
 def isWindows(platform)
 {
-
+    
     return platform.toLowerCase().contains("window")
 }
 
@@ -499,12 +498,12 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 {
     PYCBC_DEBUG_LOG_LEVEL = "${PYCBC_DEBUG_LOG_LEVEL}" ?: ""
     LCB_LOGLEVEL = "${LCB_LOGLEVEL}" ?: ""
-
+    
     common_vars=["PIP_INSTALL=${PIP_INSTALL}","LCB_LOGLEVEL=${LCB_LOGLEVEL}","PYCBC_DEBUG_LOG_LEVEL=${PYCBC_DEBUG_LOG_LEVEL}","PYCBC_JENKINS_INVOCATION=TRUE","PYCBC_MIN_ANALYTICS=${PYCBC_MIN_ANALYTICS}","PYCBC_TEST_OLD_ANALYTICS=${PYCBC_TEST_OLD_ANALYTICS}"]
     if ("${PYCBC_ASSERT_CONTINUE}"!="")
     {
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
-    }
+    }        
     if (isWindows(platform)) {
         envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
     } else {
@@ -699,7 +698,7 @@ echo "quit" >>"${TMPCMDS}"
                             invoke = "gdb -batch -x \"${TMPCMDS}\" `which python`"
                         }
                         shWithEcho("""
-
+                        
                         echo "trying to write to: ["
                         echo "${TMPCMDS}"
                         echo "]"
@@ -885,7 +884,7 @@ def buildLibCouchbase(platform, arch)
             dir("libcouchbase") {
                 batWithEcho("git checkout ${LCB_VERSION}")
             }
-
+            
             dir("build") {
                 if (IS_RELEASE == "true") {
                     batWithEcho("""
@@ -920,7 +919,7 @@ def buildLibCouchbase(platform, arch)
                 }
             }
         }
-    }
+    }    
 }
 
 def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
@@ -943,7 +942,6 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL, String PYCBC_VERSION)
 {
     cleanWs()
-    echo "SERVER_VERSIONS: ${SERVER_VERSIONS}"
     unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     //unstash "lcb-${platform}-${pyversion}-${arch}"
@@ -955,24 +953,12 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     }
     for (server_version in SERVER_VERSIONS)
     {
-        echo "SERVER_VERSION: ${server_version}"
         envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
         for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
             withEnv(envStr)
             {
-                // HACK!!!!
-                def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, server_version)
-                def win_arch = [x86: [], x64: ['Win64']][arch]
-                def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
-                def sep = getSep(platform)
-                def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
-                def dist_dir_rel = "dist"
-                def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
-                //def envStr = getEnvStr2(platform, pyversion, arch,server_version, PYCBC_LCB_API, PYCBC_VALGRIND)
-                def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                 BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
-                def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, arch, false, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, false)
+
                 TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
                 testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
             }
@@ -1144,7 +1130,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
-
+    
     def combis = [:]
     def hasWindows = false
     def hasWinDefaultPlat = false
@@ -1155,7 +1141,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
             for (l in PY_ARCHES)
             {
                 combis=addCombi(combis,j,k,l)
-            }
+            }          
         }
     }
     echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
@@ -1215,17 +1201,8 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
                                     }
-                                    // NOW, lets iterate through the actual server versions and test 'em
-                                    for (server_version in SERVER_VERSIONS) {
-                                        stage_name = getStageName(platform, pyversion, arch, PYCBC_LCB_API, server_version)
-                                        stage("test ${stage_name}") {
-                                            if (stage_name == "MOCK") {
-                                                doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
-                                            } else {
-                                                testParams = new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
-                                                testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
-                                            }
-                                        }
+                                    stage("test ${stage_name}") {
+                                        doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                     }
                                 }
                                 catch(Exception e){
@@ -1260,4 +1237,5 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
 def doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, TestParams testParams) {
 
-    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, null, testParams) }
+    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, null, testParams)
+}
