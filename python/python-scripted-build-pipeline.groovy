@@ -133,7 +133,7 @@ pip install --verbose Twisted gevent""")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
             }
         }
-        stage('test-integration-server') {
+        /*stage('test-integration-server') {
             agent { label 'sdk-integration-test-linux' }
             when {
                 expression
@@ -142,7 +142,7 @@ pip install --verbose Twisted gevent""")
             steps {
                 doIntegration("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "${PACKAGE_PY_ARCH}", "${LCB_VERSION}", "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", SERVER_VERSIONS, "${WORKSPACE}", PYCBC_LCB_APIS, NOSE_GIT, "${PIP_INSTALL}", PYCBC_VERSION)
             }
-        }
+        }*/
         stage('quality') {
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             when {
@@ -1215,8 +1215,17 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
                                     }
-                                    stage("test ${stage_name}") {
-                                        doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
+                                    // NOW, lets iterate through the actual server versions and test 'em
+                                    for (server_version in SERVER_VERSIONS) {
+                                        stage_name = getStageName(platform, pyversion, arch, PYCBC_LCB_API, server_version)
+                                        stage("test ${stage_name}") {
+                                            if (stage_name == "MOCK") {
+                                                doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
+                                            } else {
+                                                TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
+                                                testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
+                                            }
+                                        }
                                     }
                                 }
                                 catch(Exception e){
@@ -1251,5 +1260,4 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
 def doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, TestParams testParams) {
 
-    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, null, testParams)
-}
+    doTests(null, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, null, testParams) }
