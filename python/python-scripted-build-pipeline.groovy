@@ -2,7 +2,7 @@ def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}".split(/\s+/) ?: [ "2.7.15", "3.7.0", "3.8.0" ]
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
-def SERVER_VERSIONS = "${SERVER_VERSIONS}"?"${SERVER_VERSIONS}".split(/s+/):[ "5.5.0", "6.0.0"]
+def SERVER_VERSIONS = "${SERVER_VERSIONS}" ? "${SERVER_VERSIONS}".split() : [ "5.5.0", "6.0.0"]
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
 def PACKAGE_PY_VERSION = "${PACKAGE_PY_VERSION}" ?: "3.8.0"
 def PACKAGE_PY_VERSION_SHORT=PACKAGE_PY_VERSION.tokenize(".")[0] + "." + PACKAGE_PY_VERSION.tokenize(".")[1]
@@ -943,6 +943,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
 def doIntegration(String platform, String pyversion, String pyshort, String arch, LCB_VERSION, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, SERVER_VERSIONS, String WORKSPACE, String[] PYCBC_LCB_APIS, String NOSE_GIT, String PIP_INSTALL, String PYCBC_VERSION)
 {
     cleanWs()
+    echo "SERVER_VERSIONS: ${SERVER_VERSIONS}"
     unstash "couchbase-python-client"
     unstash "dist-${platform}-${pyversion}-${arch}"
     //unstash "lcb-${platform}-${pyversion}-${arch}"
@@ -954,6 +955,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     }
     for (server_version in SERVER_VERSIONS)
     {
+        echo "SERVER_VERSION: ${server_version}"
         envStr=getEnvStr(platform,pyversion,arch,server_version,PYCBC_VALGRIND)
         for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
             withEnv(envStr)
