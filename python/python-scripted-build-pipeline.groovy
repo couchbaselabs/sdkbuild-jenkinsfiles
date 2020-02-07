@@ -971,6 +971,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
                 //def envStr = getEnvStr2(platform, pyversion, arch,server_version, PYCBC_LCB_API, PYCBC_VALGRIND)
                 def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                 BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
+                def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                 doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, arch, false, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, false)
                 TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
                 testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
