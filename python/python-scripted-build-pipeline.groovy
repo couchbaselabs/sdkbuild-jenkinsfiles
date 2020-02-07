@@ -960,8 +960,18 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
         for (PYCBC_LCB_API in PYCBC_LCB_APIS) {
             withEnv(envStr)
             {
+                // HACK!!!!
+                def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, server_version)
+                def win_arch = [x86: [], x64: ['Win64']][arch]
+                def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
+                def sep = getSep(platform)
+                def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
+                def dist_dir_rel = "dist"
+                def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
+                //def envStr = getEnvStr2(platform, pyversion, arch,server_version, PYCBC_LCB_API, PYCBC_VALGRIND)
+                def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                 BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
-
+                doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, arch, false, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, false)
                 TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
                 testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
             }
