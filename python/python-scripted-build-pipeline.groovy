@@ -1222,7 +1222,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                             if (stage_name == "MOCK") {
                                                 doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
                                             } else {
-                                                TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
+                                                testParams = new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
                                                 testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
                                             }
                                         }
