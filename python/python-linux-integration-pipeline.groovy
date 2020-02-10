@@ -18,7 +18,7 @@ class DynamicCluster {
 }
 
 def CLUSTER = new DynamicCluster()
-def builds = collectStages()
+
 def collectStages() {
     def pythons = "${PY_VERSIONS}".split()
     def servers = "${SERVER_VERSIONS}".split()
@@ -30,6 +30,7 @@ def collectStages() {
     }
     stages
 }
+
 def doStages(py_version, server_version) {
     return stages {
         stage("build_${py_version}_${server_version}") {
@@ -126,7 +127,9 @@ pipeline {
     }
     stages {
         stage('create_builds') {
-            parallel builds
+            script {
+                collectStages()
+            }
         }
     }
 }
