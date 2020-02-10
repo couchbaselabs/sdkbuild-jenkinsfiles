@@ -26,11 +26,11 @@ pipeline {
     stages {
         def pythons = "${PY_VERSIONS}".split()
         for(PYTHON_VERSION in pythons) {
-            stage('build') {
+            stage("build_${PYTHON_VERSION}") {
                 agent { label 'sdk-integration-test-linux' }
                 steps {
                     cleanWs()
-                    dir('couchbase-python-client') {
+                    dir('couchbase-python-client-${PYTHON_VERSION') {
                         checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                         shWithEcho("curl -o update_tests.py ${UPDATE_TESTS_URL}")
                         shWithEcho("cat update_tests.py")
@@ -47,7 +47,7 @@ pipeline {
                             shWithEcho("python setup.py build_ext --inplace")
                         }
                     }
-                    stash includes: 'couchbase-python-client/', name: 'python-client', useDefaultExcludes: false
+                    stash includes: "couchbase-python-client-${PYTHON_VERSION}/", name: 'python-client', useDefaultExcludes: false
                 }
             }
             stage('prepare cluster') {
@@ -74,10 +74,10 @@ pipeline {
                     }
                 }
             }
-            stage('test') {
+            stage("test-$PYTHON_VERSION}") {
                 post {
                     always {
-                        junit "couchbase-python-client/nosetests.xml"
+                        junit "couchbase-python-client-${PYTHON_VERSION}/nosetests.xml"
                         script {
                             if (CLUSTER.isAllocated()) {
                                 sh("cbdyncluster rm ${CLUSTER.id}")
@@ -88,8 +88,8 @@ pipeline {
                 }
                 agent { label 'sdk-integration-test-linux' }
                 steps {
-                    unstash 'python-client'
-                    dir('couchbase-python-client'){
+                    unstash "python-client-${PYTHON_VERSION}"
+                    dir("couchbase-python-client-${PYTHON_VERSION}"){
                         withEnv(getEnvStr("${PYTHON_VERSION}", "${SERVER_VERSION}")) {
                             shWithEcho(". ./deps/python${PYTHON_VERSION}/bin/activate")
                             shWithEcho("python --version")
@@ -111,4 +111,4 @@ def getEnvStr(pyversion, server_version) {
 
 void shWithEcho(String command) {
     echo sh (script: command, returnStdout: true)
-}
+}`
