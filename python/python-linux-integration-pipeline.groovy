@@ -16,26 +16,34 @@ class DynamicCluster {
         connstr.tokenize(",")[0]
     }
 }
-def CLUSTER = new DynamicCluster()
 
-pipeline {
-    agent none
-    options {
-        timeout(time: 90, unit: 'MINUTES')
+def CLUSTER = new DynamicCluster()
+def builds = collectStages()
+def collectStages() {
+    def pythons = "${PY_VERSIONS}".split()
+    def servers = "${SERVER_VERSIONS}".split()
+    def stages = [:]
+    for(py_version in pythons) {
+        for (server_vesion in servers) {
+            stages["${py_version}_${server_version}"] = doStages(py_version, server_version)
+        }
     }
-    stages {
-        stage("build_${PYTHON_VERSION}") {
+    stages
+}
+def doStages(py_version, server_version) {
+    return stages {
+        stage("build_${py_version}_${server_version}") {
             agent { label 'sdk-integration-test-linux' }
             steps {
                 cleanWs()
-                dir('couchbase-python-client-${PYTHON_VERSION') {
+                dir("couchbase-python-client-${py_version}-${server_version}") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     shWithEcho("curl -o update_tests.py ${UPDATE_TESTS_URL}")
                     shWithEcho("cat update_tests.py")
-                    shWithEcho("cbdep install python ${PYTHON_VERSION} -d deps")
-                    withEnv(getEnvStr("${PYTHON_VERSION}", "${SERVER_VERSION}")) {
+                    shWithEcho("cbdep install python ${py_version} -d deps")
+                    withEnv(getEnvStr("${py_version}", "${server_version}")) {
                         // source the venv activate script
-                        shWithEcho(". ./deps/python${PYTHON_VERSION}/bin/activate")
+                        shWithEcho(". ./deps/python${py_version}/bin/activate")
                         shWithEcho("python --version")
                         shWithEcho("pip --version")
                         shWithEcho("pip install -r dev_requirements.txt")
@@ -45,14 +53,14 @@ pipeline {
                         shWithEcho("python setup.py build_ext --inplace")
                     }
                 }
-                stash includes: "couchbase-python-client-${PYTHON_VERSION}/", name: 'python-client', useDefaultExcludes: false
+                stash includes: "couchbase-python-client-${py_version}-${server_version}/", name: 'python-client', useDefaultExcludes: false
             }
             stage('prepare cluster') {
                 agent { label 'sdk-integration-test-linux' }
                 steps {
                     sh("cbdyncluster ps -a")
                     script {
-                        CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${SERVER_VERSION}", returnStdout: true).trim()
+                        CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${server_vesion}", returnStdout: true).trim()
                         CLUSTER.connstr = sh(script: "cbdyncluster ips ${CLUSTER.id}", returnStdout: true).trim()
                         echo "Allocated ${CLUSTER.inspect()}"
 
@@ -71,10 +79,10 @@ pipeline {
                     }
                 }
             }
-            stage("test-$PYTHON_VERSION}") {
+            stage("test-${py_version}-${server_version}") {
                 post {
                     always {
-                        junit "couchbase-python-client-${PYTHON_VERSION}/nosetests.xml"
+                        junit "couchbase-python-client-${py_version}-${server_version}/nosetests.xml"
                         script {
                             if (CLUSTER.isAllocated()) {
                                 sh("cbdyncluster rm ${CLUSTER.id}")
@@ -85,10 +93,10 @@ pipeline {
                 }
                 agent { label 'sdk-integration-test-linux' }
                 steps {
-                    unstash "python-client-${PYTHON_VERSION}"
-                    dir("couchbase-python-client-${PYTHON_VERSION}"){
-                        withEnv(getEnvStr("${PYTHON_VERSION}", "${SERVER_VERSION}")) {
-                            shWithEcho(". ./deps/python${PYTHON_VERSION}/bin/activate")
+                    unstash "python-client-${py_version}-${server_version}"
+                    dir("couchbase-python-client-${py_version}-${server_version}"){
+                        withEnv(getEnvStr("${py_version}", "${server_version}")) {
+                            shWithEcho(". ./deps/python${py_version}/bin/activate")
                             shWithEcho("python --version")
                             shWithEcho("python update_tests.py ${CLUSTER.getFirstIp()}")
                             shWithEcho("pip install -r requirements.txt")
@@ -109,3 +117,17 @@ def getEnvStr(pyversion, server_version) {
 void shWithEcho(String command) {
     echo sh (script: command, returnStdout: true)
 }
+
+
+pipeline {
+    agent none
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+    }
+    stages {
+        stage('create_builds') {
+            parallel builds
+        }
+    }
+}
+
