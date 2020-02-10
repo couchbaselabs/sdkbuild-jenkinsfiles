@@ -24,31 +24,28 @@ pipeline {
         timeout(time: 90, unit: 'MINUTES')
     }
     stages {
-        def pythons = "${PY_VERSIONS}".split()
-        for(PYTHON_VERSION in pythons) {
-            stage("build_${PYTHON_VERSION}") {
-                agent { label 'sdk-integration-test-linux' }
-                steps {
-                    cleanWs()
-                    dir('couchbase-python-client-${PYTHON_VERSION') {
-                        checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
-                        shWithEcho("curl -o update_tests.py ${UPDATE_TESTS_URL}")
-                        shWithEcho("cat update_tests.py")
-                        shWithEcho("cbdep install python ${PYTHON_VERSION} -d deps")
-                        withEnv(getEnvStr("${PYTHON_VERSION}", "${SERVER_VERSION}")) {
-                            // source the venv activate script
-                            shWithEcho(". ./deps/python${PYTHON_VERSION}/bin/activate")
-                            shWithEcho("python --version")
-                            shWithEcho("pip --version")
-                            shWithEcho("pip install -r dev_requirements.txt")
-                            shWithEcho("pip install cython")
-                            shWithEcho("pip install nose")
-                            // everything installed, lets build in place
-                            shWithEcho("python setup.py build_ext --inplace")
-                        }
+        stage("build_${PYTHON_VERSION}") {
+            agent { label 'sdk-integration-test-linux' }
+            steps {
+                cleanWs()
+                dir('couchbase-python-client-${PYTHON_VERSION') {
+                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    shWithEcho("curl -o update_tests.py ${UPDATE_TESTS_URL}")
+                    shWithEcho("cat update_tests.py")
+                    shWithEcho("cbdep install python ${PYTHON_VERSION} -d deps")
+                    withEnv(getEnvStr("${PYTHON_VERSION}", "${SERVER_VERSION}")) {
+                        // source the venv activate script
+                        shWithEcho(". ./deps/python${PYTHON_VERSION}/bin/activate")
+                        shWithEcho("python --version")
+                        shWithEcho("pip --version")
+                        shWithEcho("pip install -r dev_requirements.txt")
+                        shWithEcho("pip install cython")
+                        shWithEcho("pip install nose")
+                        // everything installed, lets build in place
+                        shWithEcho("python setup.py build_ext --inplace")
                     }
-                    stash includes: "couchbase-python-client-${PYTHON_VERSION}/", name: 'python-client', useDefaultExcludes: false
                 }
+                stash includes: "couchbase-python-client-${PYTHON_VERSION}/", name: 'python-client', useDefaultExcludes: false
             }
             stage('prepare cluster') {
                 agent { label 'sdk-integration-test-linux' }
