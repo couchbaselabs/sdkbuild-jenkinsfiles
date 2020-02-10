@@ -111,4 +111,4 @@ def getEnvStr(pyversion, server_version) {
 
 void shWithEcho(String command) {
     echo sh (script: command, returnStdout: true)
-}`
+}
