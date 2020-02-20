@@ -388,17 +388,6 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             //plat_class = Unix()
             shWithEcho(cmd)
         }
-
-        // upgrade pip, just in case
-        cmd = "pip install --upgrade pip wheel setuptools"
-        if (arch == "x86") {
-            cmd = cmd + " --x32"
-        }
-        if (isWindows(platform)) {
-            batWithEcho(cmd)
-        } else {
-            shWithEcho(cmd)
-        }
     }
     //plat_class.shell(cmd)
 }
@@ -1023,6 +1012,13 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             batWithEcho("python --version")
             batWithEcho("pip --version")
+
+            // upgrade pip, just in case
+            cmd = "pip install --upgrade pip wheel setuptools"
+            if (arch == "x86") {
+                cmd = cmd + " --x32"
+            }
+            batWithEcho(cmd)
             if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
@@ -1070,6 +1066,9 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             shWithEcho("python --version")
             shWithEcho("pip --version")
+
+            // upgrade pip, just in case
+            cmd = "pip install --upgrade pip wheel setuptools"
             if (BUILD_LCB) {
 
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
