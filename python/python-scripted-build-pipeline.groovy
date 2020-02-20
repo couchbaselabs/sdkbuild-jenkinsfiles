@@ -390,7 +390,7 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
         }
 
         // upgrade pip, just in case
-        cmd = "pip install --upgrade pip"
+        cmd = "pip install --upgrade pip setuptools"
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
