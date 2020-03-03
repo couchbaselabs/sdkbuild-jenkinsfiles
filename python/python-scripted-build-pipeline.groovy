@@ -23,7 +23,6 @@ def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
-def BUILD_ENV_ITEMS = ("${PYCBC_DEBUG}".length())?["PYCBC_DEBUG=TRUE"]:[]
 
 pipeline {
     agent none
@@ -92,7 +91,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", BUILD_ENV_ITEMS)
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}")
             }
         }
         stage('package') {
@@ -514,7 +513,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
 }
 
 
-def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="", BUILD_ENV_ITEMS) {
+def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
     envStr=[]
     PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
     if (isWindows(platform)) {
@@ -522,8 +521,7 @@ def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LC
     } else {
         envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
     }
-    cmdWithEcho(platform, 'echo "Got BUILD_ENV_ITEMS ${BUILD_ENV_ITEMS}"')
-    return envStr+getCommitEnvStrAdditions()+BUILD_ENV_ITEMS
+    return envStr+getCommitEnvStrAdditions()
 }
 
 
@@ -1138,7 +1136,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 }
 
 
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, BUILD_ENV_ITEMS) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
 
@@ -1203,7 +1201,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
-                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND, BUILD_ENV_ITEMS)
+                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
                             def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
                                 Exception exception_received=null;
