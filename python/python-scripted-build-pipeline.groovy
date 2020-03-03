@@ -25,6 +25,9 @@ String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 
 pipeline {
+    options {
+      timeout(time: 1, unit: 'HOURS') 
+    }
     agent none
     stages {
         stage('job valid?') {
