@@ -359,7 +359,7 @@ pipeline {
         stage('integration test') {
             parallel {
                 stage('5.5.6') {
-                    agent { label 'sdk-integration-test-linux' }
+                    agent { label 'sdkqe-centos7' }
                     when {
                         expression {
                             return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -409,7 +409,7 @@ pipeline {
                     }
                 }
                 stage('6.0.3') {
-                    agent { label 'sdk-integration-test-linux' }
+                    agent { label 'sdkqe-centos7' }
                     when {
                         expression {
                             return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -459,7 +459,7 @@ pipeline {
                     }
                 }
                 stage('6.5.0-4947') {
-                    agent { label 'sdk-integration-test-linux' }
+                    agent { label 'sdkqe-centos7' }
                     when {
                         expression {
                             return IS_GERRIT_TRIGGER.toBoolean() == false

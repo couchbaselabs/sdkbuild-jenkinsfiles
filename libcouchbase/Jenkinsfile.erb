@@ -350,7 +350,7 @@ pipeline {
             parallel {
 <% server_versions.each do |server_version| %>
                 stage('<%= server_version %>') {
-                    agent { label 'sdk-integration-test-linux' }
+                    agent { label 'sdkqe-centos7' }
                     when {
                         expression {
                             return IS_GERRIT_TRIGGER.toBoolean() == false
