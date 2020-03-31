@@ -426,8 +426,8 @@ def cmdWithEcho(platform, command, quiet=false)
 
 def isWindows(platform)
 {
-
-    return platform.toLowerCase().contains("window")
+    plat_lc=platform.toLowerCase()
+    return plat_lc.contains("window") || plat_lc.contains("msvc")
 }
 
 def installReqs(platform, NOSE_GIT)
