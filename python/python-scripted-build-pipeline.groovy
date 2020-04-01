@@ -1009,7 +1009,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             // upgrade pip, just in case
             cmd = "python -m pip install --upgrade pip"
             batWithEcho(cmd)
-            cmd = "python -m pip install setuptools wheel"
+            cmd = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade setuptools wheel"
             batWithEcho(cmd)
             if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
