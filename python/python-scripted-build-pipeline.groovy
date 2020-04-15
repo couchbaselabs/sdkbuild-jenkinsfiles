@@ -484,7 +484,11 @@ def getCommitEnvStrAdditions(platform) {
     for (item in getAttribs().entrySet()) {
         commit_env_additions += ["${item.key}=${item.value}"]
     }
-    def ENV_VARS= "${BUILD_ENV}".split(/\;/)?:[]
+    def ENV_VARS = []
+    if (BUILD_ENV)
+    {
+        ENV_VARS = "${BUILD_ENV}".split(/\;/)
+    }
     echo("Got env vars ${ENV_VARS}")
     for (item in ENV_VARS) {
         commit_env_additions += [item]
