@@ -479,10 +479,15 @@ def addCombi(combis,platform,PY_VERSION,PY_ARCH)
     echo "added, got ${combis}"
     return combis
 }
-def getCommitEnvStrAdditions() {
+def getCommitEnvStrAdditions(platform) {
     commit_env_additions = []
     for (item in getAttribs().entrySet()) {
         commit_env_additions += ["${item.key}=${item.value}"]
+    }
+    def ENV_VARS= "${BUILD_ENV}".split(/\;/)?:[]
+    echo("Got env vars ${ENV_VARS}")
+    for (item in ENV_VARS) {
+        commit_env_additions += [item]
     }
     return commit_env_additions
 }
@@ -502,7 +507,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
     } else {
         envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
-    return envStr+common_vars+getCommitEnvStrAdditions()
+    return envStr+common_vars+getCommitEnvStrAdditions(platform)
 }
 
 
@@ -514,7 +519,7 @@ def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LC
     } else {
         envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
     }
-    return envStr+getCommitEnvStrAdditions()
+    return envStr+getCommitEnvStrAdditions(platform)
 }
 
 
@@ -1009,8 +1014,13 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             // upgrade pip, just in case
             cmd = "python -m pip install --upgrade pip"
             batWithEcho(cmd)
-            cmd = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade setuptools wheel"
-            batWithEcho(cmd)
+            try {
+                cmd = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade setuptools wheel"
+                batWithEcho(cmd)
+            }
+            catch (e){
+
+            }
             if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
@@ -1060,7 +1070,13 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             shWithEcho("pip --version")
 
             // upgrade pip, just in case
-            cmd = "pip install --upgrade pip wheel setuptools"
+            try{
+                cmd = "pip install --upgrade pip wheel setuptools"
+                shWithEcho(cmd)
+            }
+            catch (e){
+
+            }
             if (BUILD_LCB) {
 
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
