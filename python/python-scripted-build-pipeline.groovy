@@ -485,7 +485,7 @@ def getCommitEnvStrAdditions(platform) {
         commit_env_additions += ["${item.key}=${item.value}"]
     }
     def ENV_VARS = []
-    if (BUILD_ENV)
+    if ("${BUILD_ENV}")
     {
         ENV_VARS = "${BUILD_ENV}".split(/\;/)
     }
