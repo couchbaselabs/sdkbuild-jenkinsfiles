@@ -315,12 +315,14 @@ class TestParams{
     boolean INSTALL_REQS=false
     String NOSE_GIT=null
     String PYCBC_VALGRIND=null
+    String PYCBC_VALGRIND_TAG
     BuildParams buildParams
-    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND) {
+    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND, String PYCBC_VALGRIND_TAG=null) {
         this.buildParams = buildParams
         this.INSTALL_REQS = INSTALL_REQS
         this.NOSE_GIT = NOSE_GIT
         this.PYCBC_VALGRIND=PYCBC_VALGRIND
+        this.PYCBC_VALGRIND_TAG=PYCBC_VALGRIND_TAG?:"VALGRIND_3_15_0"
     }
 
 }
@@ -614,10 +616,10 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                 shWithEcho("python --version")
                 shWithEcho("pip --version")
                 if (testParams.PYCBC_VALGRIND != "") {
-                    shWithEcho("curl -LO ftp://sourceware.org/pub/valgrind/valgrind-3.13.0.tar.bz2")
-                    shWithEcho("tar -xvf valgrind-3.13.0.tar.bz2")
+                    shWithEcho("git clone https://github.com/couchbaselabs/valgrind.git")
                     shWithEcho("mkdir -p deps/valgrind")
-                    dir("valgrind-3.13.0") {
+                    dir("valgrind") {
+                        shWithEcho("git checkout ${testParams.PYCBC_VALGRIND_TAG}")
                         shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
                         shWithEcho("make && make install")
                     }
