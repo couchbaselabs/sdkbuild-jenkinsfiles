@@ -620,6 +620,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     shWithEcho("mkdir -p deps/valgrind")
                     dir("valgrind") {
                         shWithEcho("git checkout ${testParams.PYCBC_VALGRIND_TAG}")
+                        shWithEcho("./autogen.sh")
                         shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
                         shWithEcho("make && make install")
                     }
