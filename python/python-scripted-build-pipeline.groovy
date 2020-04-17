@@ -618,8 +618,9 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                 if (testParams.PYCBC_VALGRIND != "") {
                     //shWithEcho("git clone https://github.com/couchbaselabs/valgrind.git")
                     shWithEcho("curl -LO https://sourceware.org/ftp/valgrind/valgrind-3.15.0.tar.bz2")
+                    shWithEcho("tar -xvf valgrind-3.15.0.tar.bz2")
                     shWithEcho("mkdir -p deps/valgrind")
-                    dir("valgrind") {
+                    dir("valgrind-3.15.0") {
                         //shWithEcho("git checkout ${testParams.PYCBC_VALGRIND_TAG}")
                         //shWithEcho("./autogen.sh")
                         shWithEcho("./configure --prefix=${WORKSPACE}/deps/valgrind")
