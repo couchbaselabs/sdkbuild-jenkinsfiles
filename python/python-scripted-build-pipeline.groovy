@@ -1079,15 +1079,16 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             shWithEcho("pip --version")
 
             // upgrade pip, just in case
-            try{
-                cmd = "pip install --upgrade pip wheel setuptools"
-                shWithEcho(cmd)
-            }
-            catch (e){
+            timeout(time:30, unit:'SECONDS') {
+                try{
+                    cmd = "pip install --upgrade pip wheel setuptools -v -v -v"
+                    shWithEcho(cmd)
+                }
+                catch (e){
 
+                }
             }
             if (BUILD_LCB) {
-
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
                 dir("libcouchbase") {
                     shWithEcho("git checkout ${LCB_VERSION}")
