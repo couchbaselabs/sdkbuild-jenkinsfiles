@@ -562,7 +562,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
 
-    nosetests_args = " couchbase.tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
+    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name"
