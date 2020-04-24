@@ -26,7 +26,7 @@ echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 
 pipeline {
     options {
-      timeout(time: 1, unit: 'HOURS') 
+      timeout(time: 1, unit: 'HOURS')
     }
     agent none
     stages {
@@ -561,8 +561,9 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + testParams.buildParams.PYCBC_LCB_API ?: ""
     test_full_path = "couchbase-python-client${sep}${test_rel_path}"
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
+    test_rel_coverage_file = "${test_rel_path}${sep}coverage.xml"
 
-    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v --with-coverage --cover-xml --cover-xml-file=${test_rel_path}_coverage.xml "
+    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} "
     if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
@@ -710,6 +711,11 @@ echo "quit" >>"${TMPCMDS}"
                         echo "${TMPCMDS}"
                         echo "]"
                         ${batchFile}
+                        echo "in Python pip:"
+                        python -m pip list
+                        echo "in plain pip:"
+                        pip list
+                        echo "listed"
                         ${invoke}""")
                     }
                     shWithEcho("echo $PWD && ls -alrt")
@@ -1027,7 +1033,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="setuptools wheel"
+        def extra_packages="coverage setuptools wheel"
         def upgrade_install_packages = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages} -v -v -v"
         if (isWindows(platform)) {
             batWithEcho("SET")
@@ -1095,7 +1101,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             shWithEcho("pip --version")
 
             // upgrade pip, just in case
-            timeout(time:30, unit:'SECONDS') {
+            timeout(time:180, unit:'SECONDS') {
                 try{
                     shWithEcho(upgrade_install_packages)
                 }
