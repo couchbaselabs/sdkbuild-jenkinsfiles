@@ -564,6 +564,16 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_rel_coverage_file = "${test_rel_path}${sep}coverage.xml"
 
     nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} "
+    dir("${WORKSPACE}/couchbase-python-client")
+    {
+        def metadata=readMetadata()
+        packages = metadata.packages
+        PYCBC_CORE=metadata.comp_options
+        for (package_name in metadata.packages)
+        {
+            nosetests_args+="--cover-package=${package_name} "
+        }
+    }
     if (testParams.NOSE_GIT && !isWindows(platform))
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
