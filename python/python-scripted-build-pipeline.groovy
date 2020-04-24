@@ -1046,7 +1046,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
         def extra_packages="coverage setuptools wheel"
-        def upgrade_install_packages = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages} -v -v -v"
+        def upgrade_install_packages = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
