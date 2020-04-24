@@ -569,7 +569,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
         def metadata=readMetadata()?:[:]
         try{
             for (entry in metadata.packages){
-                nosetests_args+="--cover-package=${packageit.value} "
+                nosetests_args+="--cover-package=${entry} "
             }
         }
         catch( e){
