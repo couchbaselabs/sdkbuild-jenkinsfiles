@@ -566,12 +566,14 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} "
     dir("${WORKSPACE}/couchbase-python-client")
     {
-        def metadata=readMetadata()
-        packages = metadata.packages
-        PYCBC_CORE=metadata.comp_options
-        for (package_name in metadata.packages)
-        {
-            nosetests_args+="--cover-package=${package_name} "
+        def metadata=readMetadata()?:[:]
+        try{
+            for (entry in metadata.packages){
+                nosetests_args+="--cover-package=${packageit.value} "
+            }
+        }
+        catch( e){
+            echo("Caught exception ${e} trying to read ${metadata}")
         }
     }
     if (testParams.NOSE_GIT && !isWindows(platform))
@@ -740,7 +742,7 @@ echo "quit" >>"${TMPCMDS}"
             dir("${WORKSPACE}/couchbase-python-client")
             {
                 try {
-                    publishCoverage adapters: [coberturaAdapter(path: '**/*coverage.xml')]
+                    publishCoverage adapters: [coberturaAdapter(path: '**/*coverage.xml')], tag: test_rel_path
                 }
                 catch (Exception e) {
 
