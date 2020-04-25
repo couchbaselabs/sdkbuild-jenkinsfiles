@@ -389,7 +389,7 @@ def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
             {
-                cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+                cmdWithEcho(platform,"""pip install -r dev_requirements.txt 'coverage<5.0'
 """)
                 if (!isWindows(platform)){
                     if (NOSE_GIT) {
@@ -519,14 +519,22 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
     test_rel_coverage_file = "${test_rel_path}${sep}coverage.xml"
 
-    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} "
+    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
+    runner_command=""
+    if (false) {
+        nosetests_args += " --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} --cover-inclusive "
+        runner_command += "-m nose"
+    }
+    else{
+        runner_command += "-m coverage run --omit */site-packages -m nose"
+    }
     dir("${WORKSPACE}/couchbase-python-client")
     {
         def metadata=readMetadata()?:[:]
         try{
             packages=mapToList(metadata.packages)
             for (entry in packages){
-                nosetests_args+="--cover-package=${entry} "
+                //nosetests_args+="--cover-package=${entry} "
             }
         }
         catch( e){
@@ -538,7 +546,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
     }
     mkdir(test_full_path, platform)
-    [test_rel_path, nosetests_args, test_full_path]
+    [test_rel_path, nosetests_args, test_full_path, runner_command]
 }
 
 
@@ -556,7 +564,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path, String runner_command) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
             if (isWindows(platform)) {
@@ -580,7 +588,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     ''')
                     batWithEcho("python updateTests.py")
                     installReqsIfNeeded(testParams,platform)
-                    doNoseTests(platform, nosetests_args)
+                    doNoseTests(platform, nosetests_args, runner_command)
                 }
             } else {
                 shWithEcho("python --version")
@@ -623,7 +631,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                         shWithEcho("""
                             export VALGRIND_REPORT_DIR="build/valgrind/${testParams.PYCBC_VALGRIND}"
                             mkdir -p \$VALGRIND_REPORT_DIR
-                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` -m nose -v "${
+                            valgrind --suppressions=jenkins/suppressions.txt --gen-suppressions=all --track-origins=yes --leak-check=full --xml=yes --xml-file=\$VALGRIND_REPORT_DIR/valgrind.xml --show-reachable=yes `which python` ${runner_command} -v "${
                             testParams.PYCBC_VALGRIND
                         }" > build/valgrind.txt""")
                         if (PARSE_SUPPRESSIONS) {
@@ -648,26 +656,26 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     boolean blacklisted = platform.contains("ubuntu16") && pyversion<"3.0.0"
                     if (platform.toLowerCase().contains("centos") || PYCBC_DEBUG_SYMBOLS == "") {
                         shWithEcho("which nosetests")
-                        shWithEcho("python -m nose ${nosetests_args}")
+                        shWithEcho("python ${runner_command} ${nosetests_args}")
                     } else {
                         def TMPCMDS = "${pyversion}_${LCB_VERSION}_cmds"
                         def batchFile = ""
                         def invoke = ""
                         if (platform.contains("macos")) {
                             batchFile = """
-echo "run -m nose ${nosetests_args}" >> "${TMPCMDS}"
+echo "run ${runner_command} ${nosetests_args}" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
 """
-                            invoke = "lldb --batch -K ${TMPCMDS} -o run -f `which python` -- -m nose ${nosetests_args}"
+                            invoke = "lldb --batch -K ${TMPCMDS} -o run -f `which python` -- ${runner_command} ${nosetests_args}"
                         } else {
                             batchFile = """
 echo "break abort" > "${TMPCMDS}"
 echo "handle all stop" > "${TMPCMDS}"
 echo "handle SIGCHLD pass nostop noprint" > "${TMPCMDS}"
 
-echo "run -m nose ${nosetests_args}" >> "${TMPCMDS}"
+echo "run ${runner_command} ${nosetests_args}" >> "${TMPCMDS}"
 echo "bt" >>"${TMPCMDS}"
 echo "py-bt" >>"${TMPCMDS}"
 echo "quit" >>"${TMPCMDS}"
@@ -721,7 +729,7 @@ echo "quit" >>"${TMPCMDS}"
     }
 }
 
-def doNoseTests(platform, nosetests_args) {
+def doNoseTests(platform, nosetests_args, runner_command) {
     if (true || isWindows(platform)) {
         try{
             batWithEcho("drwtsn32.exe -i")
@@ -730,7 +738,7 @@ def doNoseTests(platform, nosetests_args) {
         catch (e){
 
         }
-        batWithEcho("python -m nose ${nosetests_args}")
+        batWithEcho("python ${runner_command} ${nosetests_args}")
 
     }
 }
@@ -993,8 +1001,8 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="coverage setuptools wheel"
-        def upgrade_install_packages = "python -m pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
+        def extra_packages="""'coverage<5.0' setuptools wheel"""
+        def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
