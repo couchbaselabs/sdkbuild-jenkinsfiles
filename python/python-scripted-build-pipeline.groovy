@@ -389,7 +389,9 @@ def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
             {
-                cmdWithEcho(platform,"""pip install -r dev_requirements.txt 'coverage<5.0'
+                cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+pip uninstall --yes coverage
+pip install --force --yes 'coverage<5.0'
 """)
                 if (!isWindows(platform)){
                     if (NOSE_GIT) {
@@ -1001,7 +1003,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="""'coverage<5.0' setuptools wheel"""
+        def extra_packages="""setuptools wheel"""
         def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
         if (isWindows(platform)) {
             batWithEcho("SET")
