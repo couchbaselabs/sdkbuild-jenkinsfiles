@@ -278,31 +278,6 @@ def readMetadata() {
     return null
 }
 
-/*
-trait Platform
-{
-    void shell(String command, boolean returnStdout = true )
-    {
-        def STAGE_NAME="fred"
-        print "[$STAGE_NAME]:${command}:"+this.real_shell(script:command, returnStdout: returnStdout)
-
-    }
-    abstract String real_shell(Map args)
-}
-
-class Windows implements Platform
-{
-   String real_shell(Map args){
-        return bat(args)
-    }
-}
-
-class Unix implements Platform
-{
-   String real_shell(Map args){
-        return sh(args)
-    }
-}*/
 class BuildParams{
     public String PYCBC_LCB_API=null
 
@@ -347,28 +322,6 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
           ${FIXED_DIR}\\python.exe -m venv ${path}\\python${version}${arch}
 """)
         }
-        /*else
-        {
-            if (versionAsDecimal>=3.3)
-            {
-                shWithEcho("""
-            export FIXED_DIR=${WORKSPACE}/.pyenv/versions/${version}
-            git clone git://github.com/pyenv/pyenv.git ${HOME}/.pyenv 2>/dev/null || true
-            cd ${HOME}/.pyenv && git pull
-            ${HOME}/.pyenv/bin/pyenv install ${VERSION}
-            fixed_dir: ${HOME}/.pyenv/versions/${VERSION}
-            ${FIXED_DIR}/bin/python -m venv ${INSTALL_DIR}/python${version}
-"""
-            }
-            else if (versionAsDecimal>=2.7 && versionAsDecimal< 3.0)
-            shWithEcho("""
-            export FIXED_DIR=${WORKSPACE}/.pyenv/versions/${version}
-            git clone git://github.com/pyenv/pyenv.git ${HOME}/.pyenv 2>/dev/null || true
-            cd ${HOME}/.pyenv && git pull
-            ${HOME}/.pyenv/bin/pyenv install ${VERSION}
-            ${FIXED_DIR}/bin/python -m pip install virtualenv
-            ${FIXED_DIR}/bin/python -m virtualenv ${INSTALL_DIR}/python${VERSION}""")
-        }*/
     } else {
         def cmd = "cbdep install python ${version} -d ${path}"
         if (arch == "x86") {
@@ -531,7 +484,6 @@ def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LC
 
 def getServiceIp(node_list, name)
 {
-    //cbas_ip = first_ip
     cbas_ip=node_list.last().ip
     for (entry in node_list){
         if (name in entry.services)
@@ -556,6 +508,10 @@ endlocal
     }
 }
 
+@NonCPS
+static List<String> mapToList(Map<String,Object> map) {
+    return map.keySet().toList()
+}
 List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams testParams) {
     sep = getSep(platform)
     test_rel_path = "${platform}_${pyversion}_${SERVER_VERSION}_" + testParams.buildParams.PYCBC_LCB_API ?: ""
@@ -568,7 +524,8 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     {
         def metadata=readMetadata()?:[:]
         try{
-            for (entry in metadata.packages){
+            packages=mapToList(metadata.packages)
+            for (entry in packages){
                 nosetests_args+="--cover-package=${entry} "
             }
         }
@@ -837,15 +794,6 @@ void testAgainstServer(serverVersion, platform, envStr, testActor) {
         // Note this must be run inside a script {} block to allow try/finally
         def clusterId = null
         try {
-            /* def my_plat = null
-            if (isWindows(platform))
-            {
-                my_plat = new Windows()
-            }
-            else
-            {
-                my_plat = new Unix()
-            } */
             // For debugging, what clusters are open
             clusters_running=shWithEcho("cbdyncluster ps -a")
             echo "got clusters_running: ${clusters_running}"
