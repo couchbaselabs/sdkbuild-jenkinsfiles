@@ -523,12 +523,14 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
 
     nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     runner_command=""
+    post_command=""
     if (false) {
         nosetests_args += " --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} --cover-inclusive "
         runner_command += "-m nose"
     }
     else{
         runner_command += "-m coverage run --omit */site-packages -m nose"
+        post_command += "coverage xml --o ${test_rel_coverage_file}"
     }
     dir("${WORKSPACE}/couchbase-python-client")
     {
@@ -548,7 +550,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
     }
     mkdir(test_full_path, platform)
-    [test_rel_path, nosetests_args, test_full_path, runner_command]
+    [test_rel_path, nosetests_args, test_full_path, runner_command, post_command]
 }
 
 
@@ -566,7 +568,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
     timestamps {
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
-        def (GString test_rel_path, GString nosetests_args, GString test_full_path, String runner_command) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
+        def (GString test_rel_path, GString nosetests_args, GString test_full_path, String runner_command, String post_command) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
         try {
             mkdir(test_full_path,platform)
             if (isWindows(platform)) {
@@ -591,6 +593,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     batWithEcho("python updateTests.py")
                     installReqsIfNeeded(testParams,platform)
                     doNoseTests(platform, nosetests_args, runner_command)
+                    cmdWithEcho(platform, post_command)
                 }
             } else {
                 shWithEcho("python --version")
@@ -698,6 +701,7 @@ echo "quit" >>"${TMPCMDS}"
                         ${invoke}""")
                     }
                     shWithEcho("echo $PWD && ls -alrt")
+                    cmdWithEcho(platform, post_command)
                 }
             }
         } catch (Exception e) {
@@ -705,7 +709,6 @@ echo "quit" >>"${TMPCMDS}"
             throw e
         } finally {
             junit "couchbase-python-client/**/nosetests.xml"
-
             dir("${WORKSPACE}/couchbase-python-client")
             {
                 try {
