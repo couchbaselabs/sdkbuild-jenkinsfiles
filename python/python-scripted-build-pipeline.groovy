@@ -391,7 +391,7 @@ def installReqs(platform, NOSE_GIT)
             {
                 cmdWithEcho(platform,"""pip install -r dev_requirements.txt
 pip uninstall --yes coverage
-pip install --force --yes 'coverage<5.0'
+pip install 'coverage<5.0'
 """)
                 if (!isWindows(platform)){
                     if (NOSE_GIT) {
