@@ -593,7 +593,12 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     batWithEcho("python updateTests.py")
                     installReqsIfNeeded(testParams,platform)
                     doNoseTests(platform, nosetests_args, runner_command)
-                    cmdWithEcho(platform, post_command)
+                    try{
+                        cmdWithEcho(platform, post_command)
+                    }
+                    catch (e){
+
+                    }
                 }
             } else {
                 shWithEcho("python --version")
@@ -701,7 +706,14 @@ echo "quit" >>"${TMPCMDS}"
                         ${invoke}""")
                     }
                     shWithEcho("echo $PWD && ls -alrt")
-                    cmdWithEcho(platform, post_command)
+                    try{
+                        cmdWithEcho(platform, post_command)
+
+                    }
+                    catch(e){
+
+                    }
+
                 }
             }
         } catch (Exception e) {
