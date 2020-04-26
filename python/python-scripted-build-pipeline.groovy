@@ -531,7 +531,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     else{
         extra_args = "--omit '*/site-packages/*' --omit '*/.eggs/*'"
 
-        runner_command += "-m coverage run ${extra_args} -m nose"
+        runner_command += "-m coverage run --source `pwd` -m nose"
         post_command += "coverage xml --o ${test_rel_coverage_file}"
     }
     dir("${WORKSPACE}/couchbase-python-client")
