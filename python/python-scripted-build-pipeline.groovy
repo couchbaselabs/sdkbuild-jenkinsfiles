@@ -23,7 +23,9 @@ def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 String PYCBC_VERSION = "${PYCBC_VERSION}"
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
-
+if (IS_RELEASE){
+    PYCBC_DEBUG_SYMBOLS=""
+}
 pipeline {
     options {
       timeout(time: 1, unit: 'HOURS')
