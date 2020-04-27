@@ -292,12 +292,14 @@ class TestParams{
     String PYCBC_VALGRIND=null
     String PYCBC_VALGRIND_TAG
     BuildParams buildParams
-    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND, String PYCBC_VALGRIND_TAG=null) {
+    boolean doGenericJobs = false
+    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND, String PYCBC_VALGRIND_TAG=null, boolean doGenericJobs=false) {
         this.buildParams = buildParams
         this.INSTALL_REQS = INSTALL_REQS
         this.NOSE_GIT = NOSE_GIT
         this.PYCBC_VALGRIND=PYCBC_VALGRIND
         this.PYCBC_VALGRIND_TAG=PYCBC_VALGRIND_TAG?:"VALGRIND_3_15_0"
+        this.doGenericJobs=doGenericJobs
     }
 
 }
@@ -524,15 +526,15 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     runner_command=""
     post_command=""
-    if (false) {
-        nosetests_args += " --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} --cover-inclusive "
-        runner_command += "-m nose"
-    }
-    else{
+    if (testParams.doGenericJobs) {
         extra_args = "--omit '*/site-packages/*' --omit '*/.eggs/*'"
+        //nosetests_args += " --with-coverage --cover-xml --cover-xml-file=${test_rel_coverage_file} --cover-inclusive "
 
         runner_command += "-m coverage run --source `pwd` -m nose"
         post_command += "coverage xml --o ${test_rel_coverage_file}"
+    }
+    else {
+        runner_command += "-m nose"
     }
     dir("${WORKSPACE}/couchbase-python-client")
     {
@@ -975,7 +977,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
                     {
                         BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
 
-                        TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND)
+                        TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND, null, true)
                         testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
                     }
         }
@@ -1181,7 +1183,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         }
     }
     echo "Got combis ${combis}, PYCBC_LCB_APIS = < ${PYCBC_LCB_APIS} >"
-    boolean  done_sphinx=0
+    boolean  done_generic_jobs=0
     for (j in PLATFORMS) {
         for (k in PY_VERSIONS) {
             for (l in PY_ARCHES) {
@@ -1189,11 +1191,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     String platform = j
                     String pyversion = k
                     String arch = l
-                    boolean do_sphinx=false
-                    if (!done_sphinx && platform.contains("ubuntu16") && pyversion.contains("${PACKAGE_PY_VERSION}"))
+                    boolean do_generic_jobs=false
+                    if (!done_generic_jobs && platform.contains("ubuntu16") && pyversion.contains("${PACKAGE_PY_VERSION}"))
                     {
-                        do_sphinx=true
-                        done_sphinx=true
+                        do_generic_jobs=true
+                        done_generic_jobs=true
                     }
                     def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
                     if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
@@ -1219,7 +1221,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     pairs[stage_name] = {
                         node(label) {
                             BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
-                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, PYCBC_VALGRIND)
+                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, PYCBC_VALGRIND, null, do_generic_jobs)
 
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
@@ -1235,7 +1237,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs)
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
