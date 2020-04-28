@@ -979,7 +979,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
                     {
                         BuildParams buildParams= new BuildParams(PYCBC_LCB_API)
 
-                        TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, PYCBC_VALGRIND, null, true)
+                        TestParams testParams=new TestParams(buildParams, false, NOSE_GIT, null, null, true)
                         testAgainstServer(server_version, platform, envStr, { ip -> doTests(ip, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, server_version, testParams) })
                     }
         }
@@ -1223,7 +1223,17 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     pairs[stage_name] = {
                         node(label) {
                             BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
-                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, PYCBC_VALGRIND, null, do_generic_jobs)
+                            def do_valgrind=false
+                            if (platform.toUpperCase() =~ /(UBUNTU|MACOS|DARWIN|LINUX|LIN|CENTOS)/)
+                            {
+                                do_valgrind=(pyversion.contains("${PACKAGE_PY_VERSION}"))
+                                echo "${platform} eligible for valgrind, ${pyversion} match is ${do_valgrind}"
+                            }
+                            else {
+                                echo "${platform} ineligible for Valgrind"
+                            }
+
+                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, do_valgrind?PYCBC_VALGRIND:"" , null, do_generic_jobs)
 
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
