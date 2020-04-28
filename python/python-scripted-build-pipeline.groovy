@@ -1224,7 +1224,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         node(label) {
                             BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
                             def do_valgrind=false
-                            if (platform.toUpperCase() =~ /(UBUNTU|MACOS|DARWIN|LINUX|LIN|CENTOS)/)
+                            if (platform.toUpperCase() =~ /(UBUNTU|LIN|CENTOS)/)
                             {
                                 do_valgrind=(pyversion.contains("${PACKAGE_PY_VERSION}"))
                                 echo "${platform} eligible for valgrind, ${pyversion} match is ${do_valgrind}"
