@@ -1,9 +1,6 @@
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}"?"${PY_VERSIONS}".split(/\s+/): [ "3.7.6", "3.8.1" ]
-if ("${PYCBC_VERSION}" =~ "^2\\..*"){
-    PY_VERSIONS += ["2.7.16"]
-}
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
@@ -52,7 +49,16 @@ pipeline {
                 shWithEcho("env")
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
-                    script {
+                    script{
+                        PYCBC_BRANCH="${PYCBC_BRANCH}"?:"${GIT_BRANCH}"
+                        if (!"${PYCBC_BRANCH}") {
+                            FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
+                            PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
+                        }
+                        if ("${PYCBC_VERSION}" =~ "^2\\..*" || "${PYCBC_BRANCH}" =~ "release2"){
+                            PY_VERSIONS += ["2.7.16"]
+                        }
+
                         def metaData=readMetadata()
                         PYCBC_VERSION = getVersion(metaData)
                         if (PYCBC_LCB_APIS==null) {
