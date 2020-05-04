@@ -51,13 +51,17 @@ pipeline {
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script{
-                        FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
-                        PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
+                        if (!PYCBC_BRANCH)
+                        {
+                            FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
+                            PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
+                        }
                         echo("Checking PYCBC_VERSION: ${PYCBC_VERSION} and PYCBC_BRANCH: ${PYCBC_BRANCH} to detect 2.5")
 
                         if ("${PYCBC_VERSION}" =~ "^2\\..*" || PYCBC_BRANCH =~ "release2.*"){
-                            echo("Adding Python 2.7.16 as PYCBC 2.x")
-                            PY_VERSIONS += ["2.7.16"]
+                            TWO_SEVEN_ADDITIONS=["2,7.0","2.7.16"]
+                            echo("Adding Pythons ${TWO_SEVEN_ADDITIONS} as PYCBC 2.x")
+                            PY_VERSIONS += TWO_SEVEN_ADDITIONS
                         }
                         else {
                             echo("Not adding Python 2.7.16 as not PYCBC 2.x")
