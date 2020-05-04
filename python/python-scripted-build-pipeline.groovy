@@ -525,7 +525,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     test_rel_xunit_file = "${test_rel_path}${sep}nosetests.xml"
     test_rel_coverage_file = "${test_rel_path}${sep}coverage.xml"
 
-    nosetests_args = " couchbase_tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
+    nosetests_args = " couchbase.tests.test_sync --with-flaky --with-xunit --xunit-file=${test_rel_xunit_file} -v "
     runner_command=""
     post_command=""
     if (testParams.doGenericJobs) {
@@ -1045,7 +1045,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             }
             if (BUILD_LCB) {
-                batWithEcho("git clone http://review.couchbase.org/p/libcouchbase ${WORKSPACE}\\libcouchbase")
+                batWithEcho("git clone http://review.couchbase.org/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
                     batWithEcho("git checkout ${LCB_VERSION}")
                 }
