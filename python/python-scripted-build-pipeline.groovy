@@ -1,6 +1,9 @@
 def PLATFORMS =  "${PLATFORMS}".split(/\s+/) ?: ["centos7", "windows-2012" ]
 def DEFAULT_PLATFORM = PLATFORMS[0]
 def PY_VERSIONS = "${PY_VERSIONS}"?"${PY_VERSIONS}".split(/\s+/): [ "3.7.6", "3.8.1" ]
+if ("${PYCBC_VERSION}" =~ "^2\\..*"){
+    PY_VERSIONS += ["2.7.16"]
+}
 def PY_ARCHES = "${PY_ARCHES}".split(/\s+/) ?: [ "x64", "x86" ]
 def SERVER_VERSIONS = "${SERVER_VERSIONS}"?[ "5.5.0", "6.0.0"]: "${SERVER_VERSIONS}".split(/\s+/)
 def PACKAGE_PLATFORM = "${DEFAULT_PLATFORM}"
