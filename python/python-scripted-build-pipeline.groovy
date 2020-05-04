@@ -1086,7 +1086,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     }
                     batWithEcho("""
                                                         cmake --build . --target couchbase
-                                                        ctest -C debug
+                                                         -C debug
                                                     """)
                     batWithEcho("cmake --build . --target package")
                 }
