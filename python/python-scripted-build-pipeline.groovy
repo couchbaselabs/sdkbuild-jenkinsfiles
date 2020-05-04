@@ -59,7 +59,7 @@ pipeline {
                         echo("Checking PYCBC_VERSION: ${PYCBC_VERSION} and PYCBC_BRANCH: ${PYCBC_BRANCH} to detect 2.5")
 
                         if ("${PYCBC_VERSION}" =~ "^2\\..*" || PYCBC_BRANCH =~ "release2.*"){
-                            TWO_SEVEN_ADDITIONS=["2,7.0","2.7.16"]
+                            TWO_SEVEN_ADDITIONS=["2.7.0","2.7.16"]
                             echo("Adding Pythons ${TWO_SEVEN_ADDITIONS} as PYCBC 2.x")
                             PY_VERSIONS += TWO_SEVEN_ADDITIONS
                         }
