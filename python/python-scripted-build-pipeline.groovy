@@ -961,10 +961,15 @@ def buildLibCouchbase(platform, arch)
 
 def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     def installCmd=""
-    cmdWithEcho(platform, """
+    try {
+        cmdWithEcho(platform, """
                             pip install restructuredtext-lint
                             restructuredtext-lint README.md"""
-    )
+        )
+    }
+    catch(e){
+        echo("Couldn't install all reqs: ${e}")
+    }
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
         installCmd="pip install -e . -v -v -v"
