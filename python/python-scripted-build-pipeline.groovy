@@ -1078,7 +1078,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                                                             cmake --build .
                                                         """)
                     } else {
-                        // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                         batWithEcho("""
                                                             cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                             cmake --build .
@@ -1086,7 +1085,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     }
                     batWithEcho("""
                                                         cmake --build . --target couchbase
-                                                         -C debug
                                                     """)
                     batWithEcho("cmake --build . --target package")
                 }
