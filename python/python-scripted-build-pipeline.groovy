@@ -26,6 +26,7 @@ echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 if (IS_RELEASE){
     PYCBC_DEBUG_SYMBOLS=""
 }
+def PYCBC_BRANCH="${PYCBC_BRANCH}"
 pipeline {
     options {
       timeout(time: 1, unit: 'HOURS')
@@ -50,13 +51,16 @@ pipeline {
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script{
-                        PYCBC_BRANCH="${PYCBC_BRANCH}"?:"${GIT_BRANCH}"
-                        if (!"${PYCBC_BRANCH}") {
-                            FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
-                            PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
-                        }
-                        if ("${PYCBC_VERSION}" =~ "^2\\..*" || "${PYCBC_BRANCH}" =~ "release2"){
+                        FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
+                        PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
+                        echo("Checking PYCBC_VERSION: ${PYCBC_VERSION} and PYCBC_BRANCH: ${PYCBC_BRANCH} to detect 2.5")
+
+                        if ("${PYCBC_VERSION}" =~ "^2\\..*" || PYCBC_BRANCH =~ "release2.*"){
+                            echo("Adding Python 2.7.16 as PYCBC 2.x")
                             PY_VERSIONS += ["2.7.16"]
+                        }
+                        else {
+                            echo("Not adding Python 2.7.16 as not PYCBC 2.x")
                         }
 
                         def metaData=readMetadata()
