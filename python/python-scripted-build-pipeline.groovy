@@ -1046,7 +1046,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="""setuptools wheel"""
+        def extra_packages="""pip setuptools wheel"""
         def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
         if (isWindows(platform)) {
             batWithEcho("SET")
@@ -1058,8 +1058,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             batWithEcho("pip --version")
 
             // upgrade pip, just in case
-            cmd = "python -m pip install --upgrade pip"
-            batWithEcho(cmd)
             try {
                 batWithEcho(upgrade_install_packages)
             }
