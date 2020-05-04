@@ -1098,6 +1098,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
                     installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 }
+                cmdWithEcho("pip install wheel")
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                 batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
             }
