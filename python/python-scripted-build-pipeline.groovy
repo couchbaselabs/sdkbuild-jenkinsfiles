@@ -1059,7 +1059,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
 
             // upgrade pip, just in case
             try {
-                batWithEcho(upgrade_install_packages)
+                //batWithEcho(upgrade_install_packages)
             }
             catch (e){
 
