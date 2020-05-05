@@ -301,9 +301,10 @@ def readMetadata() {
 
 class BuildParams{
     public String PYCBC_LCB_API=null
-
-    BuildParams(String PYCBC_LCB_API) {
+    public String PLATFORM=null
+    BuildParams(String PYCBC_LCB_API, String PLATFORM=null) {
         this.PYCBC_LCB_API = PYCBC_LCB_API
+        this.PLATFORM = PLATFORM
     }
 }
 
@@ -314,13 +315,15 @@ class TestParams{
     String PYCBC_VALGRIND_TAG
     BuildParams buildParams
     boolean doGenericJobs = false
-    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND, String PYCBC_VALGRIND_TAG=null, boolean doGenericJobs=false) {
+    boolean installFromDist = true
+    TestParams(BuildParams buildParams, boolean INSTALL_REQS, String NOSE_GIT, String PYCBC_VALGRIND, String PYCBC_VALGRIND_TAG=null, boolean doGenericJobs=false, boolean installFromDist=true) {
         this.buildParams = buildParams
         this.INSTALL_REQS = INSTALL_REQS
         this.NOSE_GIT = NOSE_GIT
         this.PYCBC_VALGRIND=PYCBC_VALGRIND
         this.PYCBC_VALGRIND_TAG=PYCBC_VALGRIND_TAG?:"VALGRIND_3_15_0"
         this.doGenericJobs=doGenericJobs
+        this.installFromDist = installFromDist
     }
 
 }
@@ -412,7 +415,8 @@ def installReqs(platform, NOSE_GIT)
 {
     dir("${WORKSPACE}/couchbase-python-client")
             {
-                cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+                cmdWithEcho(platform,"""
+pip install -r dev_requirements.txt
 pip uninstall --yes coverage
 pip install "coverage<5.0"
 """)
@@ -587,6 +591,18 @@ def installReqsIfNeeded(TestParams params, def platform) {
 }
 
 
+def installPythonClientFromDist(TestParams x)
+{
+    if (x.installFromDist) {
+        dir("${WORKSPACE}/couchbase-python-client") {
+            cmdWithEcho(x.buildParams.PLATFORM, """
+    pip uninstall --yes couchbase
+    pip install couchbase --no-index --find-links dist
+    """)
+        }
+    }
+}
+
 def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SERVER_VERSION, TestParams testParams)
 {
     PARSE_SUPPRESSIONS=false
@@ -594,8 +610,10 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
         // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
         // USING THE PACKAGE(S) CREATED ABOVE
         def (GString test_rel_path, GString nosetests_args, GString test_full_path, String runner_command, String post_command) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
+
         try {
             mkdir(test_full_path,platform)
+            installPythonClientFromDist(testParams)
             if (isWindows(platform)) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
                     dir("${test_rel_path}"){}
@@ -1246,7 +1264,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                     pairs[stage_name] = {
                         node(label) {
-                            BuildParams buildParams = new BuildParams(PYCBC_LCB_API)
+                            BuildParams buildParams = new BuildParams(PYCBC_LCB_API, platform)
                             def do_valgrind=false
                             if (platform.toUpperCase() =~ /(UBUNTU|LIN|CENTOS)/)
                             {
