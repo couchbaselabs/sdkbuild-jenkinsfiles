@@ -1070,8 +1070,11 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="""setuptools wheel"""
-        def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
+        def extra_packages="""pip setuptools wheel"""
+        def upgrade_install_packages = """
+echo Temp Dir is %TEMP%
+set TMPDIR=%TEMP%
+python -m pip install --no-cache-dir  --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
@@ -1082,8 +1085,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             batWithEcho("pip --version")
 
             // upgrade pip, just in case
-            cmd = "python -m pip install --upgrade pip"
-            batWithEcho(cmd)
             try {
                 batWithEcho(upgrade_install_packages)
             }
@@ -1104,15 +1105,13 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                                                             cmake --build .
                                                         """)
                     } else {
-                        // TODO: I'VE TIED THIS TO VS 14 2015, IS THAT CORRECT?
                         batWithEcho("""
                                                             cmake -G "${cmake_arch}" -DLCB_NO_MOCK=1 -DLCB_NO_SSL=1 ..\\libcouchbase
                                                             cmake --build .
                                                         """)
                     }
                     batWithEcho("""
-                                                        cmake --build . --target alltests
-                                                        ctest -C debug
+                                                        cmake --build . --target couchbase
                                                     """)
                     batWithEcho("cmake --build . --target package")
                 }
