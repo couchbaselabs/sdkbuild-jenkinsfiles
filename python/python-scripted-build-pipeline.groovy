@@ -1046,7 +1046,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             cmdWithEcho(platform, "")
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
-        def extra_packages="""pip setuptools"""
+        def extra_packages="""pip setuptools wheel"""
         def upgrade_install_packages = """
 echo Temp Dir is %TEMP%
 set TMPDIR=%TEMP%
