@@ -115,7 +115,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", IS_RELEASE, "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}")
             }
         }
         stage('package') {
@@ -302,9 +302,12 @@ def readMetadata() {
 class BuildParams{
     public String PYCBC_LCB_API=null
     public String PLATFORM=null
-    BuildParams(String PYCBC_LCB_API, String PLATFORM=null) {
+    String dist_dir
+
+    BuildParams(String PYCBC_LCB_API, String PLATFORM=null, String dist_dir=null) {
         this.PYCBC_LCB_API = PYCBC_LCB_API
         this.PLATFORM = PLATFORM
+        this.dist_dir = dist_dir
     }
 }
 
@@ -594,10 +597,11 @@ def installReqsIfNeeded(TestParams params, def platform) {
 def installPythonClientFromDist(TestParams x)
 {
     if (x.installFromDist) {
+        def dist_dir = x.buildParams.dist_dir
         dir("${WORKSPACE}/couchbase-python-client") {
             cmdWithEcho(x.buildParams.PLATFORM, """
     pip uninstall --yes couchbase
-    pip install couchbase --no-index --find-links dist
+    pip install couchbase --no-index --find-links ${dist_dir}
     """)
         }
     }
@@ -1275,7 +1279,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 echo "${platform} ineligible for Valgrind"
                             }
 
-                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, do_valgrind?PYCBC_VALGRIND:"" , null, do_generic_jobs)
+                            TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, do_valgrind?PYCBC_VALGRIND:"" , null, do_generic_jobs, IS_RELEASE?true:false)
 
                             def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
                             def win_arch = [x86: [], x64: ['Win64']][arch]
@@ -1284,6 +1288,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
+                            buildParams.dist_dir=dist_dir
                             def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
                             def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
