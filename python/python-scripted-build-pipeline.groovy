@@ -27,6 +27,8 @@ if (IS_RELEASE){
     PYCBC_DEBUG_SYMBOLS=""
 }
 def PYCBC_BRANCH="${PYCBC_BRANCH}"
+
+def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
 pipeline {
     options {
       timeout(time: 1, unit: 'HOURS')
@@ -1222,7 +1224,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         done_generic_jobs=true
                     }
                     def try_invalid_combo = "${COMMIT_MSG}".contains("PYCBC_TRY_INVALID_COMBO")
-                    if (isWindows(platform) && (pyversion<("3.0")) && !try_invalid_combo) {
+                    if (isWindows(platform) && (pyversion<("${WIN_MIN_PYVERSION}")) && !try_invalid_combo) {
                         continue
                     }
 
