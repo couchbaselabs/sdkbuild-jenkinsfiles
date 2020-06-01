@@ -161,10 +161,11 @@ class DynamicCluster {
     }
 
     boolean isDp() {
-        return server_version.tokenize("_").size > 1
+        return server_version.tokenize("_").size() > 1
+    }
 
     String getIp() {
-        return connstr.tokenize(",;")[0];
+        return connstr.tokenize(",")[0]
     }
 
     boolean isAllocated() {
