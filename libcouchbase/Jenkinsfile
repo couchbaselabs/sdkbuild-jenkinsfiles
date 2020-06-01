@@ -112,7 +112,7 @@ class DynamicCluster {
     }
 }
 
-def CLUSTER = {}
+def CLUSTER = [:]
 
 pipeline {
     agent none
