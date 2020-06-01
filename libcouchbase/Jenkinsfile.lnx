@@ -92,18 +92,6 @@ class DynamicCluster {
     String connstr = null;
     String server_version = null;
 
-    String getVersion() {
-        return server_version.tokenize("_")[0]
-    }
-
-    boolean isDp() {
-        return server_version.tokenize("_").size() > 1
-    }
-
-    String getIp() {
-        return connstr.tokenize(",")[0]
-    }
-
     boolean isAllocated() {
         return !(id == null || id == "")
     }
@@ -267,16 +255,22 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER['5.5.6'] = new DynamicCluster()
-                                    CLUSTER['5.5.6'].server_version = '5.5.6'
-                                    CLUSTER['5.5.6'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['5.5.6'].server_version()}", returnStdout: true).trim()
-                                    CLUSTER['5.5.6'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['5.5.6'].id}", returnStdout: true).trim()
-                                    if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['5.5.6'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
+                                    def cluster = new DynamicCluster()
+                                    CLUSTER['5.5.6'] = cluster
+                                    def ver = '5.5.6'.tokenize("_")[0]
+                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                                 }
                                 echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                script{
+                                    def isDp = '5.5.6'.tokenize("_").size() > 1
+                                    if (isDp) {
+                                        sleep(30)
+                                        def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
+                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
+                                    }
+                                }
                             }
                         }
                         stage('test') {
@@ -322,16 +316,22 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER['6.0.3'] = new DynamicCluster()
-                                    CLUSTER['6.0.3'].server_version = '6.0.3'
-                                    CLUSTER['6.0.3'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['6.0.3'].server_version()}", returnStdout: true).trim()
-                                    CLUSTER['6.0.3'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['6.0.3'].id}", returnStdout: true).trim()
-                                    if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['6.0.3'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
+                                    def cluster = new DynamicCluster()
+                                    CLUSTER['6.0.3'] = cluster
+                                    def ver = '6.0.3'.tokenize("_")[0]
+                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                                 }
                                 echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                script{
+                                    def isDp = '6.0.3'.tokenize("_").size() > 1
+                                    if (isDp) {
+                                        sleep(30)
+                                        def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
+                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
+                                    }
+                                }
                             }
                         }
                         stage('test') {
@@ -377,16 +377,22 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER['6.5.0-4947'] = new DynamicCluster()
-                                    CLUSTER['6.5.0-4947'].server_version = '6.5.0-4947'
-                                    CLUSTER['6.5.0-4947'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['6.5.0-4947'].server_version()}", returnStdout: true).trim()
-                                    CLUSTER['6.5.0-4947'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['6.5.0-4947'].id}", returnStdout: true).trim()
-                                    if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['6.5.0-4947'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
+                                    def cluster = new DynamicCluster()
+                                    CLUSTER['6.5.0-4947'] = cluster
+                                    def ver = '6.5.0-4947'.tokenize("_")[0]
+                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                                 }
                                 echo "Allocated ${CLUSTER['6.5.0-4947'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['6.5.0-4947'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                script{
+                                    def isDp = '6.5.0-4947'.tokenize("_").size() > 1
+                                    if (isDp) {
+                                        sleep(30)
+                                        def ip = "${CLUSTER['6.5.0-4947'].connstr}".tokenize(",")[0]
+                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
+                                    }
+                                }
                             }
                         }
                         stage('test') {
