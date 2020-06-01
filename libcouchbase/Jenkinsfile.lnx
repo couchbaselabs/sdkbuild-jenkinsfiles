@@ -93,10 +93,10 @@ class DynamicCluster {
     String server_version = null
 
     String getVersion() {
-        return server_version.tokenize("-")[0]
+        return server_version.tokenize("_")[0]
 
     boolean isDp() {
-        return server_version.tokenize("-").size > 1
+        return server_version.tokenize("_").size > 1
 
     String getIp() {
         return connstr.tokenize(",;")[0]
@@ -245,6 +245,7 @@ pipeline {
         stage('integration test') {
             parallel {
                 stage('5.5.6') {
+                    def server_version = '5.5.6'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
@@ -300,6 +301,7 @@ pipeline {
                     }
                 }
                 stage('6.0.3') {
+                    def server_version = '6.0.3'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
@@ -355,6 +357,7 @@ pipeline {
                     }
                 }
                 stage('6.5.0-4947') {
+                    def server_version = '6.5.0-4947'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
