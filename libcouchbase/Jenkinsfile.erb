@@ -388,7 +388,7 @@ pipeline {
                                         sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['<%= server_version %>'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                 }
-                                echo "Allocated ${CLUSTER['<%= server_version %>']}.inspect()}"
+                                echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                             }
                         }
