@@ -245,7 +245,6 @@ pipeline {
         stage('integration test') {
             parallel {
                 stage('5.5.6') {
-                    def server_version = '5.5.6'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
@@ -255,8 +254,8 @@ pipeline {
                     post {
                         always {
                             script {
-                                if (CLUSTER[server_version].isAllocated()) {
-                                    sh("cbdyncluster rm ${CLUSTER[server_version].id}")
+                                if (CLUSTER['5.5.6'].isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
                                 }
                             }
                         }
@@ -266,16 +265,16 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER[server_version] = new DynamicCluster()
-                                    CLUSTER[server_version].server_version = server_version
-                                    CLUSTER[server_version].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER[server_version].server_version()}", returnStdout: true).trim()
-                                    CLUSTER[server_version].connstr = sh(script: "cbdyncluster ips ${CLUSTER[server_version].id}", returnStdout: true).trim()
+                                    CLUSTER['5.5.6'] = new DynamicCluster()
+                                    CLUSTER['5.5.6'].server_version = '5.5.6'
+                                    CLUSTER['5.5.6'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['5.5.6'].server_version()}", returnStdout: true).trim()
+                                    CLUSTER['5.5.6'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['5.5.6'].id}", returnStdout: true).trim()
                                     if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER[server_version].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
+                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['5.5.6'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                 }
-                                echo "Allocated ${CLUSTER[server_version]}.inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER[server_version].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                echo "Allocated ${CLUSTER['5.5.6']}.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                             }
                         }
                         stage('test') {
@@ -286,7 +285,7 @@ pipeline {
                                 }
                             }
                             environment {
-                                LCB_TEST_CLUSTER_CONF="${CLUSTER[server_version].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER['5.5.6'].connstr.replaceAll(',', ';')},default,Administrator,password"
                             }
                             steps {
                                 unstash('centos7_build')
@@ -301,7 +300,6 @@ pipeline {
                     }
                 }
                 stage('6.0.3') {
-                    def server_version = '6.0.3'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
@@ -311,8 +309,8 @@ pipeline {
                     post {
                         always {
                             script {
-                                if (CLUSTER[server_version].isAllocated()) {
-                                    sh("cbdyncluster rm ${CLUSTER[server_version].id}")
+                                if (CLUSTER['6.0.3'].isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
                                 }
                             }
                         }
@@ -322,16 +320,16 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER[server_version] = new DynamicCluster()
-                                    CLUSTER[server_version].server_version = server_version
-                                    CLUSTER[server_version].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER[server_version].server_version()}", returnStdout: true).trim()
-                                    CLUSTER[server_version].connstr = sh(script: "cbdyncluster ips ${CLUSTER[server_version].id}", returnStdout: true).trim()
+                                    CLUSTER['6.0.3'] = new DynamicCluster()
+                                    CLUSTER['6.0.3'].server_version = '6.0.3'
+                                    CLUSTER['6.0.3'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['6.0.3'].server_version()}", returnStdout: true).trim()
+                                    CLUSTER['6.0.3'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['6.0.3'].id}", returnStdout: true).trim()
                                     if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER[server_version].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
+                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['6.0.3'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                 }
-                                echo "Allocated ${CLUSTER[server_version]}.inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER[server_version].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                echo "Allocated ${CLUSTER['6.0.3']}.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                             }
                         }
                         stage('test') {
@@ -342,7 +340,7 @@ pipeline {
                                 }
                             }
                             environment {
-                                LCB_TEST_CLUSTER_CONF="${CLUSTER[server_version].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER['6.0.3'].connstr.replaceAll(',', ';')},default,Administrator,password"
                             }
                             steps {
                                 unstash('centos7_build')
@@ -357,7 +355,6 @@ pipeline {
                     }
                 }
                 stage('6.5.0-4947') {
-                    def server_version = '6.5.0-4947'
                     agent { label 'sdkqe-centos7' }
                     when {
                         expression {
@@ -367,8 +364,8 @@ pipeline {
                     post {
                         always {
                             script {
-                                if (CLUSTER[server_version].isAllocated()) {
-                                    sh("cbdyncluster rm ${CLUSTER[server_version].id}")
+                                if (CLUSTER['6.5.0-4947'].isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER['6.5.0-4947'].id}")
                                 }
                             }
                         }
@@ -378,16 +375,16 @@ pipeline {
                             steps {
                                 sh("cbdyncluster ps -a")
                                 script {
-                                    CLUSTER[server_version] = new DynamicCluster()
-                                    CLUSTER[server_version].server_version = server_version
-                                    CLUSTER[server_version].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER[server_version].server_version()}", returnStdout: true).trim()
-                                    CLUSTER[server_version].connstr = sh(script: "cbdyncluster ips ${CLUSTER[server_version].id}", returnStdout: true).trim()
+                                    CLUSTER['6.5.0-4947'] = new DynamicCluster()
+                                    CLUSTER['6.5.0-4947'].server_version = '6.5.0-4947'
+                                    CLUSTER['6.5.0-4947'].id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${CLUSTER['6.5.0-4947'].server_version()}", returnStdout: true).trim()
+                                    CLUSTER['6.5.0-4947'].connstr = sh(script: "cbdyncluster ips ${CLUSTER['6.5.0-4947'].id}", returnStdout: true).trim()
                                     if (CLUSTER[server_version].isDp()) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER[server_version].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
+                                        sh("curl -vv -X POST -u Administrator:password http://${CLUSTER['6.5.0-4947'].getIp()}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                 }
-                                echo "Allocated ${CLUSTER[server_version]}.inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER[server_version].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                                echo "Allocated ${CLUSTER['6.5.0-4947']}.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER['6.5.0-4947'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                             }
                         }
                         stage('test') {
@@ -398,7 +395,7 @@ pipeline {
                                 }
                             }
                             environment {
-                                LCB_TEST_CLUSTER_CONF="${CLUSTER[server_version].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER['6.5.0-4947'].connstr.replaceAll(',', ';')},default,Administrator,password"
                             }
                             steps {
                                 unstash('centos7_build')
