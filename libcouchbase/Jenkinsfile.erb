@@ -158,6 +158,7 @@ class DynamicCluster {
 
     String getVersion() {
         return server_version.tokenize("_")[0]
+    }
 
     boolean isDp() {
         return server_version.tokenize("_").size > 1
