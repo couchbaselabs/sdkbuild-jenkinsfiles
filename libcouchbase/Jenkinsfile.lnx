@@ -231,6 +231,160 @@ pipeline {
                 }
             }
         }
+        stage('integration test') {
+            parallel {
+                stage('5.5.6') {
+                    agent { label 'sdkqe-centos7' }
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
+                    }
+                    post {
+                        always {
+                            script {
+                                if (CLUSTER.isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER.id}")
+                                }
+                            }
+                        }
+                    }
+                    stages {
+                        stage('start') {
+                            steps {
+                                sh("cbdyncluster ps -a")
+                                script {
+                                    CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=5.5.6", returnStdout: true).trim()
+                                    CLUSTER.connstr = sh(script: "cbdyncluster ips ${CLUSTER.id}", returnStdout: true).trim()
+                                }
+                                echo "Allocated ${CLUSTER.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                            }
+                            environment {
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER.connstr.replaceAll(',', ';')},default,Administrator,password"
+                            }
+                            steps {
+                                unstash('centos7_build')
+                                dir('ws_centos7_x64/build') {
+                                    sh("pwd")
+                                    sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                                    sleep(20)
+                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('6.0.3') {
+                    agent { label 'sdkqe-centos7' }
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
+                    }
+                    post {
+                        always {
+                            script {
+                                if (CLUSTER.isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER.id}")
+                                }
+                            }
+                        }
+                    }
+                    stages {
+                        stage('start') {
+                            steps {
+                                sh("cbdyncluster ps -a")
+                                script {
+                                    CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=6.0.3", returnStdout: true).trim()
+                                    CLUSTER.connstr = sh(script: "cbdyncluster ips ${CLUSTER.id}", returnStdout: true).trim()
+                                }
+                                echo "Allocated ${CLUSTER.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                            }
+                            environment {
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER.connstr.replaceAll(',', ';')},default,Administrator,password"
+                            }
+                            steps {
+                                unstash('centos7_build')
+                                dir('ws_centos7_x64/build') {
+                                    sh("pwd")
+                                    sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                                    sleep(20)
+                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('6.5.0-4947') {
+                    agent { label 'sdkqe-centos7' }
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
+                    }
+                    post {
+                        always {
+                            script {
+                                if (CLUSTER.isAllocated()) {
+                                    sh("cbdyncluster rm ${CLUSTER.id}")
+                                }
+                            }
+                        }
+                    }
+                    stages {
+                        stage('start') {
+                            steps {
+                                sh("cbdyncluster ps -a")
+                                script {
+                                    CLUSTER.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=6.5.0-4947", returnStdout: true).trim()
+                                    CLUSTER.connstr = sh(script: "cbdyncluster ips ${CLUSTER.id}", returnStdout: true).trim()
+                                }
+                                echo "Allocated ${CLUSTER.inspect()}"
+                                sh("cbdyncluster setup ${CLUSTER.id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                            }
+                            environment {
+                                LCB_TEST_CLUSTER_CONF="${CLUSTER.connstr.replaceAll(',', ';')},default,Administrator,password"
+                            }
+                            steps {
+                                unstash('centos7_build')
+                                dir('ws_centos7_x64/build') {
+                                    sh("pwd")
+                                    sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                                    sleep(20)
+                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         stage('package') {
             when {
                 expression {
