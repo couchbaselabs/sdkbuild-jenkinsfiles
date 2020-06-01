@@ -154,7 +154,7 @@ def VERSION = new Version('0.0.0')
 class DynamicCluster {
     String id = null;
     String connstr = null;
-    String server_version = null
+    String server_version = null;
 
     String getVersion() {
         return server_version.tokenize("_")[0]
@@ -164,7 +164,7 @@ class DynamicCluster {
         return server_version.tokenize("_").size > 1
 
     String getIp() {
-        return connstr.tokenize(",;")[0]
+        return connstr.tokenize(",;")[0];
     }
 
     boolean isAllocated() {
