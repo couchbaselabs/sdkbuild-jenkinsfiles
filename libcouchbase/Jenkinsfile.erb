@@ -380,7 +380,7 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '<%= server_version %>'.tokenize("_").size() > 1
-                                    echo "isDp=${isDp}
+                                    echo "isDp=${isDp}"
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]

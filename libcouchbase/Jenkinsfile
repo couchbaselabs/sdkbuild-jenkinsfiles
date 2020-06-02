@@ -390,7 +390,7 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '5.5.6'.tokenize("_").size() > 1
-                                    echo "isDp=${isDp}
+                                    echo "isDp=${isDp}"
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
@@ -453,7 +453,7 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '6.0.3'.tokenize("_").size() > 1
-                                    echo "isDp=${isDp}
+                                    echo "isDp=${isDp}"
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
@@ -516,7 +516,7 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['6.5.0-4947'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '6.5.0-4947'.tokenize("_").size() > 1
-                                    echo "isDp=${isDp}
+                                    echo "isDp=${isDp}"
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['6.5.0-4947'].connstr}".tokenize(",")[0]
