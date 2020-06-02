@@ -168,7 +168,7 @@ pipeline {
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_debian9_x64/', name: 'debian9_build', useDefaultExcludes: false
+                                stash includes: 'ws_debian9_x64/', name: 'debian9_build'
                             }
                         }
                         stage('test') {
@@ -212,7 +212,7 @@ pipeline {
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_centos7_x64/', name: 'centos7_build', useDefaultExcludes: false
+                                stash includes: 'ws_centos7_x64/', name: 'centos7_build'
                             }
                         }
                         stage('test') {
@@ -263,13 +263,15 @@ pipeline {
                                 }
                                 echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script{
+                                script {
                                     def isDp = '5.5.6'.tokenize("_").size() > 1
+                                    echo "isDp=${isDp}
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
+                                    echo "done starting cbdyncluster"
                                 }
                             }
                         }
@@ -324,13 +326,15 @@ pipeline {
                                 }
                                 echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script{
+                                script {
                                     def isDp = '6.0.3'.tokenize("_").size() > 1
+                                    echo "isDp=${isDp}
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
+                                    echo "done starting cbdyncluster"
                                 }
                             }
                         }
@@ -385,13 +389,15 @@ pipeline {
                                 }
                                 echo "Allocated ${CLUSTER['6.5.0-4947'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['6.5.0-4947'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script{
+                                script {
                                     def isDp = '6.5.0-4947'.tokenize("_").size() > 1
+                                    echo "isDp=${isDp}
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['6.5.0-4947'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
+                                    echo "done starting cbdyncluster"
                                 }
                             }
                         }

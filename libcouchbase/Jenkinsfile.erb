@@ -242,7 +242,7 @@ pipeline {
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_<%= label %>_x64/', name: '<%= label %>_build', useDefaultExcludes: false
+                                stash includes: 'ws_<%= label %>_x64/', name: '<%= label %>_build'
                             }
                         }
                         stage('test') {
@@ -378,13 +378,15 @@ pipeline {
                                 }
                                 echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
                                 sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script{
+                                script {
                                     def isDp = '<%= server_version %>'.tokenize("_").size() > 1
+                                    echo "isDp=${isDp}
                                     if (isDp) {
                                         sleep(30)
                                         def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
+                                    echo "done starting cbdyncluster"
                                 }
                             }
                         }
