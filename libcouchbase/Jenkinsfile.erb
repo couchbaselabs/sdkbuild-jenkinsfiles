@@ -394,7 +394,7 @@ pipeline {
                             post {
                                 failure {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_<%= server_version %>_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {

@@ -404,7 +404,7 @@ pipeline {
                             post {
                                 failure {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_5.5.6_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
@@ -467,7 +467,7 @@ pipeline {
                             post {
                                 failure {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_6.0.3_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
@@ -530,7 +530,7 @@ pipeline {
                             post {
                                 failure {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                    archiveArtifacts(artifacts: "failure-ws_centos7_6.5.0-4947_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
