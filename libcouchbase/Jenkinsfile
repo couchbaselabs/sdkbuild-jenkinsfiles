@@ -390,10 +390,11 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '5.5.6'.tokenize("_").size() > 1
+                                    def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
                                     echo "isDp=${isDp}"
+                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                                    sleep(30)
                                     if (isDp) {
-                                        sleep(30)
-                                        def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                     echo "done starting cbdyncluster"
@@ -403,8 +404,8 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_5.5.6_x64.tar", fingerprint: false)
+                                    sh('tar cf integration_failure-ws_centos7_5.5.6_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "integration_failure-ws_centos7_5.5.6_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
@@ -453,10 +454,11 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '6.0.3'.tokenize("_").size() > 1
+                                    def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
                                     echo "isDp=${isDp}"
+                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                                    sleep(30)
                                     if (isDp) {
-                                        sleep(30)
-                                        def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                     echo "done starting cbdyncluster"
@@ -466,8 +468,8 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_6.0.3_x64.tar", fingerprint: false)
+                                    sh('tar cf integration_failure-ws_centos7_6.0.3_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.0.3_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
@@ -516,10 +518,11 @@ pipeline {
                                 sh("cbdyncluster setup ${CLUSTER['6.5.0-4947'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                                 script {
                                     def isDp = '6.5.0-4947'.tokenize("_").size() > 1
+                                    def ip = "${CLUSTER['6.5.0-4947'].connstr}".tokenize(",")[0]
                                     echo "isDp=${isDp}"
+                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                                    sleep(30)
                                     if (isDp) {
-                                        sleep(30)
-                                        def ip = "${CLUSTER['6.5.0-4947'].connstr}".tokenize(",")[0]
                                         sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                                     }
                                     echo "done starting cbdyncluster"
@@ -529,8 +532,8 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_6.5.0-4947_x64.tar", fingerprint: false)
+                                    sh('tar cf integration_failure-ws_centos7_6.5.0-4947_x64.tar ws_centos7_x64')
+                                    archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.5.0-4947_x64.tar", fingerprint: false)
                                 }
                             }
                             environment {
