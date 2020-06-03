@@ -169,7 +169,7 @@ class DynamicCluster {
 def CLUSTER = [:]
 
 def doIntegrationStages() {
-    returned_stages = [:]
+    def returned_stages = [:]
 <% server_versions.each do |server_version| %>
     returned_stages['<%= server_version %>'] = {
         node('sdkqe=centos7') {
