@@ -150,7 +150,7 @@ def doIntegrationStages() {
                             }
                         } catch(all) {
                             sh('tar cf integration_failure-ws_centos7_5.5.6_x64.tar ws_centos7_x64')
-                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_5.5.6_x64.tar"
+                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_5.5.6_x64.tar")
                         }
                     }
                 } finally {
@@ -208,7 +208,7 @@ def doIntegrationStages() {
                             }
                         } catch(all) {
                             sh('tar cf integration_failure-ws_centos7_6.0.3_x64.tar ws_centos7_x64')
-                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.0.3_x64.tar"
+                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.0.3_x64.tar")
                         }
                     }
                 } finally {
@@ -266,7 +266,7 @@ def doIntegrationStages() {
                             }
                         } catch(all) {
                             sh('tar cf integration_failure-ws_centos7_6.5.0_x64.tar ws_centos7_x64')
-                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.5.0_x64.tar"
+                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.5.0_x64.tar")
                         }
                     }
                 } finally {
@@ -324,7 +324,7 @@ def doIntegrationStages() {
                             }
                         } catch(all) {
                             sh('tar cf integration_failure-ws_centos7_6.5.0_DP_x64.tar ws_centos7_x64')
-                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.5.0_DP_x64.tar"
+                            archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.5.0_DP_x64.tar")
                         }
                     }
                 } finally {
