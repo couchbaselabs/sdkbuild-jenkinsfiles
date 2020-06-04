@@ -175,40 +175,36 @@ def doIntegrationStages(CLUSTER) {
         try {
             node('sdkqe-centos7') {
                 stage('start') {
-                    steps {
-                        sh("cbdyncluster ps -a")
-                        script {
-                            def cluster = new DynamicCluster()
-                            CLUSTER['<%= server_version %>'] = cluster
-                            def ver = '<%= server_version %>'.tokenize("_")[0]
-                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                        }
-                        echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
-                        sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                        script {
-                            def isDp = '<%= server_version %>'.tokenize("_").size() > 1
-                            def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]
-                            echo "isDp=${isDp}"
-                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                            sleep(30)
-                            if (isDp) {
-                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                            }
+                    sh("cbdyncluster ps -a")
+                    script {
+                       def cluster = new DynamicCluster()
+                        CLUSTER['<%= server_version %>'] = cluster
+                        def ver = '<%= server_version %>'.tokenize("_")[0]
+                        cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                        cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                    }
+                    echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
+                    sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                    script {
+                        def isDp = '<%= server_version %>'.tokenize("_").size() > 1
+                        def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]
+                        echo "isDp=${isDp}"
+                        sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                        sleep(30)
+                        if (isDp) {
+                           sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['<%= server_version %>'].connstr.replaceAll(',', ';')},default,Administrator,password"
                                 }
-                                steps {
-                                    unstash('centos7_build')
-                                    dir('ws_centos7_x64/build') {
-                                        sh("pwd")
-                                        sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
-                                        sleep(20)
-                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
-                                    }
+                                unstash('centos7_build')
+                                dir('ws_centos7_x64/build') {
+                                    sh("pwd")
+                                    sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                                    sleep(20)
+                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_<%= server_version %>_x64.tar ws_centos7_x64')
