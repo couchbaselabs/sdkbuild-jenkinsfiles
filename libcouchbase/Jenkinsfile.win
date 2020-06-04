@@ -106,8 +106,8 @@ def CLUSTER = [:]
 def doIntegrationStages(CLUSTER) {
     def returned_stages = [:]
     returned_stages['5.5.6'] = {
-        try {
-            node('sdkqe-centos7') {
+        node('sdkqe-centos7') {
+            try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
@@ -147,18 +147,18 @@ def doIntegrationStages(CLUSTER) {
                         }
                     }
                 }
-            }
-        } finally {
-            script {
-                if (CLUSTER['5.5.6'] && CLUSTER['5.5.6'].isAllocated()) {
-                    sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
+            } finally {
+                script {
+                    if (CLUSTER['5.5.6'] && CLUSTER['5.5.6'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
+                    }
                 }
             }
         }
     }
     returned_stages['6.0.3'] = {
-        try {
-            node('sdkqe-centos7') {
+        node('sdkqe-centos7') {
+            try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
@@ -198,18 +198,18 @@ def doIntegrationStages(CLUSTER) {
                         }
                     }
                 }
-            }
-        } finally {
-            script {
-                if (CLUSTER['6.0.3'] && CLUSTER['6.0.3'].isAllocated()) {
-                    sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
+            } finally {
+                script {
+                    if (CLUSTER['6.0.3'] && CLUSTER['6.0.3'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
+                    }
                 }
             }
         }
     }
     returned_stages['6.5.0'] = {
-        try {
-            node('sdkqe-centos7') {
+        node('sdkqe-centos7') {
+            try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
@@ -249,18 +249,18 @@ def doIntegrationStages(CLUSTER) {
                         }
                     }
                 }
-            }
-        } finally {
-            script {
-                if (CLUSTER['6.5.0'] && CLUSTER['6.5.0'].isAllocated()) {
-                    sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
+            } finally {
+                script {
+                    if (CLUSTER['6.5.0'] && CLUSTER['6.5.0'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
+                    }
                 }
             }
         }
     }
     returned_stages['6.5.0_DP'] = {
-        try {
-            node('sdkqe-centos7') {
+        node('sdkqe-centos7') {
+            try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
@@ -300,11 +300,11 @@ def doIntegrationStages(CLUSTER) {
                         }
                     }
                 }
-            }
-        } finally {
-            script {
-                if (CLUSTER['6.5.0_DP'] && CLUSTER['6.5.0_DP'].isAllocated()) {
-                    sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
+            } finally {
+                script {
+                    if (CLUSTER['6.5.0_DP'] && CLUSTER['6.5.0_DP'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
+                    }
                 }
             }
         }

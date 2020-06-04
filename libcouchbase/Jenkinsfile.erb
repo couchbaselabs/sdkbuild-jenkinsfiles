@@ -172,8 +172,8 @@ def doIntegrationStages(CLUSTER) {
     def returned_stages = [:]
 <% server_versions.each do |server_version| %>
     returned_stages['<%= server_version %>'] = {
-        try {
-            node('sdkqe-centos7') {
+        node('sdkqe-centos7') {
+            try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
@@ -213,11 +213,11 @@ def doIntegrationStages(CLUSTER) {
                         }
                     }
                 }
-            }
-        } finally {
-            script {
-                if (CLUSTER['<%= server_version %>'] && CLUSTER['<%= server_version %>'].isAllocated()) {
-                    sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
+            } finally {
+                script {
+                    if (CLUSTER['<%= server_version %>'] && CLUSTER['<%= server_version %>'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
+                    }
                 }
             }
         }
