@@ -154,7 +154,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['5.5.6] && CLUSTER['5.5.6'].isAllocated()) {
+                if (CLUSTER['5.5.6'] && CLUSTER['5.5.6'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
                 }
             }
@@ -209,7 +209,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.0.3] && CLUSTER['6.0.3'].isAllocated()) {
+                if (CLUSTER['6.0.3'] && CLUSTER['6.0.3'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
                 }
             }
@@ -264,7 +264,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.5.0] && CLUSTER['6.5.0'].isAllocated()) {
+                if (CLUSTER['6.5.0'] && CLUSTER['6.5.0'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
                 }
             }
@@ -319,7 +319,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.5.0_DP] && CLUSTER['6.5.0_DP'].isAllocated()) {
+                if (CLUSTER['6.5.0_DP'] && CLUSTER['6.5.0_DP'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
                 }
             }

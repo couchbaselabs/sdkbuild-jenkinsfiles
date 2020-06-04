@@ -220,7 +220,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['<%= server_version %>] && CLUSTER['<%= server_version %>'].isAllocated()) {
+                if (CLUSTER['<%= server_version %>'] && CLUSTER['<%= server_version %>'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
                 }
             }
