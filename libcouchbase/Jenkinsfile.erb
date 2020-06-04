@@ -184,7 +184,7 @@ def doIntegrationStages(CLUSTER) {
                             cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                             cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                         }
-                       echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
+                        echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
                         sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                         script {
                             def isDp = '<%= server_version %>'.tokenize("_").size() > 1
@@ -220,7 +220,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['<%= server_version %>'].isAllocated()) {
+                if (CLUSTER['<%= server_version %>] && CLUSTER['<%= server_version %>'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
                 }
             }

@@ -118,7 +118,7 @@ def doIntegrationStages(CLUSTER) {
                             cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                             cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                         }
-                       echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
+                        echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
                         sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                         script {
                             def isDp = '5.5.6'.tokenize("_").size() > 1
@@ -154,7 +154,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['5.5.6'].isAllocated()) {
+                if (CLUSTER['5.5.6] && CLUSTER['5.5.6'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
                 }
             }
@@ -173,7 +173,7 @@ def doIntegrationStages(CLUSTER) {
                             cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                             cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                         }
-                       echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
+                        echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
                         sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                         script {
                             def isDp = '6.0.3'.tokenize("_").size() > 1
@@ -209,7 +209,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.0.3'].isAllocated()) {
+                if (CLUSTER['6.0.3] && CLUSTER['6.0.3'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
                 }
             }
@@ -228,7 +228,7 @@ def doIntegrationStages(CLUSTER) {
                             cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                             cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                         }
-                       echo "Allocated ${CLUSTER['6.5.0'].inspect()}"
+                        echo "Allocated ${CLUSTER['6.5.0'].inspect()}"
                         sh("cbdyncluster setup ${CLUSTER['6.5.0'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                         script {
                             def isDp = '6.5.0'.tokenize("_").size() > 1
@@ -264,7 +264,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.5.0'].isAllocated()) {
+                if (CLUSTER['6.5.0] && CLUSTER['6.5.0'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
                 }
             }
@@ -283,7 +283,7 @@ def doIntegrationStages(CLUSTER) {
                             cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                             cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                         }
-                       echo "Allocated ${CLUSTER['6.5.0_DP'].inspect()}"
+                        echo "Allocated ${CLUSTER['6.5.0_DP'].inspect()}"
                         sh("cbdyncluster setup ${CLUSTER['6.5.0_DP'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                         script {
                             def isDp = '6.5.0_DP'.tokenize("_").size() > 1
@@ -319,7 +319,7 @@ def doIntegrationStages(CLUSTER) {
             }
         } finally {
             script {
-                if (CLUSTER['6.5.0_DP'].isAllocated()) {
+                if (CLUSTER['6.5.0_DP] && CLUSTER['6.5.0_DP'].isAllocated()) {
                     sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
                 }
             }
