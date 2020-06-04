@@ -415,7 +415,9 @@ pipeline {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
                 }
             }
-            parallel doIntegrationStages()
+            script {
+                parallel doIntegrationStages()
+            }
         }
 <% end %>
 <% if (centos_dists + ubuntu_dists).any? %>
