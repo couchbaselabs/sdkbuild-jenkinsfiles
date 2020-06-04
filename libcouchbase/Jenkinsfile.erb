@@ -168,7 +168,7 @@ class DynamicCluster {
 
 def CLUSTER = [:]
 
-def doIntegrationStages() {
+def doIntegrationStages(CLUSTER) {
     def returned_stages = [:]
 <% server_versions.each do |server_version| %>
     returned_stages['<%= server_version %>'] = {
@@ -417,7 +417,7 @@ pipeline {
             }
             steps {
                 script {
-                    parallel doIntegrationStages()
+                    parallel doIntegrationStages(CLUSTER)
                 }
             }
         }

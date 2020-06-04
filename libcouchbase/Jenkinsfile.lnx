@@ -103,7 +103,7 @@ class DynamicCluster {
 
 def CLUSTER = [:]
 
-def doIntegrationStages() {
+def doIntegrationStages(CLUSTER) {
     def returned_stages = [:]
     returned_stages['5.5.6'] = {
         try {
@@ -465,7 +465,7 @@ pipeline {
             }
             steps {
                 script {
-                    parallel doIntegrationStages()
+                    parallel doIntegrationStages(CLUSTER)
                 }
             }
         }
