@@ -172,33 +172,28 @@ def doIntegrationStages() {
     def returned_stages = [:]
 <% server_versions.each do |server_version| %>
     returned_stages['<%= server_version %>'] = {
-        node('sdkqe=centos7') {
-            stage('<%= server_version %>_integration') {
-                try {
-                    stages {
-                        stage('start') {
-                            steps {
-                                sh("cbdyncluster ps -a")
-                                script {
-                                    def cluster = new DynamicCluster()
-                                    CLUSTER['<%= server_version %>'] = cluster
-                                    def ver = '<%= server_version %>'.tokenize("_")[0]
-                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                                }
-                                echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script {
-                                    def isDp = '<%= server_version %>'.tokenize("_").size() > 1
-                                    def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]
-                                    echo "isDp=${isDp}"
-                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                                    sleep(30)
-                                    if (isDp) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
-                                    echo "done starting cbdyncluster"
-                                }
+        try {
+            node('sdkqe=centos7') {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            def cluster = new DynamicCluster()
+                            CLUSTER['<%= server_version %>'] = cluster
+                            def ver = '<%= server_version %>'.tokenize("_")[0]
+                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                        }
+                       echo "Allocated ${CLUSTER['<%= server_version %>'].inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER['<%= server_version %>'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                        script {
+                            def isDp = '<%= server_version %>'.tokenize("_").size() > 1
+                            def ip = "${CLUSTER['<%= server_version %>'].connstr}".tokenize(",")[0]
+                            echo "isDp=${isDp}"
+                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                            sleep(30)
+                            if (isDp) {
+                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                             }
                         }
                         stage('test') {
@@ -221,12 +216,12 @@ def doIntegrationStages() {
                             }
                         }
                     }
-                } finally {
-                    script {
-                        if (CLUSTER['<%= server_version %>'].isAllocated()) {
-                            sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
-                        }
-                    }
+                }
+            }
+        } finally {
+            script {
+                if (CLUSTER['<%= server_version %>'].isAllocated()) {
+                    sh("cbdyncluster rm ${CLUSTER['<%= server_version %>'].id}")
                 }
             }
         }

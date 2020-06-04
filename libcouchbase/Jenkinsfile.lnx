@@ -106,33 +106,28 @@ def CLUSTER = [:]
 def doIntegrationStages() {
     def returned_stages = [:]
     returned_stages['5.5.6'] = {
-        node('sdkqe=centos7') {
-            stage('5.5.6_integration') {
-                try {
-                    stages {
-                        stage('start') {
-                            steps {
-                                sh("cbdyncluster ps -a")
-                                script {
-                                    def cluster = new DynamicCluster()
-                                    CLUSTER['5.5.6'] = cluster
-                                    def ver = '5.5.6'.tokenize("_")[0]
-                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                                }
-                                echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script {
-                                    def isDp = '5.5.6'.tokenize("_").size() > 1
-                                    def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
-                                    echo "isDp=${isDp}"
-                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                                    sleep(30)
-                                    if (isDp) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
-                                    echo "done starting cbdyncluster"
-                                }
+        try {
+            node('sdkqe=centos7') {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            def cluster = new DynamicCluster()
+                            CLUSTER['5.5.6'] = cluster
+                            def ver = '5.5.6'.tokenize("_")[0]
+                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                        }
+                       echo "Allocated ${CLUSTER['5.5.6'].inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER['5.5.6'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                        script {
+                            def isDp = '5.5.6'.tokenize("_").size() > 1
+                            def ip = "${CLUSTER['5.5.6'].connstr}".tokenize(",")[0]
+                            echo "isDp=${isDp}"
+                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                            sleep(30)
+                            if (isDp) {
+                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                             }
                         }
                         stage('test') {
@@ -155,44 +150,39 @@ def doIntegrationStages() {
                             }
                         }
                     }
-                } finally {
-                    script {
-                        if (CLUSTER['5.5.6'].isAllocated()) {
-                            sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
-                        }
-                    }
+                }
+            }
+        } finally {
+            script {
+                if (CLUSTER['5.5.6'].isAllocated()) {
+                    sh("cbdyncluster rm ${CLUSTER['5.5.6'].id}")
                 }
             }
         }
     }
     returned_stages['6.0.3'] = {
-        node('sdkqe=centos7') {
-            stage('6.0.3_integration') {
-                try {
-                    stages {
-                        stage('start') {
-                            steps {
-                                sh("cbdyncluster ps -a")
-                                script {
-                                    def cluster = new DynamicCluster()
-                                    CLUSTER['6.0.3'] = cluster
-                                    def ver = '6.0.3'.tokenize("_")[0]
-                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                                }
-                                echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script {
-                                    def isDp = '6.0.3'.tokenize("_").size() > 1
-                                    def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
-                                    echo "isDp=${isDp}"
-                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                                    sleep(30)
-                                    if (isDp) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
-                                    echo "done starting cbdyncluster"
-                                }
+        try {
+            node('sdkqe=centos7') {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            def cluster = new DynamicCluster()
+                            CLUSTER['6.0.3'] = cluster
+                            def ver = '6.0.3'.tokenize("_")[0]
+                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                        }
+                       echo "Allocated ${CLUSTER['6.0.3'].inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER['6.0.3'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                        script {
+                            def isDp = '6.0.3'.tokenize("_").size() > 1
+                            def ip = "${CLUSTER['6.0.3'].connstr}".tokenize(",")[0]
+                            echo "isDp=${isDp}"
+                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                            sleep(30)
+                            if (isDp) {
+                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                             }
                         }
                         stage('test') {
@@ -215,44 +205,39 @@ def doIntegrationStages() {
                             }
                         }
                     }
-                } finally {
-                    script {
-                        if (CLUSTER['6.0.3'].isAllocated()) {
-                            sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
-                        }
-                    }
+                }
+            }
+        } finally {
+            script {
+                if (CLUSTER['6.0.3'].isAllocated()) {
+                    sh("cbdyncluster rm ${CLUSTER['6.0.3'].id}")
                 }
             }
         }
     }
     returned_stages['6.5.0'] = {
-        node('sdkqe=centos7') {
-            stage('6.5.0_integration') {
-                try {
-                    stages {
-                        stage('start') {
-                            steps {
-                                sh("cbdyncluster ps -a")
-                                script {
-                                    def cluster = new DynamicCluster()
-                                    CLUSTER['6.5.0'] = cluster
-                                    def ver = '6.5.0'.tokenize("_")[0]
-                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                                }
-                                echo "Allocated ${CLUSTER['6.5.0'].inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER['6.5.0'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script {
-                                    def isDp = '6.5.0'.tokenize("_").size() > 1
-                                    def ip = "${CLUSTER['6.5.0'].connstr}".tokenize(",")[0]
-                                    echo "isDp=${isDp}"
-                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                                    sleep(30)
-                                    if (isDp) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
-                                    echo "done starting cbdyncluster"
-                                }
+        try {
+            node('sdkqe=centos7') {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            def cluster = new DynamicCluster()
+                            CLUSTER['6.5.0'] = cluster
+                            def ver = '6.5.0'.tokenize("_")[0]
+                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                        }
+                       echo "Allocated ${CLUSTER['6.5.0'].inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER['6.5.0'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                        script {
+                            def isDp = '6.5.0'.tokenize("_").size() > 1
+                            def ip = "${CLUSTER['6.5.0'].connstr}".tokenize(",")[0]
+                            echo "isDp=${isDp}"
+                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                            sleep(30)
+                            if (isDp) {
+                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                             }
                         }
                         stage('test') {
@@ -275,44 +260,39 @@ def doIntegrationStages() {
                             }
                         }
                     }
-                } finally {
-                    script {
-                        if (CLUSTER['6.5.0'].isAllocated()) {
-                            sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
-                        }
-                    }
+                }
+            }
+        } finally {
+            script {
+                if (CLUSTER['6.5.0'].isAllocated()) {
+                    sh("cbdyncluster rm ${CLUSTER['6.5.0'].id}")
                 }
             }
         }
     }
     returned_stages['6.5.0_DP'] = {
-        node('sdkqe=centos7') {
-            stage('6.5.0_DP_integration') {
-                try {
-                    stages {
-                        stage('start') {
-                            steps {
-                                sh("cbdyncluster ps -a")
-                                script {
-                                    def cluster = new DynamicCluster()
-                                    CLUSTER['6.5.0_DP'] = cluster
-                                    def ver = '6.5.0_DP'.tokenize("_")[0]
-                                    cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                    cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
-                                }
-                                echo "Allocated ${CLUSTER['6.5.0_DP'].inspect()}"
-                                sh("cbdyncluster setup ${CLUSTER['6.5.0_DP'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
-                                script {
-                                    def isDp = '6.5.0_DP'.tokenize("_").size() > 1
-                                    def ip = "${CLUSTER['6.5.0_DP'].connstr}".tokenize(",")[0]
-                                    echo "isDp=${isDp}"
-                                    sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
-                                    sleep(30)
-                                    if (isDp) {
-                                        sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                                    }
-                                    echo "done starting cbdyncluster"
-                                }
+        try {
+            node('sdkqe=centos7') {
+                stage('start') {
+                    steps {
+                        sh("cbdyncluster ps -a")
+                        script {
+                            def cluster = new DynamicCluster()
+                            CLUSTER['6.5.0_DP'] = cluster
+                            def ver = '6.5.0_DP'.tokenize("_")[0]
+                            cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
+                            cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
+                        }
+                       echo "Allocated ${CLUSTER['6.5.0_DP'].inspect()}"
+                        sh("cbdyncluster setup ${CLUSTER['6.5.0_DP'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                        script {
+                            def isDp = '6.5.0_DP'.tokenize("_").size() > 1
+                            def ip = "${CLUSTER['6.5.0_DP'].connstr}".tokenize(",")[0]
+                            echo "isDp=${isDp}"
+                            sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
+                            sleep(30)
+                            if (isDp) {
+                                sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                             }
                         }
                         stage('test') {
@@ -335,12 +315,12 @@ def doIntegrationStages() {
                             }
                         }
                     }
-                } finally {
-                    script {
-                        if (CLUSTER['6.5.0_DP'].isAllocated()) {
-                            sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
-                        }
-                    }
+                }
+            }
+        } finally {
+            script {
+                if (CLUSTER['6.5.0_DP'].isAllocated()) {
+                    sh("cbdyncluster rm ${CLUSTER['6.5.0_DP'].id}")
                 }
             }
         }
