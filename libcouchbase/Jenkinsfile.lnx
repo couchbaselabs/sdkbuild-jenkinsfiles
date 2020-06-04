@@ -463,8 +463,10 @@ pipeline {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
                 }
             }
-            script {
-                parallel doIntegrationStages()
+            steps {
+                script {
+                    parallel doIntegrationStages()
+                }
             }
         }
         stage('package') {
