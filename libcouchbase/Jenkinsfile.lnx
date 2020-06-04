@@ -107,7 +107,7 @@ def doIntegrationStages() {
     def returned_stages = [:]
     returned_stages['5.5.6'] = {
         try {
-            node('sdkqe=centos7') {
+            node('sdkqe-centos7') {
                 stage('start') {
                     steps {
                         sh("cbdyncluster ps -a")
@@ -162,7 +162,7 @@ def doIntegrationStages() {
     }
     returned_stages['6.0.3'] = {
         try {
-            node('sdkqe=centos7') {
+            node('sdkqe-centos7') {
                 stage('start') {
                     steps {
                         sh("cbdyncluster ps -a")
@@ -217,7 +217,7 @@ def doIntegrationStages() {
     }
     returned_stages['6.5.0'] = {
         try {
-            node('sdkqe=centos7') {
+            node('sdkqe-centos7') {
                 stage('start') {
                     steps {
                         sh("cbdyncluster ps -a")
@@ -272,7 +272,7 @@ def doIntegrationStages() {
     }
     returned_stages['6.5.0_DP'] = {
         try {
-            node('sdkqe=centos7') {
+            node('sdkqe-centos7') {
                 stage('start') {
                     steps {
                         sh("cbdyncluster ps -a")

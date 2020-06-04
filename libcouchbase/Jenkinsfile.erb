@@ -173,7 +173,7 @@ def doIntegrationStages() {
 <% server_versions.each do |server_version| %>
     returned_stages['<%= server_version %>'] = {
         try {
-            node('sdkqe=centos7') {
+            node('sdkqe-centos7') {
                 stage('start') {
                     steps {
                         sh("cbdyncluster ps -a")
