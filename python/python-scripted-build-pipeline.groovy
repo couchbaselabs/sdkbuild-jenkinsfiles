@@ -487,7 +487,7 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
     }
     if (isWindows(platform)) {
-        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]//, "LCB_PATH=${WORKSPACE}\\libcouchbase", "LCB_BUILD=${WORKSPACE}\\libcouchbase\\build", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated", "LD_LIBRARY_PATH=${WORKSPACE}\\libcouchbase\\build\\lib;\$LD_LIBRARY_PATH"]
+        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     } else {
         envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
@@ -617,6 +617,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
                     ''')
                     batWithEcho("python updateTests.py")
                     installReqsIfNeeded(testParams,platform)
+
                     doNoseTests(platform, nosetests_args, runner_command)
                     try{
                         cmdWithEcho(platform, post_command)
@@ -979,6 +980,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
     }
+
     cmdWithEcho(platform, installCmd)
 }
 
@@ -1055,7 +1057,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             dir("deps") {
                 installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
             }
-            batWithEcho("cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1")
             batWithEcho("python --version")
             batWithEcho("pip --version")
 
@@ -1096,6 +1097,18 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                 }
             }
             dir("couchbase-python-client") {
+                def openssl_version ="1.1.1d"
+                try {
+                    batWithEcho("python gen_config.py")
+                    def openssl_cfg = readJSON file: 'openssl_version.json'
+                    openssl_version = openssl_cfg.major
+                }
+                catch (e)
+                {
+                    echo("Got exception ${e}")
+                }
+
+                batWithEcho("cbdep --platform windows_msvc2017 install openssl ${openssl_version}-cb1")
                 if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                     build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
