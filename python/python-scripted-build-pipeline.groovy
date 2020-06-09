@@ -1108,7 +1108,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     echo("Got exception ${e}")
                 }
 
-                batWithEcho("cbdep --platform windows_msvc2017 install openssl ${openssl_version}-cb1")
+                batWithEcho("cbdep --platform windows_msvc2017 ..\\install openssl ${openssl_version}-cb1")
                 if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                     build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
