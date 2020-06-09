@@ -1096,19 +1096,23 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     batWithEcho("cmake --build . --target package")
                 }
             }
-            dir("couchbase-python-client") {
-                def openssl_version ="1.1.1d"
-                try {
+            def openssl_version ="1.1.1d"
+            try {
+                dir("couchbase-python-client") {
+
                     batWithEcho("python gen_config.py")
                     def openssl_cfg = readJSON file: 'openssl_version.json'
                     openssl_version = openssl_cfg.major
                 }
-                catch (e)
-                {
-                    echo("Got exception ${e}")
-                }
+            }
+            catch (e)
+            {
+                echo("Got exception ${e}")
+            }
+            batWithEcho("cbdep --platform windows_msvc2017 install openssl ${openssl_version}-cb1")
 
-                batWithEcho("cbdep --platform windows_msvc2017 ..\\install openssl ${openssl_version}-cb1")
+            dir("couchbase-python-client") {
+
                 if (BUILD_LCB) {
                     batWithEcho("copy ${WORKSPACE}\\build\\bin\\RelWithDebInfo\\libcouchbase.dll couchbase\\libcouchbase.dll")
                     build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
