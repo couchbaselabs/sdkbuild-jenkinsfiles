@@ -120,7 +120,11 @@ def doStages(UPDATE_TESTS_URL, CLUSTER, NOSE_COMMAND) {
                             def ips = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true)
                             echo "ips returned: ${ips}"
                             cluster.connstr = ips.trim()
-                            sh("cbdyncluster setup ${cluster.id} --node=kv,index,n1ql,fts,cbas --node=kv,index,n1ql,fts,cbas --node=kv,index,n1ql,fts,cbas --bucket=default")
+                            caps="kv,index,n1ql,fts"
+                            if (version>="5.5"){
+                                caps=caps+",cbas"
+                            }
+                            sh("cbdyncluster setup ${cluster.id} --node=${caps} --node=${caps} --node=${caps} --bucket=default")
                             shWithEcho("curl -v -X POST -u Administrator:password -d 'memoryQuota=2048' http://${cluster.getFirstIp()}:8091/pools/default" )
                             // setup buckets, users, storage mode
                             // TODO: one command that does all the default bucket setup (flush, replica, etc...)
