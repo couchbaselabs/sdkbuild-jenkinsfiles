@@ -487,23 +487,57 @@ def getEnvStr( platform,  pyversion,  arch,  server_version, PYCBC_VALGRIND)
         common_vars=common_vars+["PYCBC_ASSERT_CONTINUE=${PYCBC_ASSERT_CONTINUE}"]
     }
     if (isWindows(platform)) {
-        envStr = ["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "PYCBC_SERVER_VERSION=${server_version}"]
+        FULLPATH="${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"
+        envStr = ["PATH+${FULLPATH}", "PYCBC_SERVER_VERSION=${server_version}"]
     } else {
         envStr = ["PYCBC_VALGRIND=${PYCBC_VALGRIND}","PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "PYCBC_SERVER_VERSION=${server_version}"]
     }
-    return envStr+common_vars+getCommitEnvStrAdditions(platform)
+    result=envStr+common_vars+getCommitEnvStrAdditions(platform)
+    echo("Return envstr ${result}")
+    return result
 }
 
+class Environment
+{
+    def envStr
+    def path
+    Environment(envStr, path){
+        this.envStr=envStr
+        this.path=path
+    }
+    def fullEnv()
+    {
+        return ["PATH=${this.path}"]+this.envStr
+    }
+}
 
-def getEnvStr2(platform, pyversion, arch = "", server_version = "MOCK", PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
+Environment getEnvStrWithoutOpenSSL(platform, pyversion, PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="")
+{
     envStr=[]
     PYCBC_LCB_API_SECTION=(PYCBC_LCB_API!="DEFAULT")?["PYCBC_LCB_API=${PYCBC_LCB_API}"]:[]
+
     if (isWindows(platform)) {
-        envStr = PYCBC_LCB_API_SECTION+["PATH=${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH", "LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
+        FULLPATH="${WORKSPACE}\\deps\\python\\python${pyversion}-amd64\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion}-amd64;${WORKSPACE}\\deps\\python\\python${pyversion}\\Scripts;${WORKSPACE}\\deps\\python\\python${pyversion};$PATH"
+        NONPATH=PYCBC_LCB_API_SECTION+["LCB_LIB=${WORKSPACE}\\libcouchbase/build\\lib", "LCB_INC=${WORKSPACE}\\libcouchbase\\include;${WORKSPACE}\\libcouchbase/build\\generated"]
+        envStr = NONPATH
+
     } else {
-        envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "PATH=${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH"]
+        FULLPATH="${WORKSPACE}/deps/python${pyversion}-amd64:${WORKSPACE}/deps/python${pyversion}-amd64/bin:${WORKSPACE}/deps/python${pyversion}:${WORKSPACE}/deps/python${pyversion}/bin:${WORKSPACE}/deps/valgrind/bin/:$PATH"
+        envStr = PYCBC_LCB_API_SECTION+["PYCBC_VALGRIND=${PYCBC_VALGRIND}", "LD_LIBRARY_PATH=${WORKSPACE}/libcouchbase/build/lib:\$LD_LIBRARY_PATH", "LCB_INC=${WORKSPACE}/libcouchbase/include:${WORKSPACE}/libcouchbase/build/generated", "LCB_PATH=${WORKSPACE}/libcouchbase", "LCB_BUILD=${WORKSPACE}/libcouchbase/build", "LCB_LIB=${WORKSPACE}/libcouchbase/build/lib"]
     }
-    return envStr+getCommitEnvStrAdditions(platform)
+    return new Environment(envStr, FULLPATH)
+}
+def getEnvStr2(platform, pyversion,PYCBC_LCB_API="DEFAULT", PYCBC_VALGRIND="") {
+    environment=getEnvStrWithoutOpenSSL(platform, pyversion, PYCBC_LCB_API, PYCBC_VALGRIND )
+    FULLPATH="${environment.path};"+ get_ssl_root_dir(platform, pyversion)
+    envStr=["PATH=${FULLPATH}"]+environment.envStr
+    result=envStr+getCommitEnvStrAdditions(platform)
+    echo("Returning envstr ${result}")
+    return result
+}
+
+def get_ssl_root_dir(platform, pyversion) {
+    return get_openssl_cfg(platform, pyversion)['ssl_root_dir']
 }
 
 
@@ -1096,20 +1130,8 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
                     batWithEcho("cmake --build . --target package")
                 }
             }
-            def openssl_version ="1.1.1d"
-            try {
-                dir("couchbase-python-client") {
-
-                    batWithEcho("python gen_config.py")
-                    def openssl_cfg = readJSON file: 'openssl_version.json'
-                    openssl_version = openssl_cfg.major
-                }
-            }
-            catch (e)
-            {
-                echo("Got exception ${e}")
-            }
-            batWithEcho("cbdep --platform windows_msvc2017 install openssl ${openssl_version}-cb1")
+            def openssl_cfg = get_openssl_cfg(platform, pyversion)
+            //batWithEcho("cbdep --platform windows_msvc2017 install openssl ${openssl_cfg.major}-cb1")
 
             dir("couchbase-python-client") {
 
@@ -1194,6 +1216,25 @@ twine check dist/*
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
     }
 
+}
+
+def get_openssl_cfg(platform, pyversion) {
+    def openssl_cfg = ["major": "1.1.1d"]
+    withEnv(getEnvStrWithoutOpenSSL(platform, pyversion).fullEnv())
+    {
+        try {
+            dir("couchbase-python-client") {
+
+                cmdWithEcho(platform, "python gen_config.py")
+                openssl_cfg = readJSON file: 'openssl_version.json'
+
+            }
+        }
+        catch (e) {
+            echo("Got exception ${e}")
+        }
+    }
+    return openssl_cfg
 }
 
 def getBuildExtArgs(PLATFORM, WORKSPACE) {
@@ -1283,7 +1324,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             def libcouchbase_build_dir_rel = "${plat_build_dir_rel}${sep}libcouchbase"
                             def dist_dir_rel = "dist"
                             def dist_dir = "${WORKSPACE}${sep}${dist_dir_rel}"
-                            def envStr = getEnvStr2(platform, pyversion, arch,"MOCK", PYCBC_LCB_API, PYCBC_VALGRIND)
+                            def envStr = getEnvStr2(platform,, PYCBC_LCB_API, PYCBC_VALGRIND)
                             def build_ext_args = "--inplace " + ((PYCBC_DEBUG_SYMBOLS&&!isWindows(platform))?"--debug ":"")
                             withEnv(envStr) {
                                 Exception exception_received=null;
