@@ -235,11 +235,12 @@ def doOptionalPublishing()
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 dir ("couchbase-python-client") {
-                    withCredentials([usernameColonPassword(credentialsId: 'twine', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                    withCredentials([usernameColonPassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
                         sh("""
+                                mkdir dummy
                                 pip install twine
-                                twine upload -u $USER -p $PASSWORD dist/* -r pypi"""
+                                twine upload -u $USER -p $PASSWORD dummy/* -r pypi"""
                         )
                     }
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-PYCBC']]) {
