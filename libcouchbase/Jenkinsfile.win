@@ -309,23 +309,23 @@ def doIntegrationStages(CLUSTER) {
             }
         }
     }
-    returned_stages['6.6.0-7737'] = {
+    returned_stages['6.6-stable'] = {
         node('sdkqe-centos7') {
             try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
                        def cluster = new DynamicCluster()
-                        CLUSTER['6.6.0-7737'] = cluster
-                        def ver = '6.6.0-7737'.tokenize("_")[0]
+                        CLUSTER['6.6-stable'] = cluster
+                        def ver = '6.6-stable'.tokenize("_")[0]
                         cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                         cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                     }
-                    echo "Allocated ${CLUSTER['6.6.0-7737'].inspect()}"
-                    sh("cbdyncluster setup ${CLUSTER['6.6.0-7737'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                    echo "Allocated ${CLUSTER['6.6-stable'].inspect()}"
+                    sh("cbdyncluster setup ${CLUSTER['6.6-stable'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                     script {
-                        def isDp = '6.6.0-7737'.tokenize("_").size() > 1
-                        def ip = "${CLUSTER['6.6.0-7737'].connstr}".tokenize(",")[0]
+                        def isDp = '6.6-stable'.tokenize("_").size() > 1
+                        def ip = "${CLUSTER['6.6-stable'].connstr}".tokenize(",")[0]
                         echo "isDp=${isDp}"
                         sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
                         sleep(30)
@@ -335,7 +335,7 @@ def doIntegrationStages(CLUSTER) {
                         stage('test') {
                             try {
                                 environment {
-                                    LCB_TEST_CLUSTER_CONF="${CLUSTER['6.6.0-7737'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    LCB_TEST_CLUSTER_CONF="${CLUSTER['6.6-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -345,38 +345,38 @@ def doIntegrationStages(CLUSTER) {
                                     sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             } catch(all) {
-                                sh('tar cf integration_failure-ws_centos7_6.6.0-7737_x64.tar ws_centos7_x64')
-                                archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.6.0-7737_x64.tar")
+                                sh('tar cf integration_failure-ws_centos7_6.6-stable_x64.tar ws_centos7_x64')
+                                archiveArtifacts(artifacts: "integration_failure-ws_centos7_6.6-stable_x64.tar")
                             }
                         }
                     }
                 }
             } finally {
                 script {
-                    if (CLUSTER['6.6.0-7737'] && CLUSTER['6.6.0-7737'].isAllocated()) {
-                        sh("cbdyncluster rm ${CLUSTER['6.6.0-7737'].id}")
+                    if (CLUSTER['6.6-stable'] && CLUSTER['6.6-stable'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['6.6-stable'].id}")
                     }
                 }
             }
         }
     }
-    returned_stages['7.0.0-2147'] = {
+    returned_stages['7.0-stable'] = {
         node('sdkqe-centos7') {
             try {
                 stage('start') {
                     sh("cbdyncluster ps -a")
                     script {
                        def cluster = new DynamicCluster()
-                        CLUSTER['7.0.0-2147'] = cluster
-                        def ver = '7.0.0-2147'.tokenize("_")[0]
+                        CLUSTER['7.0-stable'] = cluster
+                        def ver = '7.0-stable'.tokenize("_")[0]
                         cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
                         cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim()
                     }
-                    echo "Allocated ${CLUSTER['7.0.0-2147'].inspect()}"
-                    sh("cbdyncluster setup ${CLUSTER['7.0.0-2147'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
+                    echo "Allocated ${CLUSTER['7.0-stable'].inspect()}"
+                    sh("cbdyncluster setup ${CLUSTER['7.0-stable'].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default")
                     script {
-                        def isDp = '7.0.0-2147'.tokenize("_").size() > 1
-                        def ip = "${CLUSTER['7.0.0-2147'].connstr}".tokenize(",")[0]
+                        def isDp = '7.0-stable'.tokenize("_").size() > 1
+                        def ip = "${CLUSTER['7.0-stable'].connstr}".tokenize(",")[0]
                         echo "isDp=${isDp}"
                         sh("""curl -vv -X POST -u Administrator:password http://${ip}:8091/sampleBuckets/install -d '["beer-sample"]'""")
                         sleep(30)
@@ -386,7 +386,7 @@ def doIntegrationStages(CLUSTER) {
                         stage('test') {
                             try {
                                 environment {
-                                    LCB_TEST_CLUSTER_CONF="${CLUSTER['7.0.0-2147'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    LCB_TEST_CLUSTER_CONF="${CLUSTER['7.0-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -396,16 +396,16 @@ def doIntegrationStages(CLUSTER) {
                                     sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             } catch(all) {
-                                sh('tar cf integration_failure-ws_centos7_7.0.0-2147_x64.tar ws_centos7_x64')
-                                archiveArtifacts(artifacts: "integration_failure-ws_centos7_7.0.0-2147_x64.tar")
+                                sh('tar cf integration_failure-ws_centos7_7.0-stable_x64.tar ws_centos7_x64')
+                                archiveArtifacts(artifacts: "integration_failure-ws_centos7_7.0-stable_x64.tar")
                             }
                         }
                     }
                 }
             } finally {
                 script {
-                    if (CLUSTER['7.0.0-2147'] && CLUSTER['7.0.0-2147'].isAllocated()) {
-                        sh("cbdyncluster rm ${CLUSTER['7.0.0-2147'].id}")
+                    if (CLUSTER['7.0-stable'] && CLUSTER['7.0-stable'].isAllocated()) {
+                        sh("cbdyncluster rm ${CLUSTER['7.0-stable'].id}")
                     }
                 }
             }
