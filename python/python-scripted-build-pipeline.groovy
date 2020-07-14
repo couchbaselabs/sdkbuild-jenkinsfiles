@@ -151,12 +151,14 @@ echo "Pip is:"
 echo `which pip`
 
 pip install --verbose Twisted gevent""")
-                unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                curdist_name=dist_name(PACKAGE_PLATFORM,PACKAGE_PY_VERSION,PACKAGE_PY_ARCH)
+                unstash curdist_name//"dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
                 dir("couchbase-python-client") {
                     installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
                     shWithEcho("python setup.py build_sphinx")
                     shWithEcho("mkdir -p dist")
                 }
+                stash includes: "dist/", name: curdist_name, useDefaultExcludes: false
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
                 stash includes: 'couchbase-python-client/', name: "couchbase-python-client-package", useDefaultExcludes: false
@@ -244,7 +246,13 @@ def doOptionalPublishing(DIST_COMBOS)
                 echo("Unstashing DIST_COMBOS: ${DIST_COMBOS}")
                 for (entry in DIST_COMBOS)
                 {
-                    unstash "${entry}"
+                    try {
+                        unstash "${entry}"
+                    }
+                    catch (Exception e)
+                    {
+                        echo("Caught failure while doing optional publishing steps: ${entry}: ${e}")
+                    }
                 }
                 unstash "dists"
                 dir ("couchbase-python-client") {
@@ -1006,7 +1014,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
 {
     cleanWs()
     unstash "couchbase-python-client"
-    unstash "dist-${platform}-${pyversion}-${arch}"
+    unstash dist_name(platform,pyversion,arch)
     //unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
