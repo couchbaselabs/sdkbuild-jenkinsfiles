@@ -22,6 +22,7 @@ String COMMIT_MSG="${COMMIT_MSG}"
 def USE_NOSE_GIT=true
 def NOSE_GIT=USE_NOSE_GIT?"git+https://github.com/nose-devs/nose.git":""
 String PYCBC_VERSION = "${PYCBC_VERSION}"
+def METADATA = null
 echo "Got PARALLEL_PAIRS ${PARALLEL_PAIRS}"
 if (IS_RELEASE){
     PYCBC_DEBUG_SYMBOLS=""
@@ -70,6 +71,7 @@ pipeline {
                         }
 
                         def metaData=readMetadata()
+                        METADATA=metaData
                         PYCBC_VERSION = getVersion(metaData)
                         if (PYCBC_LCB_APIS==null) {
                             def DEFAULT_LCB_API=null
@@ -115,7 +117,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", "${METADATA}")
             }
         }
         stage('package') {
@@ -290,9 +292,9 @@ def getVersion(cbuild_cfg) {
 
 def readMetadata() {
     try {
-        def cbuild_cfg = readJSON file: 'cbuild_cfg.json'
-        echo("Read build_cfg ${cbuild_cfg}")
-        return cbuild_cfg
+        METADATA = readJSON file: 'cbuild_cfg.json'
+        echo("Read build_cfg ${METADATA}")
+        return METADATA
     }
     catch (Exception e) {
         echo("Could not read version from metadata: ${e}")
@@ -1192,7 +1194,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 }
 
 
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, METADATA) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
 
@@ -1229,7 +1231,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         continue
                     }
 
-                    if (!isWindows(platform) && arch == "x86") {
+                    if (arch == "x86" && (!isWindows(platform) || METADATA!=null))  {
                         continue
                     }
                     def label = platform.replace("windows-2012","build-window-sdk-01")
