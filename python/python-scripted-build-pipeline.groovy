@@ -1049,8 +1049,11 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
     return "${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}_${SERVER_VERSION}"
 }
 
+def dist_name(platform,pyversion,arch){
+    return "dist-${platform}-${pyversion}-${arch}"
+}
 
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx, DIST_COMBOS)
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
 {
     timestamps {
         cleanWs()
@@ -1188,12 +1191,11 @@ twine check dist/*
                 echo("Got exception ${e} while trying to archive docs")
             }
         }
-        dist_name="dist-${platform}-${pyversion}-${arch}"
-        DIST_COMBOS+=[dist_name]
-        echo("Added ${dist_name} to DIST_COMBOS: ${DIST_COMBOS}")
-        stash includes: 'dist/', name: "${dist_name}", useDefaultExcludes: false
+        curdist_name=dist_name(platform, pyversion, arch)
+        stash includes: 'dist/', name: "${curdist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+        return dist_name
     }
 
 }
@@ -1264,6 +1266,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     }
                     def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
+                    curdist_name = dist_name(platform, pyversion, arch)
+                    DIST_COMBOS+=[curdist_name]
+                    echo("Added ${curdist_name} to DIST_COMBOS: ${DIST_COMBOS}")
 
                     pairs[stage_name] = {
                         node(label) {
@@ -1295,6 +1300,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs, DIST_COMBOS)
+
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
