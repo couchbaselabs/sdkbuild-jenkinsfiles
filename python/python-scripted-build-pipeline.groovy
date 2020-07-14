@@ -30,6 +30,7 @@ if (IS_RELEASE){
 def PYCBC_BRANCH="${PYCBC_BRANCH}"
 
 def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
+def DIST_COMBOS = []
 pipeline {
     options {
       timeout(time: 1, unit: 'HOURS')
@@ -236,6 +237,11 @@ def doOptionalPublishing()
             String version = getVersion(readMetadata())
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
+                unstash "docs"
+                for (entry in DIST_COMBOS)
+                {
+                    unstash "${entry}"
+                }
                 dir ("couchbase-python-client") {
                     USER="__token__"
                     withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
@@ -252,9 +258,6 @@ def doOptionalPublishing()
                                 path: "sdk-api/couchbase-python-client-${PYCBC_VERSION}/",
                                 file: 'build/sphinx/html/',
                         )
-                    }
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-PYCBC']]) {
-                        cmdWithEcho("unix", "aws s3 sync build/sphinx/html/ s3://docs.couchbase.com/sdk-api/couchbase-python-client-${PYCBC_VERSION} --acl public-read", true)
                     }
                 }
             }
@@ -1184,7 +1187,9 @@ twine check dist/*
                 echo("Got exception ${e} while trying to archive docs")
             }
         }
-        stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+        dist_name="dist-${platform}-${pyversion}-${arch}"
+        DIST_COMBOS+=[dist_name]
+        stash includes: 'dist/', name: "${dist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
     }
