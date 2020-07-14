@@ -238,6 +238,7 @@ def doOptionalPublishing(DIST_COMBOS)
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 unstash "docs"
+                echo("Unstashing DIST_COMBOS: ${DIST_COMBOS}")
                 for (entry in DIST_COMBOS)
                 {
                     unstash "${entry}"
@@ -1189,6 +1190,7 @@ twine check dist/*
         }
         dist_name="dist-${platform}-${pyversion}-${arch}"
         DIST_COMBOS+=[dist_name]
+        echo("Added ${dist_name} to DIST_COMBOS: ${DIST_COMBOS}")
         stash includes: 'dist/', name: "${dist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
