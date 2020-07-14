@@ -237,12 +237,20 @@ def doOptionalPublishing()
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 dir ("couchbase-python-client") {
-                    withCredentials([usernameColonPassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                    USER="__token__"
+                    withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
                         sh("""
                                 mkdir dummy
                                 pip install twine
-                                twine upload -u $USER -p $PASSWORD dummy/* -r pypi"""
+                                twine upload -u $USER -p $PASSWORD dist/* -r pypi --verbose"""
+                        )
+                    }
+                    withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
+                        s3Upload(
+                                bucket: 'docs.couchbase.com',
+                                path: "sdk-api/couchbase-python-client-${PYCBC_VERSION}/",
+                                file: 'build/sphinx/html/',
                         )
                     }
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-PYCBC']]) {
@@ -1169,6 +1177,7 @@ twine check dist/*
         {
             try {
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
+                stash includes: 'couchbase-python-client/build/sphinx/', name: 'docs'
             }
             catch (e)
             {
