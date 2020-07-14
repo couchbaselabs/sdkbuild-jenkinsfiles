@@ -118,7 +118,7 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                DIST_COMBOS=buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", "${METADATA}")
+                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", "${METADATA}", DIST_COMBOS)
             }
         }
         stage('package') {
@@ -243,6 +243,7 @@ def doOptionalPublishing(DIST_COMBOS)
                 {
                     unstash "${entry}"
                 }
+                unstash "dists"
                 dir ("couchbase-python-client") {
                     USER="__token__"
                     withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
@@ -1192,7 +1193,7 @@ twine check dist/*
             }
         }
         curdist_name=dist_name(platform, pyversion, arch)
-        stash includes: 'dist/', name: "${curdist_name}", useDefaultExcludes: false
+        stash includes: 'dist/', name: "dists", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
     }
@@ -1211,8 +1212,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 }
 
 
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, METADATA) {
-    def DIST_COMBOS=[]
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, METADATA, DIST_COMBOS) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
 
