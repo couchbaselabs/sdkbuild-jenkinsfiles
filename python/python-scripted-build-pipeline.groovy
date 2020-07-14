@@ -1195,7 +1195,6 @@ twine check dist/*
         stash includes: 'dist/', name: "${curdist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
-        return dist_name
     }
 
 }
