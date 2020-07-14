@@ -1299,7 +1299,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs, DIST_COMBOS)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs)
 
                                     }
                                     stage("test ${stage_name}") {
