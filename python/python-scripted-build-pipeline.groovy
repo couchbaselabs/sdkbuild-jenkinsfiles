@@ -1230,7 +1230,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     if (isWindows(platform) && (pyversion<("${WIN_MIN_PYVERSION}")) && !try_invalid_combo) {
                         continue
                     }
-
+                    if(METADATA!=null && pyversion<"3.5.0"){
+                        continue
+                    }
                     if (arch == "x86" && (!isWindows(platform) || METADATA!=null))  {
                         continue
                     }
