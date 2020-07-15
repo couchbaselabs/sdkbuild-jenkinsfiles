@@ -261,7 +261,7 @@ def doOptionalPublishing(DIST_COMBOS)
                         withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
                             sh("""
-                                twine upload -u $USER -p $PASSWORD "${WORKSPACE}/dist/* -r pypi --verbose"""
+                                twine upload -u $USER -p $PASSWORD ${WORKSPACE}/dist/* -r pypi --verbose"""
                             )
                         }
                     }
