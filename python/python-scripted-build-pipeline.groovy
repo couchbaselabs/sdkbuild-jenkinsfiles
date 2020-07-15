@@ -1009,7 +1009,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     }
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
-        installCmd="pip install -e . -v -v -v --no-cache-dir"
+        installCmd="pip install -e . -v -v -v"// --no-cache-dir"
     } else {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
@@ -1088,6 +1088,10 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         // TODO: CHECK THIS ALL LOOKS GOOD
         def extra_packages="""setuptools wheel"""
         def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
+        pip_upgrade="""
+pip install --upgrade pip
+pip install setuptools --upgrade
+pip install wheel --no-cache"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
@@ -1098,8 +1102,8 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             batWithEcho("pip --version")
 
             // upgrade pip, just in case
-            cmd = "python -m pip install --upgrade pip"
-            batWithEcho(cmd)
+            //cmd = "python -m pip install --upgrade pip"
+            batWithEcho(pip_upgrade)
             try {
                 batWithEcho(upgrade_install_packages)
             }
@@ -1149,6 +1153,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         } else {
             shWithEcho('env')
             installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
+            shWithEcho(pip_upgrade)
 
             shWithEcho("python --version")
             shWithEcho("pip --version")
