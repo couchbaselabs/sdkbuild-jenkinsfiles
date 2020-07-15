@@ -252,6 +252,7 @@ def doOptionalPublishing(DIST_COMBOS)
             withEnv(envStr){
                 unstash "docs"
                 echo("Unstashing DIST_COMBOS: ${DIST_COMBOS}")
+                sh("pip install twine")
                 for (entry in DIST_COMBOS)
                 {
                     try {
@@ -260,8 +261,6 @@ def doOptionalPublishing(DIST_COMBOS)
                         withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
                             sh("""
-                                mkdir dummy
-                                pip install twine
                                 twine upload -u $USER -p $PASSWORD "${WORKSPACE}/dist/* -r pypi --verbose"""
                             )
                         }
