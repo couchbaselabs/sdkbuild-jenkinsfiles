@@ -1001,7 +1001,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     }
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
-        installCmd="pip install -e . -v -v -v"
+        installCmd="pip install -e . -v -v -v"// --no-cache-dir"
     } else {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
