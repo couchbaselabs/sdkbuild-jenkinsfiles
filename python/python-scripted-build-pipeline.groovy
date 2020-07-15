@@ -256,6 +256,15 @@ def doOptionalPublishing(DIST_COMBOS)
                 {
                     try {
                         unstash "${entry}"
+                        USER="__token__"
+                        withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+
+                            sh("""
+                                mkdir dummy
+                                pip install twine
+                                twine upload -u $USER -p $PASSWORD "${WORKSPACE}/dist/* -r pypi --verbose"""
+                            )
+                        }
                     }
                     catch (Exception e)
                     {
@@ -264,15 +273,6 @@ def doOptionalPublishing(DIST_COMBOS)
                 }
                 unstash "dists"
                 dir ("couchbase-python-client") {
-                    USER="__token__"
-                    withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
-
-                        sh("""
-                                mkdir dummy
-                                pip install twine
-                                twine upload -u $USER -p $PASSWORD dist/* -r pypi --verbose"""
-                        )
-                    }
                     withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
                         s3Upload(
                                 bucket: 'docs.couchbase.com',
