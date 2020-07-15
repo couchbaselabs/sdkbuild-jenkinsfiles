@@ -211,9 +211,7 @@ pip install --verbose Twisted gevent""")
                 doOptionalPublishing(DIST_COMBOS)
                 dir ("couchbase-python-client") {
                     script {
-                        if (false){
-                            shWithEcho("""git push --tags""")
-                        }
+                        shWithEcho("""git push --tags""")
                     }
                 }
             }
@@ -1191,7 +1189,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         dir("couchbase-python-client") {
             cmdWithEcho(platform, """
 pip install twine
-twine check dist/*
+twine check ${dist_dir}/*
 """)
         }
         if (do_sphinx)
@@ -1206,6 +1204,14 @@ twine check dist/*
             }
         }
         curdist_name=dist_name(platform, pyversion, arch)
+        try{
+            unstash "dists"
+        }
+        catch(Exception e)
+        {
+
+        }
+
         stash includes: 'dist/', name: "dists", useDefaultExcludes: false
         stash includes: 'dist/', name: "${curdist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
