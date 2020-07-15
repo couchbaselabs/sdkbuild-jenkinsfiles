@@ -210,7 +210,7 @@ pip install --verbose Twisted gevent""")
                 try{
                     unstash "couchbase-python-client-package"
                 }
-                except (Exception e)
+                catch (Exception e)
                 {
                     echo("Problem unstashing package: ${e}")
                 }
