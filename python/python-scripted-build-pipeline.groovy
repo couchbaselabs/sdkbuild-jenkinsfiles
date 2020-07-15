@@ -207,6 +207,14 @@ pip install --verbose Twisted gevent""")
             }
             steps {
                 cleanWs()
+                try{
+                    unstash "couchbase-python-client-package"
+                }
+                except (Exception e)
+                {
+                    echo("Problem unstashing package: ${e}")
+                }
+
                 doOptionalPublishing(DIST_COMBOS)
                 dir ("couchbase-python-client") {
                     script {
