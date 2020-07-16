@@ -391,6 +391,14 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             batWithEcho(cmd)
         } else {
             //plat_class = Unix()
+            try{
+                shWithEcho("ls /usr/local/opt/openssl/lib/ -alrt")
+            }
+            catch (Exception e)
+            {
+                echo("Caught exception looking for openssl: ${e}")
+            }
+            
             shWithEcho(cmd)
         }
     }
