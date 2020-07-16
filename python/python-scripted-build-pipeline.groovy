@@ -380,7 +380,13 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
 """)
         }
     } else {
-        def cmd = "cbdep install python ${version} -d ${path}"
+        def cmd = """
+export CONFIGURE_OPTS="--with-openssl=/usr/local/opt/openssl@1.1"
+export LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
+export LD_RUN_PATH="/usr/local/opt/openssl@1.1/lib"
+export CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
+export CFLAGS="-I/usr/local/opt/openssl@1.1/include"
+cbdep install python ${version} -d ${path}"""
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
@@ -1071,7 +1077,28 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
 def dist_name(platform,pyversion,arch){
     return "dist-${platform}-${pyversion}-${arch}"
 }
+def upgradePackages(platform) {
+    timeout(time: 180, unit: 'SECONDS') {
+        try {
+            def pip_params = "--force"// --trusted-host pypi.org --trusted-host files.pythonhosted.org"
+            if (!(platform =~ /.*(macos).*/)) {
+                pip_upgrade = """pip install --upgrade pip ${pip_params}
+pip install setuptools --upgrade ${pip_params}
+"""
+            }
+            else {
+                pip_upgrade = ""
+            }
+            pip_upgrade += """
+pip install wheel --no-cache ${pip_params}"""
 
+            cmdWithEcho(platform, pip_upgrade)
+        }
+        catch (Exception e) {
+            echo("Problem upgrading some packages: ${e}")
+        }
+    }
+}
 def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
 {
     timestamps {
@@ -1086,11 +1113,6 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         }
         // TODO: CHECK THIS ALL LOOKS GOOD
         def extra_packages="""setuptools wheel"""
-        def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
-        pip_upgrade="""
-pip install --upgrade pip
-pip install setuptools --upgrade
-pip install wheel --no-cache"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
@@ -1101,14 +1123,7 @@ pip install wheel --no-cache"""
             batWithEcho("pip --version")
 
             // upgrade pip, just in case
-            //cmd = "python -m pip install --upgrade pip"
-            batWithEcho(pip_upgrade)
-            try {
-                batWithEcho(upgrade_install_packages)
-            }
-            catch (e){
-
-            }
+            upgradePackages(platform)
             if (BUILD_LCB) {
                 batWithEcho("git clone http://review.couchbase.org/libcouchbase ${WORKSPACE}\\libcouchbase")
                 dir("libcouchbase") {
@@ -1152,20 +1167,12 @@ pip install wheel --no-cache"""
         } else {
             shWithEcho('env')
             installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
-            shWithEcho(pip_upgrade)
 
             shWithEcho("python --version")
+            // upgrade pip, just in case
+            upgradePackages(platform)
             shWithEcho("pip --version")
 
-            // upgrade pip, just in case
-            timeout(time:180, unit:'SECONDS') {
-                try{
-                    shWithEcho(upgrade_install_packages)
-                }
-                catch (e){
-
-                }
-            }
             if (BUILD_LCB) {
                 shWithEcho("git clone http://review.couchbase.org/libcouchbase $LCB_PATH")
                 dir("libcouchbase") {
