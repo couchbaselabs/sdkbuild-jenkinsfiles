@@ -3,7 +3,7 @@
 pipeline {
     agent none
     stages {
-        stage('check') {
+        stage('gem') {
             matrix {
                 axes {
                     axis {
@@ -15,13 +15,13 @@ pipeline {
                         values 'sdkqe-centos8', 'macos'
                     }
                 }
-                agent { label "macos" }
+                agent { label PLATFORM }
                 stages {
                     stage("src") {
                         steps {
                             timestamps {
                                 cleanWs()
-                                dir("ruby-sdk-${CB_RUBY_VERSION}") {
+                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
                                     checkout([
                                         $class: "GitSCM",
                                         branches: [[name: "$SHA"]],
@@ -43,8 +43,8 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("ruby-sdk-${CB_RUBY_VERSION}") {
-                                    sh("./bin/jenkins/install-dependencies")
+                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                    sh("bin/jenkins/install-dependencies")
                                 }
                             }
                         }
@@ -52,8 +52,53 @@ pipeline {
                     stage("build") {
                         steps {
                             timestamps {
-                                dir("ruby-sdk-${CB_RUBY_VERSION}") {
-                                    sh("./bin/jenkins/build-extension")
+                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                    sh("bin/jenkins/build-extension")
+                                    dir("pkg/binary") {
+                                        archiveArtifacts(artifacts: "*.gem")
+                                        stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}", includes: "*.gem")
+                                    }
+                                    stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
+                                    stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('test') {
+            matrix {
+                axes {
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '2.5', '2.6', '2.7'
+                    }
+                    axis {
+                        name 'PLATFORM'
+                        values 'sdkqe-centos8', 'macos'
+                    }
+                }
+                agent { label PLATFORM }
+                stages {
+                    stage("deps") {
+                        steps {
+                            timestamps {
+                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                    unstash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}")
+                                    sh("bin/jenkins/install-dependencies")
+                                }
+                            }
+                        }
+                    }
+                    stage("inst") {
+                        steps {
+                            timestamps {
+                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                    sh("ls -l")
+                                    unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}")
+                                    sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
                             }
                         }
@@ -64,12 +109,13 @@ pipeline {
                         }
                         post {
                             always {
-                                junit("ruby-sdk-${CB_RUBY_VERSION}/test/reports/*.xml")
+                                junit("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}/test/reports/*.xml")
                             }
                         }
                         steps {
-                            dir("ruby-sdk-${CB_RUBY_VERSION}") {
-                                sh("./bin/jenkins/test-with-cbdyncluster")
+                            dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                unstash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}")
+                                sh("bin/jenkins/test-with-cbdyncluster")
                             }
                         }
                     }
