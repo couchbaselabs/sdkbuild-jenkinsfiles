@@ -79,6 +79,10 @@ pipeline {
                         name 'PLATFORM'
                         values 'sdkqe-centos8', 'macos'
                     }
+                    axis {
+                        name 'CB_VERSION'
+                        values '6.0.4', '6.5.1', '7.0.0-2588'
+                    }
                 }
                 agent { label PLATFORM }
                 stages {
