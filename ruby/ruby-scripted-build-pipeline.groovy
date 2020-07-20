@@ -114,6 +114,9 @@ pipeline {
                         post {
                             always {
                                 junit("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}/test/reports/*.xml")
+                                publishCoverage(adapters: [
+                                    coberturaAdapter(path: "ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}/coverage/coverage.xml")
+                                ])
                             }
                         }
                         steps {
