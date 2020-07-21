@@ -30,6 +30,7 @@ if (IS_RELEASE){
 def PYCBC_BRANCH="${PYCBC_BRANCH}"
 
 def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
+def MAC_MIN_PYVERSION="${MAC_MIN_PYVERSION}"?:"3.7"
 def DIST_COMBOS = []
 pipeline {
     options {
@@ -1288,6 +1289,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     if (isWindows(platform) && (pyversion<("${WIN_MIN_PYVERSION}")) && !try_invalid_combo) {
                         continue
                     }
+                    if (platform =~ /.*(macos|darwin).*/ && (pyversion<("${MAC_MIN_PYVERSION}")))
+                    {
+                        continue
+                    }
+
                     if(METADATA!=null && pyversion<"3.5.0"){
                         continue
                     }
