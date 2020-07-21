@@ -380,7 +380,7 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
 """)
         }
     } else {
-        def cmd = "cbdep install python ${version} -d ${path}"
+        def cmd = "cbdep install --recache python ${version} -d ${path}"
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
