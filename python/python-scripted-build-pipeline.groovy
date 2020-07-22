@@ -30,6 +30,8 @@ if (IS_RELEASE){
 def PYCBC_BRANCH="${PYCBC_BRANCH}"
 
 def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
+def MAC_MIN_PYVERSION="${MAC_MIN_PYVERSION}"?:"3.7"
+def DIST_COMBOS = []
 pipeline {
     options {
       timeout(time: 1, unit: 'HOURS')
@@ -117,7 +119,10 @@ pipeline {
         stage('build') {
             agent { label "master" }
             steps {
-                buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", "${METADATA}")
+                script {
+                    def DIST_COMBOS_COPY=DIST_COMBOS
+                    DIST_COMBOS=buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, "${PYCBC_VALGRIND}", "${PYCBC_DEBUG_SYMBOLS}", "${IS_RELEASE}", "${WIN_PY_DEFAULT_VERSION}", PYCBC_LCB_APIS, "${NOSE_GIT}", "${METADATA}", DIST_COMBOS_COPY)
+                }
             }
         }
         stage('package') {
@@ -147,11 +152,15 @@ echo "Pip is:"
 echo `which pip`
 
 pip install --verbose Twisted gevent""")
-                unstash "dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
-                dir("couchbase-python-client") {
-                    installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
-                    shWithEcho("python setup.py build_sphinx")
-                    shWithEcho("mkdir -p dist")
+                script {
+                    curdist_name = dist_name(PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH)
+                    unstash curdist_name//"dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
+                    dir("couchbase-python-client") {
+                        installReqs(PACKAGE_PLATFORM, "${NOSE_GIT}")
+                        shWithEcho("python setup.py build_sphinx")
+                        shWithEcho("mkdir -p dist")
+                    }
+                    stash includes: "dist/", name: curdist_name, useDefaultExcludes: false
                 }
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
                 shWithEcho("cp -r dist/* couchbase-python-client/dist/")
@@ -199,13 +208,19 @@ pip install --verbose Twisted gevent""")
             }
             steps {
                 cleanWs()
-                unstash "couchbase-python-client-package"
-                doOptionalPublishing()
+                script {
+                    try {
+                        unstash "couchbase-python-client-package"
+                    }
+                    catch (Exception e) {
+                        echo("Problem unstashing package: ${e}")
+                    }
+                }
+
+                doOptionalPublishing(DIST_COMBOS)
                 dir ("couchbase-python-client") {
                     script {
-                        if (false){
-                            shWithEcho("""git push --tags""")
-                        }
+                        shWithEcho("""git push --tags""")
                     }
                 }
             }
@@ -226,7 +241,7 @@ git config user.name "Couchbase SDK Team"
     }
 }
 
-def doOptionalPublishing()
+def doOptionalPublishing(DIST_COMBOS)
 {
     String PACKAGE_PY_VERSION = "2.7.15"
     envStr=getEnvStr("linux", PACKAGE_PY_VERSION,"x64","","")
@@ -236,17 +251,34 @@ def doOptionalPublishing()
             String version = getVersion(readMetadata())
             installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
-                dir ("couchbase-python-client") {
-                    withCredentials([usernameColonPassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                unstash "docs"
+                echo("Unstashing DIST_COMBOS: ${DIST_COMBOS}")
+                sh("pip install twine")
+                for (entry in DIST_COMBOS)
+                {
+                    try {
+                        unstash "${entry}"
+                        USER="__token__"
+                        withCredentials([usernamePassword(credentialsId: 'pypi', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
 
-                        sh("""
-                                mkdir dummy
-                                pip install twine
-                                twine upload -u $USER -p $PASSWORD dummy/* -r pypi"""
-                        )
+                            sh("""
+                                twine upload -u $USER -p $PASSWORD ${WORKSPACE}/dist/* -r pypi --verbose"""
+                            )
+                        }
                     }
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-PYCBC']]) {
-                        cmdWithEcho("unix", "aws s3 sync build/sphinx/html/ s3://docs.couchbase.com/sdk-api/couchbase-python-client-${PYCBC_VERSION} --acl public-read", true)
+                    catch (Exception e)
+                    {
+                        echo("Caught failure while doing optional publishing steps: ${entry}: ${e}")
+                    }
+                }
+                unstash "dists"
+                dir ("couchbase-python-client") {
+                    withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
+                        s3Upload(
+                                bucket: 'docs.couchbase.com',
+                                path: "sdk-api/couchbase-python-client-${PYCBC_VERSION}/",
+                                file: 'build/sphinx/html/',
+                        )
                     }
                 }
             }
@@ -349,7 +381,7 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
 """)
         }
     } else {
-        def cmd = "cbdep install python ${version} -d ${path}"
+        def cmd = "cbdep install --recache python ${version} -d ${path}"
         if (arch == "x86") {
             cmd = cmd + " --x32"
         }
@@ -360,6 +392,14 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             batWithEcho(cmd)
         } else {
             //plat_class = Unix()
+            try{
+                shWithEcho("ls /usr/local/opt/openssl/lib/ -alrt")
+            }
+            catch (Exception e)
+            {
+                echo("Caught exception looking for openssl: ${e}")
+            }
+            
             shWithEcho(cmd)
         }
     }
@@ -977,7 +1017,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
     }
     if (PIP_INSTALL.toUpperCase() == "TRUE") {
         //cmdWithEcho(platform, "pip install --upgrade pip")
-        installCmd="pip install -e . -v -v -v"
+        installCmd="pip install -e . -v -v -v"// --no-cache-dir"
     } else {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
@@ -990,7 +1030,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
 {
     cleanWs()
     unstash "couchbase-python-client"
-    unstash "dist-${platform}-${pyversion}-${arch}"
+    unstash dist_name(platform,pyversion,arch)
     //unstash "lcb-${platform}-${pyversion}-${arch}"
     installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
@@ -1037,6 +1077,9 @@ def getStageName( platform,  pyversion,  arch, PYCBC_LCB_API="DFLT_LCB", SERVER_
     return "${platform}_${pyversion}_${arch}_${PYCBC_LCB_API}_${SERVER_VERSION}"
 }
 
+def dist_name(platform,pyversion,arch){
+    return "dist-${platform}-${pyversion}-${arch}"
+}
 
 def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
 {
@@ -1053,6 +1096,10 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         // TODO: CHECK THIS ALL LOOKS GOOD
         def extra_packages="""setuptools wheel"""
         def upgrade_install_packages = "python -m pip install --force --trusted-host pypi.org --trusted-host files.pythonhosted.org --upgrade ${extra_packages}"
+        pip_upgrade="""
+pip install --upgrade pip
+pip install setuptools --upgrade
+pip install wheel --no-cache"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
@@ -1063,8 +1110,8 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
             batWithEcho("pip --version")
 
             // upgrade pip, just in case
-            cmd = "python -m pip install --upgrade pip"
-            batWithEcho(cmd)
+            //cmd = "python -m pip install --upgrade pip"
+            batWithEcho(pip_upgrade)
             try {
                 batWithEcho(upgrade_install_packages)
             }
@@ -1114,6 +1161,7 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         } else {
             shWithEcho('env')
             installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
+            shWithEcho(pip_upgrade)
 
             shWithEcho("python --version")
             shWithEcho("pip --version")
@@ -1162,20 +1210,31 @@ def doBuild(stage_name, String platform, String pyversion, pyshort, String arch,
         dir("couchbase-python-client") {
             cmdWithEcho(platform, """
 pip install twine
-twine check dist/*
+twine check ${dist_dir}/*
 """)
         }
         if (do_sphinx)
         {
             try {
                 archiveArtifacts artifacts: "couchbase-python-client/build/sphinx/**/*", fingerprint: true, onlyIfSuccessful: false
+                stash includes: 'couchbase-python-client/build/sphinx/', name: 'docs'
             }
             catch (e)
             {
                 echo("Got exception ${e} while trying to archive docs")
             }
         }
-        stash includes: 'dist/', name: "dist-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
+        curdist_name=dist_name(platform, pyversion, arch)
+        try{
+            unstash "dists"
+        }
+        catch(Exception e)
+        {
+
+        }
+
+        stash includes: 'dist/', name: "dists", useDefaultExcludes: false
+        stash includes: 'dist/', name: "${curdist_name}", useDefaultExcludes: false
         //stash includes: 'libcouchbase/', name: "lcb-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
         stash includes: 'couchbase-python-client/', name: "couchbase-python-client-build-${platform}-${pyversion}-${arch}", useDefaultExcludes: false
     }
@@ -1194,7 +1253,7 @@ def getBuildExtArgs(PLATFORM, WORKSPACE) {
 }
 
 
-def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, METADATA) {
+def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBUG_SYMBOLS, IS_RELEASE, WIN_PY_DEFAULT_VERSION, PYCBC_LCB_APIS, NOSE_GIT, METADATA, DIST_COMBOS) {
     def SERVER_VERSION="MOCK"
     def pairs = [:]
 
@@ -1230,6 +1289,11 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     if (isWindows(platform) && (pyversion<("${WIN_MIN_PYVERSION}")) && !try_invalid_combo) {
                         continue
                     }
+                    if (platform =~ /.*(macos|darwin).*/ && (pyversion<("${MAC_MIN_PYVERSION}")))
+                    {
+                        continue
+                    }
+
                     if(METADATA!=null && pyversion<"3.5.0"){
                         continue
                     }
@@ -1248,6 +1312,9 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                     }
                     def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
                     echo "got ${platform} ${pyversion} ${arch} PYCBC_LCB_API=< ${PYCBC_LCB_API} >: launching with label ${label}"
+                    curdist_name = dist_name(platform, pyversion, arch)
+                    DIST_COMBOS+=[curdist_name]
+                    echo("Added ${curdist_name} to DIST_COMBOS: ${DIST_COMBOS}")
 
                     pairs[stage_name] = {
                         node(label) {
@@ -1279,6 +1346,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
                                         doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs)
+
                                     }
                                     stage("test ${stage_name}") {
                                         doTestsMock(platform, PYCBC_DEBUG_SYMBOLS, pyversion, testParams)
@@ -1311,6 +1379,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
         }
     }
     parallel pairs
+    return DIST_COMBOS
 }
 
 
