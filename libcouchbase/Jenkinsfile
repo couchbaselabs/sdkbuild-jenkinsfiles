@@ -488,6 +488,9 @@ pipeline {
                                     sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
                                     archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
                                 }
+                                always {
+                                    junit("ws_debian9_x64/build/*.xml")
+                                }
                             }
                             steps {
                                 dir('ws_debian9_x64/build') {
@@ -532,6 +535,9 @@ pipeline {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
                                     archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
                                 }
+                                always {
+                                    junit("ws_centos7_x64/build/*.xml")
+                                }
                             }
                             steps {
                                 dir('ws_centos7_x64/build') {
@@ -572,6 +578,9 @@ pipeline {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc14/build/*.xml")
                                 }
                             }
                             steps {
@@ -634,6 +643,9 @@ pipeline {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc15_ssl/build/*.xml")
                                 }
                             }
                             steps {

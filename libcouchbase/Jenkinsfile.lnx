@@ -488,6 +488,9 @@ pipeline {
                                     sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
                                     archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
                                 }
+                                always {
+                                    junit("ws_debian9_x64/build/*.xml")
+                                }
                             }
                             steps {
                                 dir('ws_debian9_x64/build') {
@@ -531,6 +534,9 @@ pipeline {
                                 failure {
                                     sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
                                     archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_centos7_x64/build/*.xml")
                                 }
                             }
                             steps {

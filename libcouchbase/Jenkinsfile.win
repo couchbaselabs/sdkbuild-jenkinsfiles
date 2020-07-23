@@ -492,6 +492,9 @@ pipeline {
                                     zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
                                 }
+                                always {
+                                    junit("ws_win64_vc14/build/*.xml")
+                                }
                             }
                             steps {
                                 dir('ws_win64_vc14/build') {
@@ -559,6 +562,9 @@ pipeline {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
                                     archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win32_vc14/build/*.xml")
                                 }
                             }
                             steps {
@@ -628,6 +634,9 @@ pipeline {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc15_ssl/build/*.xml")
                                 }
                             }
                             steps {
@@ -699,6 +708,9 @@ pipeline {
                                     zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
                                 }
+                                always {
+                                    junit("ws_win64_vc15/build/*.xml")
+                                }
                             }
                             steps {
                                 dir('ws_win64_vc15/build') {
@@ -766,6 +778,9 @@ pipeline {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
                                     archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win32_vc15/build/*.xml")
                                 }
                             }
                             steps {
