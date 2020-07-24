@@ -139,6 +139,43 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     }
                 }
 
+                stage('ubuntu2004') {
+
+                    agent { label 'debian10-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*focal*.tar')
+                        sh('mkdir -p repo/ubuntu2004/conf')
+                        writeFile(file: "repo/ubuntu2004/conf/distributions", text: """
+Origin: couchbase
+SignWith: ${GPG_NAME}
+Suite: focal
+Codename: focal
+Version: ubuntu2004
+Components: focal/main
+Architectures: amd64 i386
+Description: libcouchbase package repository for focal ubuntu2004
+""")
+                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-ubuntu2004.list', text: """
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2004 focal focal/main
+""")
+                        }
+                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu2004 include focal \$p; done")
+                        sh("tar cf repo-${BUILD_NUMBER}-ubuntu2004.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu2004.tar", fingerprint: true)
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
+                    }
+                }
                 stage('debian10') {
 
                     agent { label 'debian10-signing' }
