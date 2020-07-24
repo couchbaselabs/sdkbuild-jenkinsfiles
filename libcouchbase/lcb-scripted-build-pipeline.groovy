@@ -774,6 +774,7 @@ pipeline {
                                 }
                                 steps {
                                     sh("""
+                                        sudo apt-get install cowbuilder && \
                                         sudo cowbuilder --create \
                                         --basepath /var/cache/pbuilder/bionic-amd64.cow \
                                         --distribution bionic \
@@ -860,6 +861,7 @@ pipeline {
                                 }
                                 steps {
                                     sh("""
+                                        sudo apt-get install cowbuilder && \
                                         sudo cowbuilder --create \
                                         --basepath /var/cache/pbuilder/buster-amd64.cow \
                                         --distribution buster \
