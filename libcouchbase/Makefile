@@ -1,16 +1,16 @@
 # MINIFIER=sed -E 's/^\s+//g'
 MINIFIER=cat
 
-all: Jenkinsfile Jenkinsfile.win Jenkinsfile.lnx Jenkinsfile.repo
+all: lcb-scripted-build-pipeline.groovy lcb-win-scripted-build-pipeline.groovy lcb-lnx-scripted-build-pipeline.groovy lcb-repo-pipeline.groovy
 
-Jenkinsfile: Jenkinsfile.erb
+lcb-scripted-build-pipeline.groovy: Jenkinsfile.erb
 	erb -P -T 2  $< | ${MINIFIER} > $@
 
-Jenkinsfile.win: Jenkinsfile.erb
+lcb-win-scripted-build-pipeline.groovy: Jenkinsfile.erb
 	WINDOWS_ONLY=1 erb -P -T 2  $< | ${MINIFIER} > $@
 
-Jenkinsfile.lnx: Jenkinsfile.erb
+lcb-lnx-scripted-build-pipeline.groovy: Jenkinsfile.erb
 	LINUX_ONLY=1 erb -P -T 2  $< | ${MINIFIER} > $@
 
-Jenkinsfile.repo: Jenkinsfile.repo.erb
+lcb-repo-pipeline.groovy: Jenkinsfile.repo.erb
 	erb -P -T 2  $< | ${MINIFIER} > $@
