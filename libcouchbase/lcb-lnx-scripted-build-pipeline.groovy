@@ -679,6 +679,92 @@ pipeline {
                         }
                     }
                 }
+                    stage('pkg ubuntu2004 amd64') {
+                        agent { label 'cowbuilder' }
+                        stages {
+                            stage('u64v20') {
+                                steps {
+                                    dir('ws_ubuntu2004_amd64') {
+                                        sh("sudo chown couchbase:couchbase -R .")
+                                        deleteDir()
+                                        unstash 'libcouchbase'
+                                    }
+                                }
+                            }
+                            stage('cow1') {
+                                when {
+                                    expression {
+                                        !fileExists("/var/cache/pbuilder/focal-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh("""
+                                        sudo cowbuilder --create \
+                                        --basepath /var/cache/pbuilder/focal-amd64.cow \
+                                        --distribution focal \
+                                        --debootstrapopts --arch=amd64 \
+                                        --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                    """.stripIndent())
+                                }
+                            }
+                            stage('cow2') {
+                                when {
+                                    expression {
+                                        fileExists("/var/cache/pbuilder/focal-amd64.cow/etc/os-release")
+                                    }
+                                }
+                                steps {
+                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/focal-amd64.cow')
+                                }
+                            }
+                            stage('src') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu2004_amd64.tar ws_ubuntu2004_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu2004_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu2004_amd64/build') {
+                                        unstash 'tarball'
+                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+                                        dir(VERSION.tarName()) {
+                                            sh("""
+                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+                                            """.stripIndent())
+                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+                                        }
+                                    }
+                                }
+                            }
+                            stage('deb') {
+                                post {
+                                    failure {
+                                        sh("tar cf failure-ws_ubuntu2004_amd64.tar ws_ubuntu2004_amd64")
+                                        archiveArtifacts(artifacts: "failure-ws_ubuntu2004_amd64.tar", fingerprint: false)
+                                    }
+                                }
+                                steps {
+                                    dir('ws_ubuntu2004_amd64/build') {
+                                        sh("""
+                                           sudo cowbuilder --build \
+                                           --basepath /var/cache/pbuilder/focal-amd64.cow \
+                                           --buildresult libcouchbase-${VERSION.deb()}_ubuntu2004_focal_amd64 \
+                                           --debbuildopts -j8 \
+                                           --debbuildopts "-us -uc" \
+                                           libcouchbase_${VERSION.deb()}-1.dsc
+                                        """.stripIndent())
+                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu2004_focal_amd64")
+                                        sh("tar cf libcouchbase-${VERSION.tar()}_ubuntu2004_focal_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu2004_focal_amd64")
+                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_ubuntu2004_focal_amd64.tar", fingerprint: true)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     stage('pkg ubuntu1804 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
