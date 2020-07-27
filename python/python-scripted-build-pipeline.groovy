@@ -367,7 +367,8 @@ def installPython(String platform, String version, String pyshort, String path, 
     def creation_cmd=""
     def activation_cmd=""
     short_version=get_short_pyversion(version)
-    if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/ && short_version<"3.7")
+    echo("Got short version ${short_version}")
+    if ((isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/) && short_version<"3.7")
     {
         if (short_version>="3.3") {
             cbdep_package = "miniconda3"
@@ -388,6 +389,8 @@ def installPython(String platform, String version, String pyshort, String path, 
             cbdep_version="2019.10"
             cbdep_package="miniconda2"
         }
+        echo("Got cbdep version ${cbdep_version}")
+        echo("Got cbdep package ${cbdep_package}")
         conda_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/bin/conda"
         creation_cmd="${conda_path} create --name python_conda python=${short_version}"
         activation_cmd="${conda_path} activate python"
