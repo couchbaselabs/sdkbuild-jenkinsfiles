@@ -374,7 +374,7 @@ def installPython(String platform, String version, String pyshort, String path, 
 
             version_map = ["3.3": "2.3.0",
                            "3.4": "4.3.1",
-                           "3.5": "4.4.0",
+                           "3.5": "4.4.10",
             ]
             cbdep_version= version_map.getAt(short_version)
             creation_cmd="conda create --name python3 python=${short_version}"
