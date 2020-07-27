@@ -361,48 +361,40 @@ class TestParams{
 }
 
 void installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
-    if (isDebug && false) { // workaround hack, disable for now
-        //BigDecimal versionAsDecimal=BigDecimal.valueOf(Double.parseDouble(version))
-        if (isWindows(platform)) {
-            def PY_DEBUG_INSTALL_DIR = path//getPythonDebugInstall(platform, version, arch)
-            def TEMP_DIR = "${WORKSPACE}\\temp"
-            def FIXED_DIR = "${PY_DEBUG_INSTALL_DIR}"
-            def DL="python-${version}${arch}.exe"
-            def URL = "https://www.python.org/ftp/python/${version}/${DL}"
-            batWithEcho("""
-C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
-            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\core_d.msi TARGETDIR=${FIXED_DIR}
-            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\lib_d.msi TARGETDIR=${FIXED_DIR}
-            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\dev_d.msi TARGETDIR=${FIXED_DIR}
-            msiexec /qn /a ${TEMP_DIR}\\AttachedContainer\\exe_d.msi TARGETDIR=${FIXED_DIR}
-            del ${FIXED_DIR}\\*.msi
-            ${FIXED_DIR}\\python.exe -E -s -m ensurepip --default-pip
-          ${FIXED_DIR}\\python.exe -m venv ${path}\\python${version}${arch}
-""")
-        }
+    cbdep_package="python"
+    cbdep_version=version
+    if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/)
+    {
+        cbdep_package="miniconda"
+        version_map=["3.3":"2.3.0",
+                "3.4":"4.3.1",
+                "3.5":"5.2.0",
+        ]
+        cbdep_version= version_map.getAt(version)
+    }
+
+    def cmd = "cbdep install --recache python ${version} -d ${path}"
+    if (arch == "x86") {
+        cmd = cmd + " --x32"
+    }
+
+    def plat_class = null
+    if (isWindows(platform)) {
+        //plat_class = Windows()
+        batWithEcho(cmd)
     } else {
-        def cmd = "cbdep install --recache python ${version} -d ${path}"
-        if (arch == "x86") {
-            cmd = cmd + " --x32"
+        //plat_class = Unix()
+        try{
+            shWithEcho("ls /usr/local/opt/openssl/lib/ -alrt")
+        }
+        catch (Exception e)
+        {
+            echo("Caught exception looking for openssl: ${e}")
         }
 
-        def plat_class = null
-        if (isWindows(platform)) {
-            //plat_class = Windows()
-            batWithEcho(cmd)
-        } else {
-            //plat_class = Unix()
-            try{
-                shWithEcho("ls /usr/local/opt/openssl/lib/ -alrt")
-            }
-            catch (Exception e)
-            {
-                echo("Caught exception looking for openssl: ${e}")
-            }
-            
-            shWithEcho(cmd)
-        }
+        shWithEcho(cmd)
     }
+
     //plat_class.shell(cmd)
 }
 
