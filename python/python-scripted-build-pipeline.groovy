@@ -365,12 +365,20 @@ void installPython(String platform, String version, String pyshort, String path,
     cbdep_version=version
     if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/)
     {
-        cbdep_package="miniconda"
-        version_map=["3.3":"2.3.0",
-                "3.4":"4.3.1",
-                "3.5":"5.2.0",
-        ]
-        cbdep_version= version_map.getAt(version)
+        if (version<"3.7" && version>="3.3") {
+            cbdep_package = "miniconda3"
+            version_map = ["3.3": "2.3.0",
+                           "3.4": "4.3.1",
+                           "3.5": "5.2.0",
+            ]
+            cbdep_version= version_map.getAt(version)
+        }
+        else if (version<"3.0")
+        {
+            cbdep_version="2019.10"
+            cbdep_package="miniconda2"
+        }
+
         if (!cbdep_version)
         {
             cbdep_version = "2020.02"
