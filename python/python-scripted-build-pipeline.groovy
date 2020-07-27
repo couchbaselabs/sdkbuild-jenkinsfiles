@@ -368,21 +368,23 @@ def installPython(String platform, String version, String pyshort, String path, 
     def activation_cmd=""
     if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/)
     {
-        if (version<"3.7" && version>="3.3") {
+        short_version=get_short_pyversion(version)
+        if (short_version<"3.7" && short_version>="3.3") {
             cbdep_package = "miniconda3"
+
             version_map = ["3.3": "2.3.0",
                            "3.4": "4.3.1",
                            "3.5": "5.2.0",
             ]
-            cbdep_version= version_map.getAt(version)
-            creation_cmd="conda create --name python3 python=${version}"
+            cbdep_version= version_map.getAt(short_version)
+            creation_cmd="conda create --name python3 python=${short_version}"
             activation_cmd="activate python3"
         }
-        else if (version<"3.0")
+        else if (short_version<"3.0")
         {
             cbdep_version="2019.10"
             cbdep_package="miniconda2"
-            creation_cmd="conda create --name python2 python=${version}"
+            creation_cmd="conda create --name python2 python=${short_version}"
             activation_cmd="activate python2"
         }
 
@@ -1343,7 +1345,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
 
                             TestParams testParams = new TestParams(buildParams, true, NOSE_GIT, do_valgrind?PYCBC_VALGRIND:"" , null, do_generic_jobs)
 
-                            def pyshort = pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
+                            def pyshort = get_short_pyversion(pyversion)
                             def win_arch = [x86: [], x64: ['Win64']][arch]
                             def plat_build_dir_rel = "build_${platform}_${pyversion}_${arch}"
                             def sep = getSep(platform)
@@ -1392,6 +1394,10 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
     }
     parallel pairs
     return DIST_COMBOS
+}
+
+def get_short_pyversion(String pyversion) {
+    return pyversion.tokenize(".")[0] + "." + pyversion.tokenize(".")[1]
 }
 
 
