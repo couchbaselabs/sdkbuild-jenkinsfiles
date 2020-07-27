@@ -360,9 +360,12 @@ class TestParams{
 
 }
 
-void installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
-    cbdep_package="python"
-    cbdep_version=version
+def installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
+    def cbdep_package="python"
+    def cbdep_version=version
+    def is_conda=false
+    def creation_cmd=""
+    def activation_cmd=""
     if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/)
     {
         if (version<"3.7" && version>="3.3") {
@@ -372,11 +375,15 @@ void installPython(String platform, String version, String pyshort, String path,
                            "3.5": "5.2.0",
             ]
             cbdep_version= version_map.getAt(version)
+            creation_cmd="conda create --name python3 python=${version}"
+            activation_cmd="activate python3"
         }
         else if (version<"3.0")
         {
             cbdep_version="2019.10"
             cbdep_package="miniconda2"
+            creation_cmd="conda create --name python2 python=${version}"
+            activation_cmd="activate python2"
         }
 
         if (!cbdep_version)
@@ -385,7 +392,8 @@ void installPython(String platform, String version, String pyshort, String path,
         }
     }
 
-    def cmd = "cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}"
+    def cmd = """cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}
+${creation_cmd}"""
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
@@ -406,7 +414,7 @@ void installPython(String platform, String version, String pyshort, String path,
 
         shWithEcho(cmd)
     }
-
+    return activation_cmd
     //plat_class.shell(cmd)
 }
 
