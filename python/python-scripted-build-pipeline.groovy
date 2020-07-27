@@ -249,7 +249,7 @@ def doOptionalPublishing(DIST_COMBOS)
     script{
         try{
             String version = getVersion(readMetadata())
-            installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
+            python_distro=installPython("linux", "${PACKAGE_PY_VERSION}", "", "deps", "x64")
             withEnv(envStr){
                 unstash "docs"
                 echo("Unstashing DIST_COMBOS: ${DIST_COMBOS}")
@@ -366,36 +366,36 @@ def installPython(String platform, String version, String pyshort, String path, 
     def is_conda=false
     def creation_cmd=""
     def activation_cmd=""
-    if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/)
+    short_version=get_short_pyversion(version)
+    if (isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/ && short_version<"3.7")
     {
-        short_version=get_short_pyversion(version)
-        if (short_version<"3.7" && short_version>="3.3") {
+        if (short_version>="3.3") {
             cbdep_package = "miniconda3"
 
             version_map = ["3.3": "2.3.0",
                            "3.4": "4.3.1",
                            "3.5": "4.4.10",
+                           "3.6": "4.7.12.1"
             ]
             cbdep_version= version_map.getAt(short_version)
-            creation_cmd="conda create --name python3 python=${short_version}"
-            activation_cmd="activate python3"
+            if (!cbdep_version)
+            {
+                cbdep_version = "latest"
+            }
         }
         else if (short_version<"3.0")
         {
             cbdep_version="2019.10"
             cbdep_package="miniconda2"
-            creation_cmd="conda create --name python2 python=${short_version}"
-            activation_cmd="activate python2"
         }
+        conda_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/bin/conda"
+        creation_cmd="${conda_path} create --name python_conda python=${short_version}"
+        activation_cmd="${conda_path} activate python"
 
-        if (!cbdep_version)
-        {
-            cbdep_version = "2020.02"
-        }
     }
 
-    def cmd = """cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}
-${creation_cmd}"""
+    def cmd = """cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}"""
+
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
@@ -416,7 +416,8 @@ ${creation_cmd}"""
 
         shWithEcho(cmd)
     }
-    return activation_cmd
+    cmdWithEcho(platform, creation_cmd)
+    return new PythonDistribution(activation_cmd)
     //plat_class.shell(cmd)
 }
 
@@ -425,14 +426,16 @@ private GString getPythonDebugInstall(String version, String arch) {
 }
 
 def shWithEcho(String command) {
+    echo "[$STAGE_NAME]:${command}: start"
     result=sh(script: command, returnStdout: true)
-    echo "[$STAGE_NAME]:${command}:"+ result
+    echo "[$STAGE_NAME]:${command}: got "+ result
     return result
 }
 
 def batWithEcho(String command) {
+    echo "[$STAGE_NAME]:${command}: start"
     result=bat(script: command, returnStdout: true)
-    echo "[$STAGE_NAME]:${command}:"+ result
+    echo "[$STAGE_NAME]:${command}: got "+ result
     return result
 }
 
@@ -1046,7 +1049,7 @@ def doIntegration(String platform, String pyversion, String pyshort, String arch
     unstash "couchbase-python-client"
     unstash dist_name(platform,pyversion,arch)
     //unstash "lcb-${platform}-${pyversion}-${arch}"
-    installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
+    python_distro=installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "${arch}", PYCBC_DEBUG_SYMBOLS?true:false)
     envStr=getEnvStr(platform,pyversion,arch,"5.5.0", PYCBC_VALGRIND)
     withEnv(envStr)
             {
@@ -1095,6 +1098,11 @@ def dist_name(platform,pyversion,arch){
     return "dist-${platform}-${pyversion}-${arch}"
 }
 
+class PythonDistribution
+{
+    String activation
+    PythonDistribution(String activation_command){}
+}
 def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
 {
     timestamps {
@@ -1117,7 +1125,8 @@ pip install wheel --no-cache"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
-                installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
+                python_distro=installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
+                cmdWithEcho(platform,python_distro.activation)
             }
             batWithEcho("cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1")
             batWithEcho("python --version")
@@ -1174,7 +1183,8 @@ pip install wheel --no-cache"""
             archiveArtifacts artifacts: "${dist_dir_rel}/*", fingerprint: true, onlyIfSuccessful: false
         } else {
             shWithEcho('env')
-            installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
+            python_distro=installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
+            cmdWithEcho(platform,python_distro.activation)
             shWithEcho(pip_upgrade)
 
             shWithEcho("python --version")
