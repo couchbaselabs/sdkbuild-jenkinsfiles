@@ -371,9 +371,13 @@ void installPython(String platform, String version, String pyshort, String path,
                 "3.5":"5.2.0",
         ]
         cbdep_version= version_map.getAt(version)
+        if (!cbdep_version)
+        {
+            cbdep_version = "2020.02"
+        }
     }
 
-    def cmd = "cbdep install --recache python ${version} -d ${path}"
+    def cmd = "cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}"
     if (arch == "x86") {
         cmd = cmd + " --x32"
     }
