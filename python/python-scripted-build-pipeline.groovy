@@ -360,12 +360,13 @@ class TestParams{
 
 }
 
-def installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
+PythonDistribution installPython(String platform, String version, String pyshort, String path, String arch, boolean isDebug = false) {
     def cbdep_package="python"
     def cbdep_version=version
     def is_conda=false
     def creation_cmd=""
     def activation_cmd=""
+    def extra_paths=[]
     short_version=get_short_pyversion(version)
     echo("Got short version ${short_version}")
     if ((isWindows(platform) || platform.toString() =~ /(?i).*(darwin|mac).*/) && short_version<"3.7")
@@ -398,7 +399,7 @@ def installPython(String platform, String version, String pyshort, String path, 
         echo("Adding joined path ${joined_path}")
         export_cmd=isWindows(platform)?"""set PATH=%PATH%;${joined_path}""":"""export PATH="${PATH};${joined_path}" """
         shell=isWindows(platform)?"powershell":"bash"
-        init_cmd="conda init ${shell}"
+        init_cmd=""//"""conda init ${shell}"
         creation_cmd="""
 ${export_cmd}
 ${init_cmd}
@@ -433,7 +434,7 @@ conda activate python_conda"""
         shWithEcho(cmd)
     }
     cmdWithEcho(platform, creation_cmd)
-    return new PythonDistribution(activation_cmd)
+    return new PythonDistribution(activation_cmd,extra_paths)
     //plat_class.shell(cmd)
 }
 
@@ -1117,8 +1118,14 @@ def dist_name(platform,pyversion,arch){
 class PythonDistribution
 {
     String activation
-    PythonDistribution(String activation_command){
+    def extra_paths
+    PythonDistribution(String activation_command, extra_paths){
         this.activation=activation_command
+        this.extra_paths=extra_paths
+    }
+    def cmdWithEcho(args)
+    {
+
     }
 }
 def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
@@ -1192,7 +1199,7 @@ pip install wheel --no-cache"""
                     build_ext_args+= getBuildExtArgs(platform, "${WORKSPACE}")
                 }
 
-                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]+python_distro.extra_paths) {
                     installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 }
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
@@ -1235,7 +1242,7 @@ pip install wheel --no-cache"""
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
                 installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
-                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]) {
+                withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]+python_distro.extra_paths) {
                     installReqs(platform, "${NOSE_GIT}")
                     if (do_sphinx) {
                         try {
