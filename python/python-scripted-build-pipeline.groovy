@@ -391,7 +391,8 @@ def installPython(String platform, String version, String pyshort, String path, 
         }
         echo("Got cbdep version ${cbdep_version}")
         echo("Got cbdep package ${cbdep_package}")
-        conda_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/bin/conda"
+        conda_bin_prefix="Scripts"
+        conda_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/${conda_bin_prefix}/conda"
         creation_cmd="${conda_path} create --name python_conda python=${short_version}"
         activation_cmd="${conda_path} activate python"
 
@@ -1104,7 +1105,9 @@ def dist_name(platform,pyversion,arch){
 class PythonDistribution
 {
     String activation
-    PythonDistribution(String activation_command){}
+    PythonDistribution(String activation_command){
+        this.activation=activation_command
+    }
 }
 def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
 {
