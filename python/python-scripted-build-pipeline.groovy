@@ -392,8 +392,6 @@ def installPython(String platform, String version, String pyshort, String path, 
         echo("Got cbdep version ${cbdep_version}")
         echo("Got cbdep package ${cbdep_package}")
         conda_prefix="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}"
-        conda_bin_path="${conda_prefix}/${conda_bin_prefix}"
-        conda_exe_path="${conda_bin_path}/conda"
         extra_paths=["${conda_prefix}","${conda_prefix}/bin","${conda_prefix}/Scripts","${conda_prefix}/Library/bin"]
         joined_path=isWindows(platform)?extra_paths.join(";"):extra_paths.join(":")
         export_cmd=isWindows(platform)?"set PATH=%PATH%;${joined_path}":"export PATH=${PATH};${joined_path}"
