@@ -336,9 +336,10 @@ def readMetadata() {
 
 class BuildParams{
     public String PYCBC_LCB_API=null
-
-    BuildParams(String PYCBC_LCB_API) {
+    public PythonDistribution pythonDistribution=null
+    BuildParams(String PYCBC_LCB_API, PythonDistribution pythonDistribution=null) {
         this.PYCBC_LCB_API = PYCBC_LCB_API
+        this.pythonDistribution=pythonDistribution
     }
 }
 
@@ -485,17 +486,18 @@ def isWindows(platform)
     return plat_lc.contains("window") || plat_lc.contains("msvc")
 }
 
-def installReqs(platform, NOSE_GIT)
+def installReqs(platform, NOSE_GIT, BuildParams buildParams)
 {
+    python_distro=buildParams.pythonDistribution
     dir("${WORKSPACE}/couchbase-python-client")
             {
-                cmdWithEcho(platform,"""pip install -r dev_requirements.txt
+                python_distro.execute(platform,"""pip install -r dev_requirements.txt
 pip uninstall --yes coverage
 pip install "coverage<5.0"
 """)
                 if (!isWindows(platform)){
                     if (NOSE_GIT) {
-                        shWithEcho("pip uninstall --yes nose && pip install ${NOSE_GIT}")
+                        python_distro.execute(platform,"pip uninstall --yes nose && pip install ${NOSE_GIT}")
                     }
                 }
             }
@@ -659,7 +661,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
 def installReqsIfNeeded(TestParams params, def platform) {
 
     if (params.INSTALL_REQS){
-        installReqs(platform,params.NOSE_GIT)
+        installReqs(platform,params.NOSE_GIT, params.buildParams)
     }
 }
 
@@ -1038,10 +1040,11 @@ def buildLibCouchbase(platform, arch)
             }
 }
 
-def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
+def installPythonClient(platform, build_ext_args, PIP_INSTALL, BuildParams buildParams=null) {
+    python_distro=buildParams.pythonDistribution
     def installCmd=""
     try {
-        cmdWithEcho(platform, """
+        python_distro.execute(platform, """
                             pip install restructuredtext-lint
                             restructuredtext-lint README.md"""
         )
@@ -1056,7 +1059,7 @@ def installPythonClient(platform, build_ext_args, PIP_INSTALL) {
         //build_ext_args=((build_ext_args!=null)?build_ext_args:"")+" --inplace --debug"
         installCmd="python setup.py build_ext ${build_ext_args} install"
     }
-    cmdWithEcho(platform, installCmd)
+    python_distro.execute(platform, installCmd)
 }
 
 
@@ -1123,12 +1126,13 @@ class PythonDistribution
         this.activation=activation_command
         this.extra_paths=extra_paths
     }
-    def cmdWithEcho(args)
+    def execute(platform, command)
     {
-
+        return cmdWithEcho(platform, """${this.activation}
+${command}""")
     }
 }
-def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx)
+def doBuild(stage_name, String platform, String pyversion, pyshort, String arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_sphinx, BuildParams buildParams)
 {
     timestamps {
         cleanWs()
@@ -1150,8 +1154,8 @@ pip install wheel --no-cache"""
         if (isWindows(platform)) {
             batWithEcho("SET")
             dir("deps") {
-                python_distro=installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
-                cmdWithEcho(platform,python_distro.activation)
+                python_distro==installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
+                buildParams.pythonDistribution=python_distro
             }
             batWithEcho("cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1")
             batWithEcho("python --version")
@@ -1200,7 +1204,7 @@ pip install wheel --no-cache"""
                 }
 
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]+python_distro.extra_paths) {
-                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
+                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}",buildParams)
                 }
                 batWithEcho("python setup.py bdist_wheel --dist-dir ${dist_dir}")
                 batWithEcho("python setup.py sdist --dist-dir ${dist_dir}")
@@ -1209,7 +1213,7 @@ pip install wheel --no-cache"""
         } else {
             shWithEcho('env')
             python_distro=installPython("${platform}", "${pyversion}", "${pyshort}", "deps", "x64", PYCBC_DEBUG_SYMBOLS ? true : false)
-            cmdWithEcho(platform,python_distro.activation)
+            buildParams.pythonDistribution=python_distro
             shWithEcho(pip_upgrade)
 
             shWithEcho("python --version")
@@ -1241,9 +1245,9 @@ pip install wheel --no-cache"""
             }
             dir("couchbase-python-client") {
                 shWithEcho("pip install cython")
-                installPythonClient(platform, build_ext_args, "${PIP_INSTALL}")
                 withEnv(["CPATH=${LCB_INC}", "LIBRARY_PATH=${LCB_LIB}"]+python_distro.extra_paths) {
-                    installReqs(platform, "${NOSE_GIT}")
+                    installPythonClient(platform, build_ext_args, "${PIP_INSTALL}", buildParams)
+                    installReqs(platform, "${NOSE_GIT}",buildParams)
                     if (do_sphinx) {
                         try {
                             shWithEcho("python setup.py build_sphinx")
@@ -1394,7 +1398,7 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                                 try {
                                     stage("build ${stage_name}") {
                                         def BUILD_LCB = (PYCBC_LCB_API==null || PYCBC_LCB_API=="default")
-                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs)
+                                        doBuild(stage_name, platform, pyversion, pyshort, arch, PYCBC_DEBUG_SYMBOLS, BUILD_LCB, win_arch, IS_RELEASE, build_ext_args, dist_dir, dist_dir_rel, NOSE_GIT, do_generic_jobs, buildParams)
 
                                     }
                                     stage("test ${stage_name}") {
