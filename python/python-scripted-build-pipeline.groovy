@@ -392,10 +392,20 @@ def installPython(String platform, String version, String pyshort, String path, 
         echo("Got cbdep version ${cbdep_version}")
         echo("Got cbdep package ${cbdep_package}")
         conda_bin_prefix="Scripts"
-        conda_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/${conda_bin_prefix}/conda"
-        creation_cmd="${conda_path} create --name python_conda python=${short_version}"
-        activation_cmd="${conda_path} activate python"
-
+        conda_bin_path="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}/${conda_bin_prefix}"
+        conda_exe_path="${conda_bin_path}/conda"
+        export_cmd=isWindows(platform)?"set PATH=%PATH%;${conda_bin_path}":"export PATH=${PATH};${conda_bin_path}"
+        shell=isWindows(platform)?"powershell":"bash"
+        init_cmd="conda init ${shell}"
+        creation_cmd="""
+${export_cmd}
+${init_cmd}
+conda create --name python_conda python=${short_version}
+"""
+        activation_cmd="""
+${export_cmd}
+${init_cmd}
+conda activate python_conda"""
     }
 
     def cmd = """cbdep install --recache ${cbdep_package} ${cbdep_version} -d ${path}"""
