@@ -394,7 +394,7 @@ def installPython(String platform, String version, String pyshort, String path, 
         conda_prefix="${WORKSPACE}/deps/${path}/${cbdep_package}-${cbdep_version}"
         extra_paths=["${conda_prefix}","${conda_prefix}/bin","${conda_prefix}/Scripts","${conda_prefix}/Library/bin"]
         joined_path=isWindows(platform)?extra_paths.join(";"):extra_paths.join(":")
-        export_cmd=isWindows(platform)?"set PATH=%PATH%;${joined_path}":"export PATH=${PATH};${joined_path}"
+        export_cmd=isWindows(platform)?'set PATH=%PATH%;${joined_path}':'export PATH="${PATH};${joined_path}"'
         shell=isWindows(platform)?"powershell":"bash"
         init_cmd="conda init ${shell}"
         creation_cmd="""
