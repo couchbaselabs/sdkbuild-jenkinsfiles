@@ -54,9 +54,11 @@ pipeline {
                             timestamps {
                                 dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
                                     sh("bin/jenkins/build-extension")
-                                    dir("pkg/binary") {
-                                        archiveArtifacts(artifacts: "*.gem")
-                                        stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}", includes: "*.gem")
+                                    dir("pkg") {
+                                        stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-src", includes: "*.gem")
+                                        dir("binary") {
+                                            stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin", includes: "*.gem")
+                                        }
                                     }
                                     stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
                                     stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
@@ -67,7 +69,6 @@ pipeline {
                 }
             }
         }
-
         stage('test') {
             matrix {
                 axes {
@@ -89,6 +90,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
+                                cleanWs()
                                 dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
                                     unstash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
@@ -100,13 +102,13 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
-                                    sh("ls -l")
-                                    unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}")
+                                    unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
                             }
                         }
                     }
+/*
                     stage("test") {
                         options {
                             timeout(time: 20, unit: 'MINUTES')
@@ -125,6 +127,54 @@ pipeline {
                                 sh("bin/jenkins/test-with-cbdyncluster")
                             }
                         }
+                    }
+*/
+                }
+            }
+        }
+        stage('pub') {
+            agent { label 'sdkqe-centos8' }
+            steps {
+                cleanWs()
+                dir("ruby-sdk-repo") {
+                    unstash(name: "scripts-sdkqe-centos8-2.7")
+                    dir("gem-bin") {
+                        unstash(name: "gem-macos-2.5-bin")
+                        unstash(name: "gem-macos-2.6-bin")
+                        unstash(name: "gem-macos-2.7-bin")
+                        unstash(name: "gem-sdkqe-centos8-2.5-bin")
+                        unstash(name: "gem-sdkqe-centos8-2.6-bin")
+                        unstash(name: "gem-sdkqe-centos8-2.7-bin")
+                        archiveArtifacts(artifacts: "*.gem")
+                    }
+                    dir("gem-src") {
+                        unstash(name: "gem-sdkqe-centos8-2.7-src")
+                        archiveArtifacts(artifacts: "*.gem")
+                    }
+                    sh("bin/jenkins/build-repos")
+                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                        s3Upload(
+                            bucket: "sdk-snapshots.couchbase.com",
+                            acl: 'PublicRead',
+                            file: "repos/",
+                            path: "ruby/",
+                            verbose: true
+                        )
+                        cfInvalidate(
+                            distribution: "$AWS_CF_DISTRIBUTION",
+                            paths: [
+                                "/ruby/2.5.0/latest_specs.*",
+                                "/ruby/2.5.0/prerelease_specs.*",
+                                "/ruby/2.5.0/specs.*",
+                                "/ruby/2.6.0/latest_specs.*",
+                                "/ruby/2.6.0/prerelease_specs.*",
+                                "/ruby/2.6.0/specs.*",
+                                "/ruby/2.7.0/latest_specs.*",
+                                "/ruby/2.7.0/prerelease_specs.*",
+                                "/ruby/2.7.0/specs.*",
+                            ],
+                            waitForCompletion: true
+                        )
                     }
                 }
             }
