@@ -7,7 +7,7 @@ pipeline {
             agent any
             steps {
                 script {
-                    buildName(IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "nightly-${BUILD_NUMBER}")
+                    buildName(IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
                 }
             }
         }
@@ -141,68 +141,83 @@ pipeline {
         }
         stage('pub') {
             agent { label 'sdkqe-centos8' }
-            steps {
-                dir("repo-${BUILD_NUMBER}") {
-                    unstash(name: "scripts-sdkqe-centos8-2.7")
-                    dir("gem-bin") {
-                        unstash(name: "gem-macos-2.5-bin")
-                        unstash(name: "gem-macos-2.6-bin")
-                        unstash(name: "gem-macos-2.7-bin")
-                        unstash(name: "gem-sdkqe-centos8-2.5-bin")
-                        unstash(name: "gem-sdkqe-centos8-2.6-bin")
-                        unstash(name: "gem-sdkqe-centos8-2.7-bin")
-                        archiveArtifacts(artifacts: "*.gem")
+            stages {
+                stage("pkg") {
+                    steps {
+                        dir("repo-${BUILD_NUMBER}") {
+                            unstash(name: "scripts-sdkqe-centos8-2.7")
+                            dir("gem-bin") {
+                                unstash(name: "gem-macos-2.5-bin")
+                                unstash(name: "gem-macos-2.6-bin")
+                                unstash(name: "gem-macos-2.7-bin")
+                                unstash(name: "gem-sdkqe-centos8-2.5-bin")
+                                unstash(name: "gem-sdkqe-centos8-2.6-bin")
+                                unstash(name: "gem-sdkqe-centos8-2.7-bin")
+                                archiveArtifacts(artifacts: "*.gem")
+                            }
+                            dir("gem-src") {
+                                unstash(name: "gem-sdkqe-centos8-2.7-src")
+                                archiveArtifacts(artifacts: "*.gem")
+                            }
+                        }
                     }
-                    dir("gem-src") {
-                        unstash(name: "gem-sdkqe-centos8-2.7-src")
-                        archiveArtifacts(artifacts: "*.gem")
+                }
+                stage("repo") {
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
                     }
-                    sh("bin/jenkins/build-repos")
-                    /*
-                    withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
-                        s3Upload(
-                            bucket: "docs.couchbase.com",
-                            acl: 'PublicRead',
-                            file: "gem-doc/",
-                            path: "sdk-api/",
-                            verbose: true
-                        )
-                    }
-                    */
-                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                        s3Upload(
-                            bucket: "sdk-snapshots.couchbase.com",
-                            acl: 'PublicRead',
-                            file: "gem-doc/",
-                            path: "ruby/sdk-api/",
-                            verbose: true
-                        )
-                        s3Upload(
-                            bucket: "sdk-snapshots.couchbase.com",
-                            acl: 'PublicRead',
-                            file: "repos/",
-                            path: "ruby/",
-                            verbose: true
-                        )
-                        cfInvalidate(
-                            distribution: "$AWS_CF_DISTRIBUTION",
-                            paths: [
-                                "/ruby/2.5.0/latest_specs.*",
-                                "/ruby/2.5.0/prerelease_specs.*",
-                                "/ruby/2.5.0/specs.*",
-                                "/ruby/2.6.0/latest_specs.*",
-                                "/ruby/2.6.0/prerelease_specs.*",
-                                "/ruby/2.6.0/specs.*",
-                                "/ruby/2.7.0/latest_specs.*",
-                                "/ruby/2.7.0/prerelease_specs.*",
-                                "/ruby/2.7.0/specs.*",
-                            ]
-                            //, waitForCompletion: true
-                        )
-                    }
-                    script {
-                        def description = sh(script: "cat description.txt", returnStdout: true).trim()
-                        buildDescription(description)
+                    steps {
+                        dir("repo-${BUILD_NUMBER}") {
+                            sh("bin/jenkins/build-repos")
+                            /*
+                            withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
+                                s3Upload(
+                                    bucket: "docs.couchbase.com",
+                                    acl: 'PublicRead',
+                                    file: "gem-doc/",
+                                    path: "sdk-api/",
+                                    verbose: true
+                                )
+                            }
+                            */
+                            withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                s3Upload(
+                                    bucket: "sdk-snapshots.couchbase.com",
+                                    acl: 'PublicRead',
+                                    file: "gem-doc/",
+                                    path: "ruby/sdk-api/",
+                                    verbose: true
+                                )
+                                s3Upload(
+                                    bucket: "sdk-snapshots.couchbase.com",
+                                    acl: 'PublicRead',
+                                    file: "repos/",
+                                    path: "ruby/",
+                                    verbose: true
+                                )
+                                cfInvalidate(
+                                    distribution: "$AWS_CF_DISTRIBUTION",
+                                    paths: [
+                                        "/ruby/2.5.0/latest_specs.*",
+                                        "/ruby/2.5.0/prerelease_specs.*",
+                                        "/ruby/2.5.0/specs.*",
+                                        "/ruby/2.6.0/latest_specs.*",
+                                        "/ruby/2.6.0/prerelease_specs.*",
+                                        "/ruby/2.6.0/specs.*",
+                                        "/ruby/2.7.0/latest_specs.*",
+                                        "/ruby/2.7.0/prerelease_specs.*",
+                                        "/ruby/2.7.0/specs.*",
+                                    ]
+                                    //, waitForCompletion: true
+                                )
+                            }
+                            script {
+                                def description = sh(script: "cat description.txt", returnStdout: true).trim()
+                                buildDescription(description)
+                            }
+                        }
                     }
                 }
             }
