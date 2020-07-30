@@ -183,6 +183,10 @@ pipeline {
                             //, waitForCompletion: true
                         )
                     }
+                    script {
+                        def report = sh(script: "cat report.txt", returnStdout: true).trim()
+                        buildDescription(report)
+                    }
                 }
             }
         }
