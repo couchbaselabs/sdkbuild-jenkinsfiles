@@ -170,8 +170,8 @@ pipeline {
                                 "/ruby/2.7.0/latest_specs.*",
                                 "/ruby/2.7.0/prerelease_specs.*",
                                 "/ruby/2.7.0/specs.*",
-                            ],
-                            waitForCompletion: true
+                            ]
+                            //, waitForCompletion: true
                         )
                     }
                 }
