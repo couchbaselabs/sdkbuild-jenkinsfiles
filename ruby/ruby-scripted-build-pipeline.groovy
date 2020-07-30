@@ -3,6 +3,14 @@
 pipeline {
     agent none
     stages {
+        stage('prep') {
+            agent any
+            steps {
+                script {
+                    buildName(IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "nightly-${BUILD_NUMBER}")
+                }
+            }
+        }
         stage('gem') {
             matrix {
                 axes {
@@ -184,8 +192,8 @@ pipeline {
                         )
                     }
                     script {
-                        def report = sh(script: "cat report.txt", returnStdout: true).trim()
-                        buildDescription(report)
+                        def description = sh(script: "cat description.txt", returnStdout: true).trim()
+                        buildDescription(description)
                     }
                 }
             }
