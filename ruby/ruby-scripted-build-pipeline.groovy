@@ -21,7 +21,7 @@ pipeline {
                         steps {
                             timestamps {
                                 cleanWs()
-                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     checkout([
                                         $class: "GitSCM",
                                         branches: [[name: "$SHA"]],
@@ -43,7 +43,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     sh("bin/jenkins/install-dependencies")
                                 }
                             }
@@ -52,7 +52,7 @@ pipeline {
                     stage("build") {
                         steps {
                             timestamps {
-                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     sh("bin/jenkins/build-extension")
                                     dir("pkg") {
                                         stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-src", includes: "*.gem")
@@ -90,8 +90,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                cleanWs()
-                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
                                 }
@@ -101,7 +100,7 @@ pipeline {
                     stage("inst") {
                         steps {
                             timestamps {
-                                dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                                dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
@@ -115,14 +114,14 @@ pipeline {
                         }
                         post {
                             always {
-                                junit("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}/test/reports/*.xml")
+                                junit("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}/test/reports/*.xml")
                                 publishCoverage(adapters: [
-                                    coberturaAdapter(path: "ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}/coverage/coverage.xml")
+                                    coberturaAdapter(path: "test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
                                 ])
                             }
                         }
                         steps {
-                            dir("ruby-sdk-${PLATFORM}-${CB_RUBY_VERSION}") {
+                            dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                 unstash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}")
                                 sh("bin/jenkins/test-with-cbdyncluster")
                             }
@@ -135,8 +134,7 @@ pipeline {
         stage('pub') {
             agent { label 'sdkqe-centos8' }
             steps {
-                cleanWs()
-                dir("ruby-sdk-repo") {
+                dir("repo-${BUILD_NUMBER}") {
                     unstash(name: "scripts-sdkqe-centos8-2.7")
                     dir("gem-bin") {
                         unstash(name: "gem-macos-2.5-bin")
