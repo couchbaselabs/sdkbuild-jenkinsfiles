@@ -158,6 +158,7 @@ pipeline {
                         archiveArtifacts(artifacts: "*.gem")
                     }
                     sh("bin/jenkins/build-repos")
+                    /*
                     withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
                         s3Upload(
                             bucket: "docs.couchbase.com",
@@ -167,7 +168,15 @@ pipeline {
                             verbose: true
                         )
                     }
+                    */
                     withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                        s3Upload(
+                            bucket: "sdk-snapshots.couchbase.com",
+                            acl: 'PublicRead',
+                            file: "gem-doc/",
+                            path: "ruby/sdk-api/",
+                            verbose: true
+                        )
                         s3Upload(
                             bucket: "sdk-snapshots.couchbase.com",
                             acl: 'PublicRead',
