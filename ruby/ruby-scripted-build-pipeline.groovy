@@ -20,7 +20,7 @@ pipeline {
                     }
                     axis {
                         name 'PLATFORM'
-                        values 'sdkqe-centos8', 'macos'
+                        values 'sdkqe-centos8', 'macos-10.13', 'macos-10.15'
                     }
                 }
                 agent { label PLATFORM }
@@ -86,7 +86,7 @@ pipeline {
                     }
                     axis {
                         name 'PLATFORM'
-                        values 'sdkqe-centos8', 'macos'
+                        values 'sdkqe-centos8', 'macos-10.15'
                     }
                     axis {
                         name 'CB_VERSION'
@@ -147,9 +147,12 @@ pipeline {
                         dir("repo-${BUILD_NUMBER}") {
                             unstash(name: "scripts-sdkqe-centos8-2.7")
                             dir("gem-bin") {
-                                unstash(name: "gem-macos-2.5-bin")
-                                unstash(name: "gem-macos-2.6-bin")
-                                unstash(name: "gem-macos-2.7-bin")
+                                unstash(name: "gem-macos-10.13-2.5-bin")
+                                unstash(name: "gem-macos-10.13-2.6-bin")
+                                unstash(name: "gem-macos-10.13-2.7-bin")
+                                unstash(name: "gem-macos-10.15-2.5-bin")
+                                unstash(name: "gem-macos-10.15-2.6-bin")
+                                unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-sdkqe-centos8-2.5-bin")
                                 unstash(name: "gem-sdkqe-centos8-2.6-bin")
                                 unstash(name: "gem-sdkqe-centos8-2.7-bin")
