@@ -174,48 +174,62 @@ pipeline {
                     steps {
                         dir("repo-${BUILD_NUMBER}") {
                             sh("bin/jenkins/build-repos")
-                            /*
-                            withAWS(credentials: 'aws-sdk', region: 'us-west-1') {
-                                s3Upload(
-                                    bucket: "docs.couchbase.com",
-                                    acl: 'PublicRead',
-                                    file: "gem-doc/",
-                                    path: "sdk-api/",
-                                    verbose: true
-                                )
+                            script {
+                                def docs_bucket = "sdk-snapshots.couchbase.com"
+                                def docs_region = "us-east-1"
+                                if (IS_RELEASE.toBoolean()) {
+                                    docs_bucket = "docs.couchbase.com"
+                                    docs_region = "us-west-1"
+                                }
+
+                                withAWS(credentials: 'aws-sdk', region: docs_region) {
+                                    s3Upload(
+                                        bucket: docs_bucket,
+                                        acl: 'PublicRead',
+                                        file: "gem-doc/",
+                                        path: "sdk-api/",
+                                        verbose: true
+                                    )
+                                }
                             }
-                            */
-                            withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                s3Upload(
-                                    bucket: "sdk-snapshots.couchbase.com",
-                                    acl: 'PublicRead',
-                                    file: "gem-doc/",
-                                    path: "ruby/sdk-api/",
-                                    verbose: true
-                                )
-                                s3Upload(
-                                    bucket: "sdk-snapshots.couchbase.com",
-                                    acl: 'PublicRead',
-                                    file: "repos/",
-                                    path: "ruby/",
-                                    verbose: true
-                                )
-                                cfInvalidate(
-                                    distribution: "$AWS_CF_DISTRIBUTION",
-                                    paths: [
-                                        "/ruby/2.5.0/latest_specs.*",
-                                        "/ruby/2.5.0/prerelease_specs.*",
-                                        "/ruby/2.5.0/specs.*",
-                                        "/ruby/2.6.0/latest_specs.*",
-                                        "/ruby/2.6.0/prerelease_specs.*",
-                                        "/ruby/2.6.0/specs.*",
-                                        "/ruby/2.7.0/latest_specs.*",
-                                        "/ruby/2.7.0/prerelease_specs.*",
-                                        "/ruby/2.7.0/specs.*",
-                                    ]
-                                    //, waitForCompletion: true
-                                )
+                            sh("tar cf docs-${BUILD_NUMBER}.tar gem-doc")
+                            archiveArtifacts(artifacts: "docs-${BUILD_NUMBER}.tar", fingerprint: true)
+                            script {
+                                def pkg_bucket = "sdk-snapshots.couchbase.com"
+                                def pkg_region = "us-east-1"
+                                def prefix = ""
+                                if (IS_RELEASE.toBoolean()) {
+                                    pkg_bucket = "packages.couchbase.com"
+                                    prefix = "clients/"
+                                }
+
+                                withAWS(credentials: 'aws-sdk', region: pkg_region) {
+                                    s3Upload(
+                                        bucket: pkg_bucket,
+                                        acl: 'PublicRead',
+                                        file: "repos/",
+                                        path: "${prefix}ruby/",
+                                        verbose: true
+                                    )
+                                    cfInvalidate(
+                                        distribution: "$AWS_CF_DISTRIBUTION",
+                                        paths: [
+                                            "/${prefix}ruby/2.5.0/latest_specs.*",
+                                            "/${prefix}ruby/2.5.0/prerelease_specs.*",
+                                            "/${prefix}ruby/2.5.0/specs.*",
+                                            "/${prefix}ruby/2.6.0/latest_specs.*",
+                                            "/${prefix}ruby/2.6.0/prerelease_specs.*",
+                                            "/${prefix}ruby/2.6.0/specs.*",
+                                            "/${prefix}ruby/2.7.0/latest_specs.*",
+                                            "/${prefix}ruby/2.7.0/prerelease_specs.*",
+                                            "/${prefix}ruby/2.7.0/specs.*",
+                                        ]
+                                        //, waitForCompletion: true
+                                    )
+                                }
                             }
+                            sh("tar cf repos-${BUILD_NUMBER}.tar repos")
+                            archiveArtifacts(artifacts: "repos-${BUILD_NUMBER}.tar", fingerprint: true)
                             script {
                                 def description = sh(script: "cat description.txt", returnStdout: true).trim()
                                 buildDescription(description)
