@@ -547,13 +547,14 @@ pipeline {
                         }
                     }
                 }
-                stage('w64v14') {
+                stage('w64v14s') {
                     agent { label 'msvc-2015' }
                     stages {
                         stage('prep') {
                             steps {
-                                dir('ws_win64_vc14') {
+                                dir('ws_win64_vc14_ssl') {
                                     deleteDir()
+                                    bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -561,14 +562,14 @@ pipeline {
                         stage('build') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
+                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
                                 }
                             }
                             steps {
-                                dir('ws_win64_vc14/build') {
+                                dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -576,16 +577,17 @@ pipeline {
                         stage('test') {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_win64_vc14/build/*.xml")
+                                    junit("ws_win64_vc14_ssl/build/*.xml")
                                 }
                             }
                             steps {
-                                dir('ws_win64_vc14/build') {
+                                dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -593,8 +595,8 @@ pipeline {
                         stage("pack") {
                             post {
                                 failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
+                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
                                 }
                             }
                             when {
@@ -603,9 +605,74 @@ pipeline {
                                 }
                             }
                             steps {
-                                dir('ws_win64_vc14/build') {
+                                dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
+                                    bat("move ${VERSION.tarName()}_vc14_amd64.zip ${VERSION.tarName()}_vc14_amd64_openssl.zip")
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64_openssl.zip", fingerprint: true)
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('w64v15') {
+                    agent { label 'msvc-2017' }
+                    stages {
+                        stage('prep') {
+                            steps {
+                                dir('ws_win64_vc15') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake --version --help')
+                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc15/build/*.xml")
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc15/build') {
+                                    bat('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
                                 }
                             }
                         }
@@ -618,7 +685,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl') {
                                     deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
+                                    bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -633,7 +700,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1d-cb1 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk1 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -651,7 +718,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll bin\\Debug\\')
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }

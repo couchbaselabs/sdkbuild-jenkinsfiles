@@ -1,8 +1,9 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
-openssl_ver = '1.1.1d-cb1'
+openssl_ver = '1.1.1g-sdk1'
 windows_dists = [
-    [2015, 14, 64, false],
+    [2015, 14, 64, true],
     # [2015, 14, 32, false],
+    [2017, 15, 64, false],
     [2017, 15, 64, true],
     # [2017, 15, 32, false],
 ]
@@ -34,6 +35,7 @@ linux_test_builds = [
 integration_enabled = true
 if ENV['WINDOWS_ONLY']
     windows_dists = [
+        [2015, 14, 64, true],
         [2015, 14, 64, false],
         [2015, 14, 32, false],
         [2017, 15, 64, true],
