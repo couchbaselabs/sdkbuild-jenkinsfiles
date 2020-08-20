@@ -11,7 +11,7 @@ pipeline {
                 }
             }
         }
-        stage('gem') {
+        stage('build') {
             matrix {
                 axes {
                     axis {
@@ -57,7 +57,7 @@ pipeline {
                             }
                         }
                     }
-                    stage("build") {
+                    stage("gem") {
                         steps {
                             timestamps {
                                 dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
@@ -70,6 +70,15 @@ pipeline {
                                     }
                                     stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
                                     stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
+                                    script {
+                                        if (PLATFORM == "sdkqe-centos8") {
+                                            stash(name: "scripts-ubuntu20-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
+                                            stash(name: "tests-ubuntu20-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
+                                            dir("pkg/binary") {
+                                                stash(name: "gem-ubuntu20-${CB_RUBY_VERSION}-bin", includes: "*.gem")
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -77,7 +86,7 @@ pipeline {
                 }
             }
         }
-        stage('test') {
+        stage('install') {
             matrix {
                 axes {
                     axis {
@@ -86,7 +95,43 @@ pipeline {
                     }
                     axis {
                         name 'PLATFORM'
-                        values 'sdkqe-centos8', 'macos-10.15'
+                        values 'sdkqe-centos8', 'macos-10.15', 'ubuntu20'
+                    }
+                }
+                agent { label PLATFORM }
+                stages {
+                    stage("deps") {
+                        steps {
+                            timestamps {
+                                dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                    unstash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}")
+                                    sh("bin/jenkins/install-dependencies")
+                                }
+                            }
+                        }
+                    }
+                    stage("inst") {
+                        steps {
+                            timestamps {
+                                dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                    unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
+                                    sh("bin/jenkins/install-gem ./couchbase-*.gem")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('test') {
+            environment {
+                PLATFORM = 'sdkqe-centos8'
+            }
+            matrix {
+                axes {
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '2.5', '2.6', '2.7'
                     }
                     axis {
                         name 'CB_VERSION'
