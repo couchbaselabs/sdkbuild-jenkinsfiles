@@ -86,7 +86,7 @@ pipeline {
                 }
             }
         }
-        stage('install') {
+        stage('inst') {
             matrix {
                 axes {
                     axis {
@@ -135,7 +135,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_VERSION'
-                        values '6.0.4', '6.5.1', '7.0.0-2588'
+                        values '6.0.4', '6.5.1', '7.0.0-2969'
                     }
                 }
                 agent { label PLATFORM }
