@@ -160,7 +160,6 @@ pipeline {
                             }
                         }
                     }
-/*
                     stage("test") {
                         options {
                             timeout(time: 20, unit: 'MINUTES')
@@ -180,7 +179,6 @@ pipeline {
                             }
                         }
                     }
-*/
                 }
             }
         }
