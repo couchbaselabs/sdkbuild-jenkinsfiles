@@ -467,7 +467,9 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14_ssl') {
                                     deleteDir()
+    
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
+    
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -500,7 +502,9 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
+    
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
+    
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -605,6 +609,84 @@ pipeline {
                         }
                     }
                 }
+                stage('w32v14s') {
+                    agent { label 'msvc-2015' }
+                    stages {
+                        stage('prep') {
+                            steps {
+                                dir('ws_win32_vc14_ssl') {
+                                    deleteDir()
+    
+                                    bat('cbdep install --x32 -b http://latestbuilds.service.couchbase.com/builds/latestbuilds/cbdeps/ openssl 1.1.1g-sdk50093')
+    
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14_ssl/build') {
+                                    bat('cmake --version --help')
+                                    bat('cmake -G"Visual Studio 14 2015" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk50093 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14_ssl.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win32_vc14_ssl/build/*.xml")
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14_ssl/build') {
+                                    bat('cmake --build . --target alltests')
+    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk50093\\bin\\*.dll bin\\Debug\\')
+    
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14_ssl.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc14_ssl/build') {
+                                    bat('cmake --build . --target package')
+                                    bat("move ${VERSION.tarName()}_vc14_x86.zip ${VERSION.tarName()}_vc14_x86_openssl.zip")
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86_openssl.zip", fingerprint: true)
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc14_x86_openssl.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 stage('w32v14') {
                     agent { label 'msvc-2015' }
                     stages {
@@ -683,7 +765,9 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl') {
                                     deleteDir()
+    
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
+    
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -716,7 +800,9 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
+    
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
+    
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -813,6 +899,84 @@ pipeline {
                                         s3Upload(
                                             bucket: 'sdk-snapshots.couchbase.com',
                                             file: "${VERSION.tarName()}_vc15_amd64.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('w32v15s') {
+                    agent { label 'msvc-2017' }
+                    stages {
+                        stage('prep') {
+                            steps {
+                                dir('ws_win32_vc15_ssl') {
+                                    deleteDir()
+    
+                                    bat('cbdep install --x32 -b http://latestbuilds.service.couchbase.com/builds/latestbuilds/cbdeps/ openssl 1.1.1g-sdk50093')
+    
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15_ssl/build') {
+                                    bat('cmake --version --help')
+                                    bat('cmake -G"Visual Studio 15 2017" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk50093 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15_ssl.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win32_vc15_ssl/build/*.xml")
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15_ssl/build') {
+                                    bat('cmake --build . --target alltests')
+    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk50093\\bin\\*.dll bin\\Debug\\')
+    
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15_ssl.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win32_vc15_ssl/build') {
+                                    bat('cmake --build . --target package')
+                                    bat("move ${VERSION.tarName()}_vc15_x86.zip ${VERSION.tarName()}_vc15_x86_openssl.zip")
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86_openssl.zip", fingerprint: true)
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc15_x86_openssl.zip",
                                             path: 'libcouchbase/'
                                         )
                                     }
