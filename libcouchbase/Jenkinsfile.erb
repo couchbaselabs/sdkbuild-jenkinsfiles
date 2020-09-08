@@ -1,6 +1,5 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
-openssl_ver = '1.1.1g-sdk1'
-openssl_ver_32 = '1.1.1g-sdk50093'
+openssl_ver = '1.1.1g-sdk2'
 windows_dists = [
     [2015, 14, 64, true],
     # [2015, 14, 32, false],
@@ -341,11 +340,7 @@ pipeline {
                                 dir('ws_win<%= build_id %>') {
                                     deleteDir()
 <% if has_ssl %>
-    <% if arch == 32 %>
-                                    bat('cbdep install --x32 -b http://latestbuilds.service.couchbase.com/builds/latestbuilds/cbdeps/ openssl <%= openssl_ver_32 %>')
-    <% else %>
-                                    bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
-    <% end %>
+                                    bat('cbdep --platform windows_msvc2017 install <% if arch == 32 %>--x32<% end %> openssl <%= openssl_ver %>')
 <% end %>
                                     unstash 'libcouchbase'
                                 }
@@ -362,7 +357,7 @@ pipeline {
                                 dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --version --help')
 <% if has_ssl %>
-                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" -DOPENSSL_ROOT_DIR=..\\install\\openssl-<%= arch == 32 ? openssl_ver_32 : openssl_ver %> ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" -DOPENSSL_ROOT_DIR=..\\install\\openssl-<%= openssl_ver %> ..\\libcouchbase')
 <% else %>
                                     bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" -DLCB_NO_SSL=1 ..\\libcouchbase')
 <% end %>
@@ -384,11 +379,7 @@ pipeline {
                                 dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --build . --target alltests')
 <% if has_ssl %>
-    <% if arch == 32 %>
-                                    bat('copy ..\\install\\openssl-<%= openssl_ver_32 %>\\bin\\*.dll bin\\Debug\\')
-    <% else %>
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
-    <% end %>
 <% end %>
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }

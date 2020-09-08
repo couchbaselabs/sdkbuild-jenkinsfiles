@@ -467,9 +467,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14_ssl') {
                                     deleteDir()
-    
-                                    bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
-    
+                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -484,7 +482,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk1 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -502,9 +500,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
-    
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
-    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -616,9 +612,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14_ssl') {
                                     deleteDir()
-    
-                                    bat('cbdep install --x32 -b http://latestbuilds.service.couchbase.com/builds/latestbuilds/cbdeps/ openssl 1.1.1g-sdk50093')
-    
+                                    bat('cbdep --platform windows_msvc2017 install --x32 openssl 1.1.1g-sdk2')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -633,7 +627,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk50093 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 14 2015" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -651,9 +645,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
-    
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk50093\\bin\\*.dll bin\\Debug\\')
-    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -765,9 +757,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl') {
                                     deleteDir()
-    
-                                    bat('cbdep --platform windows_msvc2017 install openssl 1.1.1g-sdk1')
-    
+                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -782,7 +772,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk1 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -800,9 +790,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
-    
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk1\\bin\\*.dll bin\\Debug\\')
-    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -914,9 +902,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15_ssl') {
                                     deleteDir()
-    
-                                    bat('cbdep install --x32 -b http://latestbuilds.service.couchbase.com/builds/latestbuilds/cbdeps/ openssl 1.1.1g-sdk50093')
-    
+                                    bat('cbdep --platform windows_msvc2017 install --x32 openssl 1.1.1g-sdk2')
                                     unstash 'libcouchbase'
                                 }
                             }
@@ -931,7 +917,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15_ssl/build') {
                                     bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk50093 ..\\libcouchbase')
+                                    bat('cmake -G"Visual Studio 15 2017" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
                                     bat('cmake --build .')
                                 }
                             }
@@ -949,9 +935,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
-    
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk50093\\bin\\*.dll bin\\Debug\\')
-    
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
