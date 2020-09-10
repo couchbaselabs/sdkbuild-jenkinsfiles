@@ -162,7 +162,7 @@ pipeline {
                     }
                     stage("test") {
                         options {
-                            timeout(time: 20, unit: 'MINUTES')
+                            timeout(time: 15, unit: 'MINUTES')
                         }
                         post {
                             always {
