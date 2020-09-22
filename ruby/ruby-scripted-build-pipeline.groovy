@@ -130,12 +130,12 @@ pipeline {
             matrix {
                 axes {
                     axis {
-                        name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
-                    }
-                    axis {
                         name 'CB_VERSION'
                         values '6.0.4', '6.5.1', '6.6.0', '7.0.0-2969'
+                    }
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '2.5', '2.6', '2.7'
                     }
                 }
                 agent { label PLATFORM }
