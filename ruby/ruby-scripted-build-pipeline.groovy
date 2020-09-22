@@ -135,7 +135,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_VERSION'
-                        values '6.0.4', '6.5.1', '7.0.0-2969'
+                        values '6.0.4', '6.5.1', '6.6.0', '7.0.0-2969'
                     }
                 }
                 agent { label PLATFORM }
