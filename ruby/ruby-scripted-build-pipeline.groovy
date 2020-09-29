@@ -15,12 +15,12 @@ pipeline {
             matrix {
                 axes {
                     axis {
-                        name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
-                    }
-                    axis {
                         name 'PLATFORM'
                         values 'centos8', 'macos-10.13', 'macos-10.15'
+                    }
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '2.5', '2.6', '2.7'
                     }
                 }
                 agent { label PLATFORM }
@@ -90,12 +90,12 @@ pipeline {
             matrix {
                 axes {
                     axis {
-                        name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
-                    }
-                    axis {
                         name 'PLATFORM'
                         values 'centos8', 'macos-10.15', 'ubuntu20'
+                    }
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '2.5', '2.6', '2.7'
                     }
                 }
                 agent { label PLATFORM }
