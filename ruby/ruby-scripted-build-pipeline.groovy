@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos8', 'macos-10.13', 'macos-10.15'
+                        values 'centos7', 'macos-10.13', 'macos-10.15'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -71,7 +71,7 @@ pipeline {
                                     stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
                                     stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
                                     script {
-                                        if (PLATFORM == "centos8") {
+                                        if (PLATFORM == "centos7") {
                                             stash(name: "scripts-ubuntu20-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
                                             stash(name: "tests-ubuntu20-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
                                             dir("pkg/binary") {
@@ -91,7 +91,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos8', 'macos-10.15', 'ubuntu20'
+                        values 'centos7', 'centos8', 'macos-10.13', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -104,7 +104,7 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}")
+                                    unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
                                 }
                             }
@@ -114,7 +114,13 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
+                                    script {
+                                        if (PLATFORM =~ /macos/) {
+                                            unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
+                                        } else {
+                                            unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
+                                        }
+                                    }
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
                             }
@@ -145,7 +151,7 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "scripts-centos8-${CB_RUBY_VERSION}")
+                                    unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
                                 }
                             }
@@ -155,7 +161,7 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "gem-centos8-${CB_RUBY_VERSION}-bin")
+                                    unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
                             }
@@ -169,13 +175,13 @@ pipeline {
                             always {
                                 junit("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}/test/reports/*.xml")
                                 publishCoverage(adapters: [
-                                    coberturaAdapter(path: "test-centos8-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
+                                    coberturaAdapter(path: "test-centos7-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
                                 ])
                             }
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                unstash(name: "tests-centos8-${CB_RUBY_VERSION}")
+                                unstash(name: "tests-centos7-${CB_RUBY_VERSION}")
                                 sh("bin/jenkins/test-with-cbdyncluster")
                             }
                         }
@@ -189,7 +195,7 @@ pipeline {
                 stage("pkg") {
                     steps {
                         dir("repo-${BUILD_NUMBER}") {
-                            unstash(name: "scripts-centos8-2.7")
+                            unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
                                 unstash(name: "gem-macos-10.13-2.5-bin")
                                 unstash(name: "gem-macos-10.13-2.6-bin")
@@ -197,13 +203,13 @@ pipeline {
                                 unstash(name: "gem-macos-10.15-2.5-bin")
                                 unstash(name: "gem-macos-10.15-2.6-bin")
                                 unstash(name: "gem-macos-10.15-2.7-bin")
-                                unstash(name: "gem-centos8-2.5-bin")
-                                unstash(name: "gem-centos8-2.6-bin")
-                                unstash(name: "gem-centos8-2.7-bin")
+                                unstash(name: "gem-centos7-2.5-bin")
+                                unstash(name: "gem-centos7-2.6-bin")
+                                unstash(name: "gem-centos7-2.7-bin")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                             dir("gem-src") {
-                                unstash(name: "gem-centos8-2.7-src")
+                                unstash(name: "gem-centos7-2.7-src")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                         }
