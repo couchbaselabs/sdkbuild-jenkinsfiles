@@ -178,6 +178,11 @@ pipeline {
                                     coberturaAdapter(path: "test-centos7-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
                                 ])
                             }
+                            failure {
+                                dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                    archiveArtifacts(artifacts: "server_logs.tar.gz", allowEmptyArchive: true)
+                                }
+                            }
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
