@@ -47,7 +47,7 @@ pipeline {
                 }
             }
         }
-        stage('bin') {
+        stage('rpm') {
             matrix {
                 axes {
                     axis {
@@ -69,6 +69,56 @@ pipeline {
                                     unstash("scripts")
                                     unstash("srpm")
                                     sh("scripts/jenkins/build-rpm")
+                                    dir("pkgbuild/results") {
+                                        archiveArtifacts(artifacts: "couchbase-transactions-*.tar", fingerprint: true)
+                                        script {
+                                            withAWS(credentials: 'aws-sdk', region: "us-east-1") {
+                                                s3Upload(
+                                                    bucket: "sdk-snapshots.couchbase.com",
+                                                    acl: 'PublicRead',
+                                                    includePathPattern: "couchbase-transactions-*.tar",
+                                                    path: "clients/transactions-cxx/",
+                                                    verbose: true
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('deb') {
+            matrix {
+                axes {
+                    axis {
+                        name 'CODENAME'
+                        values 'focal', 'buster'
+                    }
+                }
+                agent { label 'cowbuilder' }
+                stages {
+                    stage('cow') {
+                        steps {
+                            timestamps {
+                                cleanWs()
+                                dir("cow-${BUILD_NUMBER}") {
+                                    unstash("scripts")
+                                    sh("scripts/jenkins/prepare-cowbuilder")
+                                }
+                            }
+                        }
+                    }
+                    stage('deb') {
+                        steps {
+                            timestamps {
+                                cleanWs()
+                                dir("deb-${BUILD_NUMBER}") {
+                                    unstash("scripts")
+                                    unstash("tarball")
+                                    sh("scripts/jenkins/build-deb")
                                     dir("pkgbuild/results") {
                                         archiveArtifacts(artifacts: "couchbase-transactions-*.tar", fingerprint: true)
                                         script {
