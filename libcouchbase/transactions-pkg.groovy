@@ -52,7 +52,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CENTOS_REL'
-                        values '8'
+                        values '8', '7'
                     }
                     axis {
                         name 'CENTOS_ARCH'
