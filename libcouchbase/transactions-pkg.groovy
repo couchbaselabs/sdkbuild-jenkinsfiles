@@ -27,8 +27,13 @@ pipeline {
                             ]]])
                         stash(name: "scripts", includes: "scripts/**/*")
                         sh("cbdep install boost 1.67.0-cb8 -d deps")
+                        sh("sudo yum install -y doxygen")
                         sh("scripts/jenkins/build-tarball")
                         stash(name: "tarball", includes: "pkgbuild/sources/*")
+                        dir("pkgbuild/build") {
+                            stash(name: "docs", includes: "docs-couchbase-transactions-*.tar.gz")
+                            archiveArtifacts(artifacts: "docs-couchbase-transactions-*.tar.gz", fingerprint: true)
+                        }
                     }
                 }
             }
@@ -134,6 +139,29 @@ pipeline {
                                         }
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('docs') {
+            agent { label 'centos8' }
+            steps {
+                timestamps {
+                    cleanWs()
+                    dir("docs-${BUILD_NUMBER}") {
+                        unstash("docs")
+                        sh("tar xf docs-couchbase-transactions-*.tar.gz")
+                        script {
+                            withAWS(credentials: 'aws-sdk', region: "us-east-1") {
+                                s3Upload(
+                                    bucket: "sdk-snapshots.couchbase.com",
+                                    acl: 'PublicRead',
+                                    includePathPattern: "couchbase-transactions-*/",
+                                    path: "clients/transactions-cxx/api/",
+                                    verbose: true
+                                )
                             }
                         }
                     }
