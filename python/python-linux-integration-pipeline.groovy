@@ -200,7 +200,7 @@ def doStages(UPDATE_TESTS_URL, CLUSTER, NOSE_COMMAND) {
 pipeline {
     agent { label 'sdkqe-centos7' }
     options {
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 180, unit: 'MINUTES')
         timestamps()
     }
     stages {
