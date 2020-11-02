@@ -7,6 +7,7 @@ def PLATFORMS = [
 def DOTNET_SDK_VERSIONS = ["2.2.402", "3.0.100"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
+    "6.6.0",
     "6.5.0",
 	"6.0.0",
 	"5.5.2"
@@ -272,7 +273,6 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
             }
             def clusterId = null
             try {
-                ////step("Setup") {
                 // Allocate the cluster
                 clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + cluster_version, returnStdout: true)
                 echo "Got cluster ID $clusterId"
@@ -288,44 +288,26 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
 
                 // Create the cluster
                 shWithEcho("curl -v -X POST -u Administrator:password -d 'memoryQuota=2048' http://${ip}:8091/pools/default" )
+                shWithEcho("cbdyncluster --name=beer-sample add-sample-bucket $clusterId")
+                shWithEcho("cbdyncluster --name=travel-sample add-sample-bucket $clusterId")
+
                 // setup buckets, users, storage mode
                 // TODO: one command that does all the default bucket setup (flush, replica, etc...)
-                shWithEcho("curl -vv -X DELETE -u Administrator:password http://${ip}:8091/pools/default/buckets/beer-sample")
                 shWithEcho("curl -vv -X POST -u Administrator:password -d'storageMode=plasma' http://${ip}:8091/settings/indexes")
                 shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://${ip}:8091/pools/default/buckets/default")
                 shWithEcho("curl -v -X POST -u Administrator:password -d replicaNumber=2 http://${ip}:8091/pools/default/buckets/default")
-                curl_with_retry("http://${ip}:8091/sampleBuckets/install", "POST",  '["beer-sample"]' )
-                curl_with_retry("http://${ip}:8091/sampleBuckets/install", "POST",  '["travel-sample"]' )
                 // give time for bucket to populate, before rebalancing
                 sleep(30)
                 shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/beer-sample")
+                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/travel-sample")
                 shWithEcho("curl -vv -X POST -u Administrator:password -d 'knownNodes=ns_1%40${ip}%2Cns_1%40${ips[1]}%2Cns_1%40${ips[2]}' http://${ip}:8091/controller/rebalance")
                 waitUntilRebalanceComplete("${ip}")
-                shWithEcho("""curl -X PUT --data "name=default&roles=admin&password=password" \
-                    -H "Content-Type: application/x-www-form-urlencoded" \
-                    http://Administrator:password@${ip}:8091/settings/rbac/users/local/default
-                """)
-                shWithEcho("curl -X GET http://Administrator:password@${ip}:8091/settings/rbac/users")
-                //
-                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/default")
-                shWithEcho("curl http://Administrator:password@${ips[1]}:8091/pools/default/buckets/default")
-                shWithEcho("curl http://Administrator:password@${ips[2]}:8091/pools/default/buckets/default")
-                // put primary index on default bucket.  TODO: make tests do this perhaps?  Also remember to not do this
-                // after setting developer preview mode!!
                 shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `default` USING GSI'")
                 shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `beer-sample` USING GSI'")
-                // Now an FTS index as well... Again fix the tests but later
-                shWithEcho("""curl -X PUT -vv -u Administrator:password -d '{"name":"beer-search", "type":"fulltext-index", "sourceType":"couchbase", "sourceName":"beer-sample"}' -H 'Content-Type: application/json' http://${ip}:8094/api/index/beer-search""")
-                shWithEcho("""curl -X PUT -vv -u Administrator:password -d '{"name":"travel-sample-index", "type":"fulltext-index", "sourceType":"couchbase", "sourceName":"travel-sample"}' -H 'Content-Type: application/json' http://${ip}:8094/api/index/travel-sample-index""")
+                shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `travel-sample` USING GSI'")
 
                 // sleep a bit so the index should probably be ready.
                 sleep(30)
-                shWithEcho("curl -vv -u Administrator:password http://${ip}:8094/api/index/beer-search")
-                shWithEcho("""curl -vv -u Administrator:password http://${ip}:8093/query/service -d 'statement=SELECT * FROM system:indexes;' """)
-                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/beer-sample")
-                // // if(isDp) {
-                // //     shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8091/settings/developerPreview -d 'enabled=true'")
-                // // }
 
 
                 if (BRANCH == "master") {
@@ -334,25 +316,21 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                     def configFileManagement = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/config.json"
                     def projFileManagement   = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/Couchbase.IntegrationTests.Management.csproj"
                     
-                    ////step("MainTests") {
                     // replace hostname in config.json
                     shWithEcho("sed -i -e 's/localhost/${ip}/' ${configFile}")
                     shWithEcho("cat ${configFile}")
-                    // shWithEcho("couchbase-cli bucket-list -c ${ip} -u Administrator -p password")
+                    shWithEcho("sed -i -e 's/localhost/${ip}/' ${configFileManagement}")
+                    shWithEcho("cat ${configFile}")
+                    
+                    // run management tests to set up environment
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION} --filter DisplayName~VerifyEnvironment ${projFileManagement}")
+                    sleep(30);
 
                     // run integration tests
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test ${projFile}")
-                    ////}
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION} ${projFile}")
 
-                    ////step("ManagementTests") {
-                        // replace hostname in config.json
-                        shWithEcho("sed -i -e 's/localhost/${ip}/' ${configFileManagement}")
-                        shWithEcho("cat ${configFile}")
-                        // shWithEcho("couchbase-cli bucket-list -c ${ip} -u Administrator -p password")
-
-                        // run integration tests
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test ${projFileManagement}")
-                    ////}
+                    // run integration tests
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION}  ${projFileManagement}")
                 }
                 else if (BRANCH == "release27") {
                     // This does not actually work as it doesn't appear the integration tests
