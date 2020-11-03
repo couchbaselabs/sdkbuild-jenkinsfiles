@@ -103,6 +103,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
+                                cleanWs()
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
@@ -150,6 +151,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
+                                cleanWs()
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
                                     sh("bin/jenkins/install-dependencies")
@@ -199,6 +201,7 @@ pipeline {
             stages {
                 stage("pkg") {
                     steps {
+                        cleanWs()
                         dir("repo-${BUILD_NUMBER}") {
                             unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
