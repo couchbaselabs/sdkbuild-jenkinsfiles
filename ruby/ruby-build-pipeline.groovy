@@ -199,6 +199,17 @@ pipeline {
         stage('pub') {
             agent { label 'centos8' }
             stages {
+                stage("deps") {
+                    steps {
+                        timestamps {
+                            cleanWs()
+                            dir("deps-${BUILD_NUMBER}") {
+                                unstash(name: "scripts-centos7-2.7")
+                                sh("bin/jenkins/install-dependencies")
+                            }
+                        }
+                    }
+                }
                 stage("pkg") {
                     steps {
                         cleanWs()
