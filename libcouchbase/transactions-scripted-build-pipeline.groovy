@@ -81,10 +81,20 @@ void buildLibrary(fail_ok, agent) {
         def builddir="build-${agent}"
         dir("couchbase-transactions-cxx/") {
             shWithEcho('pwd')
-            checkout([$class: 'GitSCM',
-                     branches: [[name: 'main']],
-                     userRemoteConfigs: [[url: 'git@github.com:couchbase/couchbase-transactions-cxx.git']]])
-            shWithEcho('git submodule update --init')
+            checkout([
+                $class: "GitSCM",
+                branches: [[name: "$SHA"]],
+                extensions: [[
+                    $class: "SubmoduleOption",
+                    disableSubmodules: false,
+                    parentCredentials: true,
+                    recursiveSubmodules: true,
+                ]],
+                userRemoteConfigs: [[
+                    refspec: "$GERRIT_REFSPEC",
+                    url: "$REPO",
+                    poll: false
+                ]]])
             dir(builddir) {
                 // For now lets make a debug build so we get asserts
                 shWithEcho("""cmake -DBOOST_ROOT='${env.WORKSPACE}/deps/boost-1.67.0-cb8' -DCMAKE_BUILD_TYPE=Debug ..""")
