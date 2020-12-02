@@ -24,9 +24,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 8.0.0-cb2')
-                                sh(script: '/tmp/php/php-nts-8.0.0-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-nts-8.0.0-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-nts 8.0.0-cb1')
+                                sh(script: '/tmp/php/php-nts-8.0.0-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-8.0.0-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -64,8 +64,8 @@ pipeline {
                                 dir('8.0.0-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-8.0.0-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.0-cb2/bin/php-config \$(/tmp/php/php-nts-8.0.0-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-nts-8.0.0-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.0-cb1/bin/php-config \$(/tmp/php/php-nts-8.0.0-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -74,7 +74,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.0-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.0-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.0-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.0-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -87,9 +87,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 8.0.0-cb2')
-                                sh(script: '/tmp/php/php-zts-8.0.0-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-zts-8.0.0-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-zts 8.0.0-cb1')
+                                sh(script: '/tmp/php/php-zts-8.0.0-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-8.0.0-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -127,8 +127,8 @@ pipeline {
                                 dir('8.0.0-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-8.0.0-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.0-cb2/bin/php-config \$(/tmp/php/php-zts-8.0.0-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-zts-8.0.0-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.0-cb1/bin/php-config \$(/tmp/php/php-zts-8.0.0-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -137,7 +137,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.0-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.0-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.0-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.0-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -150,9 +150,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 7.4.13-cb2')
-                                sh(script: '/tmp/php/php-nts-7.4.13-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-nts-7.4.13-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-nts 7.4.13-cb1')
+                                sh(script: '/tmp/php/php-nts-7.4.13-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-7.4.13-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -190,8 +190,8 @@ pipeline {
                                 dir('7.4.13-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.4.13-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.13-cb2/bin/php-config \$(/tmp/php/php-nts-7.4.13-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-nts-7.4.13-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.13-cb1/bin/php-config \$(/tmp/php/php-nts-7.4.13-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -200,7 +200,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.13-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.13-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -213,9 +213,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 7.4.13-cb2')
-                                sh(script: '/tmp/php/php-zts-7.4.13-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-zts-7.4.13-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-zts 7.4.13-cb1')
+                                sh(script: '/tmp/php/php-zts-7.4.13-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-7.4.13-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -253,8 +253,8 @@ pipeline {
                                 dir('7.4.13-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.4.13-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.13-cb2/bin/php-config \$(/tmp/php/php-zts-7.4.13-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-zts-7.4.13-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.13-cb1/bin/php-config \$(/tmp/php/php-zts-7.4.13-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -263,7 +263,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.13-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.13-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -276,9 +276,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 7.3.25-cb2')
-                                sh(script: '/tmp/php/php-nts-7.3.25-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-nts-7.3.25-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-nts 7.3.25-cb1')
+                                sh(script: '/tmp/php/php-nts-7.3.25-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-nts-7.3.25-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -316,8 +316,8 @@ pipeline {
                                 dir('7.3.25-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.3.25-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.25-cb2/bin/php-config \$(/tmp/php/php-nts-7.3.25-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-nts-7.3.25-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.25-cb1/bin/php-config \$(/tmp/php/php-nts-7.3.25-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -326,7 +326,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.25-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.25-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.25-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.25-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -339,9 +339,9 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 7.3.25-cb2')
-                                sh(script: '/tmp/php/php-zts-7.3.25-cb2/bin/php -i', returnStatus: true)
-                                sh(script: '/tmp/php/php-zts-7.3.25-cb2/bin/php-config', returnStatus: true)
+                                sh('cbdep install --dir /tmp/php php-zts 7.3.25-cb1')
+                                sh(script: '/tmp/php/php-zts-7.3.25-cb1/bin/php -i', returnStatus: true)
+                                sh(script: '/tmp/php/php-zts-7.3.25-cb1/bin/php-config', returnStatus: true)
                             }
                         }
                         stage('lcb3') {
@@ -379,8 +379,8 @@ pipeline {
                                 dir('7.3.25-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.3.25-cb2/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.25-cb2/bin/php-config \$(/tmp/php/php-zts-7.3.25-cb2/bin/php-config --configure-options)")
+                                        sh('/tmp/php/php-zts-7.3.25-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.25-cb1/bin/php-config \$(/tmp/php/php-zts-7.3.25-cb1/bin/php-config --configure-options)")
                                         sh('make clean all')
                                     }
                                 }
@@ -389,7 +389,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.25-cb2/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.25-cb2/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.25-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.25-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
