@@ -1,17 +1,13 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
-patch = 'cb1'
+patch = 'cb2'
 supported_interpreters = [
-    '7.4.1',
-    '7.3.13',
-    '7.2.26'
+    '8.0.0',
+    '7.4.13',
+    '7.3.25'
 ]
 openssl_ver = '1.1.1d-cb1'
 php_versions = supported_interpreters.map do |php_ver|
-    if  php_ver =~ /7.[3-4]/
-        [[php_ver, true], [php_ver, false]]
-    else
-        [[php_ver, false]]
-    end
+    [[php_ver, true], [php_ver, false]]
 end.flatten(1)
 
 # cbdep_install = 'cbdep install --recache'
@@ -122,8 +118,6 @@ def msvc_ver(php)
         'msvc2019'
     when /7.4/, /7.3/
         'msvc2017'
-    when /7.2/, /7.1/
-        'msvc2015'
     end
 end
 
@@ -133,8 +127,6 @@ def msvs_ver(php)
         '16.0'
     when /7.4/, /7.3/
         '15.0'
-    when /7.2/, /7.1/
-        '14.0'
     end
 end
 
@@ -144,8 +136,6 @@ def cbdep_platform(php)
         'windows_msvc2019'
     when /7.4/, /7.3/
         'windows_msvc2017'
-    when /7.2/, /7.1/
-        'windows_msvc2015'
     end
 end
 
@@ -155,8 +145,6 @@ def agent_label(php)
         'msvc-2019'
     when /7.4/, /7.3/
         'msvc-2017'
-    when /7.2/, /7.1/
-        'msvc-2015'
     end
 end
 
