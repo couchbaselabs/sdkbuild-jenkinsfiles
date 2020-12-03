@@ -44,21 +44,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('8.0.0-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('8.0.0-nts-x64') {
@@ -74,7 +59,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.0-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.0-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.0-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.0-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -107,21 +92,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('8.0.0-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('8.0.0-zts-x64') {
@@ -137,7 +107,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.0-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.0-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.0-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.0-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -170,21 +140,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.4.13-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('7.4.13-nts-x64') {
@@ -200,7 +155,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.13-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.13-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -233,21 +188,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.4.13-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('7.4.13-zts-x64') {
@@ -263,7 +203,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.13-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.13-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.13-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.13-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -296,21 +236,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.3.25-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('7.3.25-nts-x64') {
@@ -326,7 +251,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-nts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.25-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.25-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.25-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.25-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -359,21 +284,6 @@ pipeline {
                                 }
                             }
                         }
-                        stage('lcb2') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'release-2.6'
-                                }
-                            }
-                            steps {
-                                dir('7.3.25-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 2.10.5-cb1')
-                                    sh('mv install/libcouchbase-2.10.5-cb1/libcouchbase-centos7-x86_64-2.10.5-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
-                                }
-                            }
-                        }
                         stage('build') {
                             steps {
                                 dir('7.3.25-zts-x64') {
@@ -389,7 +299,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-zts-x64/php-couchbase') {
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.25-cb1/bin/php ${env.GERRIT_BRANCH == 'release-2.6' ? '-d extension=igbinary.so' : ''} -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.25-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.25-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.25-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
