@@ -65,7 +65,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-nts-8.0.0-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.0-cb1/bin/php-config \$(/tmp/php/php-nts-8.0.0-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.0-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -128,7 +128,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-zts-8.0.0-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.0-cb1/bin/php-config \$(/tmp/php/php-zts-8.0.0-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.0-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -191,7 +191,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-nts-7.4.13-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.13-cb1/bin/php-config \$(/tmp/php/php-nts-7.4.13-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.13-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -254,7 +254,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-zts-7.4.13-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.13-cb1/bin/php-config \$(/tmp/php/php-zts-7.4.13-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.13-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -317,7 +317,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-nts-7.3.25-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.25-cb1/bin/php-config \$(/tmp/php/php-nts-7.3.25-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.25-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -380,7 +380,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('/tmp/php/php-zts-7.3.25-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.25-cb1/bin/php-config \$(/tmp/php/php-zts-7.3.25-cb1/bin/php-config --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.25-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }

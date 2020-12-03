@@ -91,7 +91,7 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
                                         sh('<%= php_root %>/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../<%= lcb_root %>) --with-php-config=<%= php_config %> \$(<%= php_config %> --configure-options)")
+                                        sh("./configure --with-couchbase=\$(realpath ../<%= lcb_root %>) --with-php-config=<%= php_config %>")
                                         sh('make clean all')
                                     }
                                 }
