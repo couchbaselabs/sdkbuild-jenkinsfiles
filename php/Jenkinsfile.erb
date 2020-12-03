@@ -222,11 +222,7 @@ end
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 <%
-vc_vars = if php_ver.to_f > 7.2
-            "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)[/\d+/]}\\\\Professional\\\\VC\\\\Auxiliary\\\\Build\\\\vcvarsall.bat"
-          else
-            "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio #{msvs_ver(php_ver)}\\\\VC\\\\vcvarsall.bat"
-          end
+vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)[/\d+/]}\\\\Professional\\\\VC\\\\Auxiliary\\\\Build\\\\vcvarsall.bat"
 %>
                                         bat('<%= phpize %>')
                                         bat("""
