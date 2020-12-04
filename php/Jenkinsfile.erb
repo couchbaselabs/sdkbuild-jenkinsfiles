@@ -1,5 +1,5 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
-patch = 'cb1'
+patch = 'cb3'
 supported_interpreters = [
     '8.0.0',
     '7.4.13',
@@ -253,7 +253,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
             }
         }
 <% if ENV['WINDOWS_ONLY'] %>
-<% php_ver = php_versions.map(&:first).find {|v| v =~ /7.3/} %>
+<% php_ver = php_versions.map(&:first).find {|v| v =~ /7.4/} %>
 <% ts = 'zts' %>
         stage('package') {
             stages {
