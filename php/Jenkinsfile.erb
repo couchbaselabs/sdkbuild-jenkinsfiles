@@ -3,7 +3,7 @@ patch = 'cb3'
 supported_interpreters = [
     '8.0.0',
     '7.4.13',
-#   '7.3.25'
+    '7.3.25'
 ]
 openssl_ver = '1.1.1d-cb1'
 php_versions = supported_interpreters.map do |php_ver|
@@ -46,18 +46,11 @@ pipeline {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
-                                sh(script: '<%= php %> -i', returnStatus: true)
-                                sh(script: '<%= php_config %>', returnStatus: true)
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
 <% lcb_ver = '3.0.6-cb1' %>
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
+                        stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
 <% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
@@ -140,13 +133,6 @@ end
 <% php = "#{php_root}\\\\php" %>
 <% phpize = "#{php_root}\\\\SDK\\\\phpize.bat" %>
 <% work_dir = "#{php_ver}-#{ts}-#{arch}#{'-ssl' if has_ssl}" %>
-<% if has_ssl %>
-                    when {
-                        expression {
-                            env.GERRIT_BRANCH == 'master'
-                        }
-                    }
-<% end %>
                     agent { label '<%= agent_label(php_ver) %>' }
                     stages {
                         stage('php') {
@@ -157,18 +143,12 @@ end
                                     bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
 <% end %>
                                     bat('<%= cbdep_install %> --dir c:\\php php-<%=ts %>-default <%= php_ver %>-<%= patch %>')
-                                    bat('<%= php %> -i')
                                 }
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
 <% lcb_ver = '3.0.6-cb1' %>
-                        stage('lcb3') {
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
+                        stage('lcb') {
                             steps {
                                 dir('<%= work_dir %>') {
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}#{'_openssl' if has_ssl}" %>
@@ -224,10 +204,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll .')
 <% end %>
                                     bat('copy ..\\<%= lcb_root %>\\bin\\libcouchbase.dll libcouchbase.dll')
-                                    bat('<%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -i')
                                     bat('<%= php_root %>\\msys2\\usr\\bin\\wget.exe -O <%= mock_jar %> http://packages.couchbase.com/clients/c/mock/CouchbaseMock-<%= mock_ver %>.jar')
-                                    bat('java -version')
-                                    bat('java -jar <%= mock_jar %> --version')
                                     bat("""
  start /b cmd /c java -jar <%= mock_jar %> --harakiri-monitor 127.0.0.1:<%= mock_port %>
  <%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll <%= php_root %>\\php-phpunit.phar %cd%\\tests\\
@@ -266,8 +243,6 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
 <% pear = "#{php_root}/bin/pear" %>
-                        sh('<%= php %> --version')
-                        sh('<%= pear %> version')
                         unstash 'php-couchbase'
                         dir('php-couchbase') {
                             sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
@@ -285,13 +260,6 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
 <%     ['zts', 'nts'].each do |ts| %>
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
                         stage('w<%= ts[0] %><%= php_ver.to_f %><%= 's' if has_ssl %>') {
-<% if has_ssl %>
-                            when {
-                                expression {
-                                    env.GERRIT_BRANCH == 'master'
-                                }
-                            }
-<% end %>
                             agent { label 'centos7' }
                             steps {
                                 cleanWs()
