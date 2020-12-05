@@ -5,7 +5,7 @@ pipeline {
     agent none
     stages {
         stage('prepare') {
-            agent { label 'centos7' }
+            agent { label 'centos8' }
             steps {
                 cleanWs()
                 sh('sudo yum remove -y libcouchbase*')
@@ -906,10 +906,9 @@ pipeline {
         stage('package') {
             stages {
                 stage('src') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     steps {
                         cleanWs()
-                        sh('sudo yum install -y perl-XML-XPath')
                         sh('cbdep install --dir /tmp/php php-zts 7.4.13-cb3')
                         unstash 'php-couchbase'
                         dir('php-couchbase') {
@@ -924,15 +923,16 @@ pipeline {
                 stage('bin') {
                     parallel {
                         stage('wz8.0s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.0-zts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.0-zts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-8.0-zts-x64-openssl"
 mv php_couchbase-8.0.0-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -941,15 +941,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.0s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.0-nts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.0-nts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-8.0-nts-x64-openssl"
 mv php_couchbase-8.0.0-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -958,15 +959,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz8.0') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.0-zts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.0-zts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-8.0-zts-x64"
 mv php_couchbase-8.0.0-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -975,15 +977,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.0') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.0-nts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.0-nts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-8.0-nts-x64"
 mv php_couchbase-8.0.0-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -992,15 +995,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.4s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.13-zts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.13-zts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.4-zts-x64-openssl"
 mv php_couchbase-7.4.13-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1009,15 +1013,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.4s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.13-nts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.13-nts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.4-nts-x64-openssl"
 mv php_couchbase-7.4.13-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1026,15 +1031,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.4') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.13-zts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.13-zts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.4-zts-x64"
 mv php_couchbase-7.4.13-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1043,15 +1049,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.4') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.13-nts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.13-nts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.4-nts-x64"
 mv php_couchbase-7.4.13-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1060,15 +1067,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.3s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.25-zts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.25-zts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.3-zts-x64-openssl"
 mv php_couchbase-7.3.25-zts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1077,15 +1085,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.3s') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.25-nts-x64-openssl'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.25-nts-x64-openssl/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.3-nts-x64-openssl"
 mv php_couchbase-7.3.25-nts-x64-openssl \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1094,15 +1103,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.3') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.25-zts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.25-zts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.3-zts-x64"
 mv php_couchbase-7.3.25-zts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
@@ -1111,15 +1121,16 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.3') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.25-nts-x64'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.25-nts-x64/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-7.3-nts-x64"
 mv php_couchbase-7.3.25-nts-x64 \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}

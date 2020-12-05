@@ -5,7 +5,7 @@ pipeline {
     agent none
     stages {
         stage('prepare') {
-            agent { label 'centos7' }
+            agent { label 'centos8' }
             steps {
                 cleanWs()
                 sh('sudo yum remove -y libcouchbase*')
@@ -18,7 +18,7 @@ pipeline {
         stage('build and test') {
             parallel {
                 stage('ln8.0') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -31,9 +31,9 @@ pipeline {
                             steps {
                                 dir('8.0.0-nts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -52,6 +52,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-nts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-8.0.0-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.0-cb3/phpunit.phar tests/")
                                 }
                             }
@@ -59,7 +60,7 @@ pipeline {
                     }
                 }
                 stage('lz8.0') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -72,9 +73,9 @@ pipeline {
                             steps {
                                 dir('8.0.0-zts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -93,6 +94,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('8.0.0-zts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-8.0.0-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.0-cb3/phpunit.phar tests/")
                                 }
                             }
@@ -100,7 +102,7 @@ pipeline {
                     }
                 }
                 stage('ln7.4') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -113,9 +115,9 @@ pipeline {
                             steps {
                                 dir('7.4.13-nts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -134,6 +136,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-nts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.4.13-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.13-cb3/phpunit.phar tests/")
                                 }
                             }
@@ -141,7 +144,7 @@ pipeline {
                     }
                 }
                 stage('lz7.4') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -154,9 +157,9 @@ pipeline {
                             steps {
                                 dir('7.4.13-zts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -175,6 +178,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.4.13-zts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.4.13-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.13-cb3/phpunit.phar tests/")
                                 }
                             }
@@ -182,7 +186,7 @@ pipeline {
                     }
                 }
                 stage('ln7.3') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -195,9 +199,9 @@ pipeline {
                             steps {
                                 dir('7.3.25-nts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -216,6 +220,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-nts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.3.25-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.25-cb3/phpunit.phar tests/")
                                 }
                             }
@@ -223,7 +228,7 @@ pipeline {
                     }
                 }
                 stage('lz7.3') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -236,9 +241,9 @@ pipeline {
                             steps {
                                 dir('7.3.25-zts-x64') {
                                     sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos7-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
-                                    sh('ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/bin/cbc version')
+                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                    sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
                             }
                         }
@@ -257,6 +262,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('7.3.25-zts-x64/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.3.25-cb3/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.25-cb3/phpunit.phar tests/")
                                 }
                             }

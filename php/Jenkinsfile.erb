@@ -19,7 +19,7 @@ pipeline {
     agent none
     stages {
         stage('prepare') {
-            agent { label 'centos7' }
+            agent { label 'centos8' }
             steps {
                 cleanWs()
                 sh('sudo yum remove -y libcouchbase*')
@@ -39,7 +39,7 @@ pipeline {
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
 <% php_config = "#{php_root}/bin/php-config" %>
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     stages {
                         stage('php') {
                             steps {
@@ -53,11 +53,11 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
-<% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
+<% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos8-x86_64-#{lcb_ver}" %>
                                     sh('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     sh('mv <%= lcb3_root %> <%= lcb_root %>')
-                                    sh('ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
-                                    sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/bin/cbc version')
+                                    sh('rm -rf <%= lcb_root %>/lib; ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
+                                    sh('LD_LIBRARY_PATH=\$(realpath <%= lcb_root %>/lib) <%= lcb_root %>/bin/cbc version')
                                 }
                             }
                         }
@@ -76,6 +76,7 @@ pipeline {
                         stage('test') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
+                                    sh('sudo yum install -y libnsl')
                                     sh("CB_MOCK=1 <%= php %>  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so <%= php_root %>/phpunit.phar tests/")
                                 }
                             }
@@ -235,10 +236,9 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
         stage('package') {
             stages {
                 stage('src') {
-                    agent { label 'centos7' }
+                    agent { label 'centos8' }
                     steps {
                         cleanWs()
-                        sh('sudo yum install -y perl-XML-XPath')
                         sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
@@ -260,15 +260,16 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
 <%     ['zts', 'nts'].each do |ts| %>
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
                         stage('w<%= ts[0] %><%= php_ver.to_f %><%= 's' if has_ssl %>') {
-                            agent { label 'centos7' }
+                            agent { label 'centos8' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash '<%= release_dir %>'
+                                sh('sudo yum install -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE <%= release_dir %>/
-version=\$(xpath package.xml '//package/version/release/text()')
+version=\$(xpath -e '//package/version/release/text()' package.xml)
 pkg_name="php_couchbase-\${version}-<%= php_ver.to_f %>-<%= ts %>-x64<%= '-openssl' if has_ssl %>"
 mv <%= release_dir %> \${pkg_name}
 zip -r9 \${pkg_name}.zip \${pkg_name}
