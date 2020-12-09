@@ -1,12 +1,16 @@
+// Please do not Save the Jenkins pipeline with a modified script.
+// Instead, use the Replay function to test build script changes, then commit final changes
+// to the sdkbuilds-jenkinsfile repository.
 def PLATFORMS = [
     "windows",
     "ubuntu16",
     "centos7",
 	"macos"
 ]
-def DOTNET_SDK_VERSIONS = ["2.2.402", "3.0.100"]
+def DOTNET_SDK_VERSIONS = ["2.2.402", "3.1.404"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
+    "7.0.0-3507",
     "6.6.0",
     "6.5.0",
 	"6.0.0",
@@ -14,6 +18,10 @@ def CB_SERVER_VERSIONS = [
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
+
+// use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
+// useful for testing test-only changes.
+def FORCE_COMBINATION_TEST_RUN = false
 
 pipeline {
     agent none
@@ -70,7 +78,7 @@ pipeline {
         stage("combination-test") {
             agent { label "sdkqe-centos7" }
 			when {
-                expression { return IS_GERRIT_TRIGGER.toBoolean() != true || RUN_COMBINATION_TESTS.toBoolean() == true }
+                expression { return IS_GERRIT_TRIGGER.toBoolean() != true || RUN_COMBINATION_TESTS.toBoolean() == true || FORCE_COMBINATION_TEST_RUN }
             }
             steps {
                 doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH)
@@ -223,9 +231,19 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                            try {
+                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                            }
+                            finally {
+                                junit "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
+                            }
                         } else {
-                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                            try {
+                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                            }
+                            finally {
+                                junit "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
+                            }
                         }
                     } else if (BRANCH == "release27") {
                         if (platform.contains("window")) {
@@ -314,6 +332,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                     def configFile = "couchbase-net-client/tests/Couchbase.IntegrationTests/config.json"
                     def projFile   = "couchbase-net-client/tests/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj"
                     def configFileManagement = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/config.json"
+                    def testResults = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults/TestResults.xml"
                     def projFileManagement   = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/Couchbase.IntegrationTests.Management.csproj"
                     
                     // replace hostname in config.json
@@ -323,14 +342,24 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                     shWithEcho("cat ${configFile}")
                     
                     // run management tests to set up environment
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION} --filter DisplayName~VerifyEnvironment ${projFileManagement}")
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f netcoreapp3.0 --filter DisplayName~VerifyEnvironment ${projFileManagement}")
                     sleep(30);
 
                     // run integration tests
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION} ${projFile}")
+                    try {
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0 ${projFile}")
+                    }
+                    finally {
+                        junit "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
+                    }
 
                     // run integration tests
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --framework ${DOTNET_SDK_VERSION}  ${projFileManagement}")
+                    try {
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0  ${projFileManagement}")
+                    }
+                    finally {
+                        junit "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
+                    }
                 }
                 else if (BRANCH == "release27") {
                     // This does not actually work as it doesn't appear the integration tests
