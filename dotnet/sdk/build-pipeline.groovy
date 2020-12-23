@@ -235,14 +235,14 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                                 batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
                             }
                             finally {
-                                junit "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
+                                junit allowEmptyResults: true, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
                             }
                         } else {
                             try {
                                 shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
                             }
                             finally {
-                                junit "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
+                                junit  allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
                             }
                         }
                     } else if (BRANCH == "release27") {
@@ -350,7 +350,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                         shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0 ${projFile}")
                     }
                     finally {
-                        junit "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
+                        junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
                     }
 
                     // run integration tests
@@ -358,7 +358,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                         shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0  ${projFileManagement}")
                     }
                     finally {
-                        junit "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
+                        junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
                     }
                 }
                 else if (BRANCH == "release27") {
