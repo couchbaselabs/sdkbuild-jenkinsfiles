@@ -20,7 +20,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
+                        values '2.5', '2.6', '2.7', '3.0.0'
                     }
                 }
                 agent { label PLATFORM }
@@ -95,7 +95,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
+                        values '2.5', '2.6', '2.7', '3.0.0'
                     }
                 }
                 agent { label PLATFORM }
@@ -142,7 +142,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.5', '2.6', '2.7'
+                        values '2.5', '2.6', '2.7', '3.0.0'
                     }
                 }
                 agent { label PLATFORM }
