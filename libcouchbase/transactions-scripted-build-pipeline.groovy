@@ -6,12 +6,12 @@ pipeline {
     stages {
         stage("Build") {
             parallel {
-                stage("Build-macosx") {
-                    agent {label 'macos'}
-                    steps {
-                         buildLibrary(true, "macos")
-                    }
-                }
+//                stage("Build-macosx") {
+//                    agent {label 'macos'}
+//                    steps {
+//                         buildLibrary(true, "macos")
+//                    }
+//                }
                 stage("Build-centos7") {
                     agent { label 'centos7' }
                     steps {
