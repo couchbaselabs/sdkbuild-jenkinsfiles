@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-10.13', 'macos-10.15'
+                        values 'centos7'//, 'macos-10.13', 'macos-10.15'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -91,7 +91,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'centos8', 'macos-10.13', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9'
+                        values 'centos7', 'centos8', 'ubuntu16', 'ubuntu20', 'debian9'//, 'macos-10.13', 'macos-10.15'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -215,12 +215,14 @@ pipeline {
                         dir("repo-${BUILD_NUMBER}") {
                             unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
+                                /*
                                 unstash(name: "gem-macos-10.13-2.5-bin")
                                 unstash(name: "gem-macos-10.13-2.6-bin")
                                 unstash(name: "gem-macos-10.13-2.7-bin")
                                 unstash(name: "gem-macos-10.15-2.5-bin")
                                 unstash(name: "gem-macos-10.15-2.6-bin")
                                 unstash(name: "gem-macos-10.15-2.7-bin")
+                                */
                                 unstash(name: "gem-centos7-2.5-bin")
                                 unstash(name: "gem-centos7-2.6-bin")
                                 unstash(name: "gem-centos7-2.7-bin")
