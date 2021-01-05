@@ -295,6 +295,9 @@ pipeline {
                                             "/${prefix}ruby/2.7.0/latest_specs.*",
                                             "/${prefix}ruby/2.7.0/prerelease_specs.*",
                                             "/${prefix}ruby/2.7.0/specs.*",
+                                            "/${prefix}ruby/3.0.0/latest_specs.*",
+                                            "/${prefix}ruby/3.0.0/prerelease_specs.*",
+                                            "/${prefix}ruby/3.0.0/specs.*",
                                         ]
                                         //, waitForCompletion: true
                                     )
