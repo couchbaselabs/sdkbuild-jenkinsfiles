@@ -16,13 +16,13 @@ pipeline {
                     agent { label 'centos7' }
                     steps {
                         buildLibrary(true, "centos7")
-                        stash includes: 'couchbase-transactions-cxx/', name: 'couchbase-transactions-cxx', useDefaultExcludes: false
                     }
                 }
                 stage("Build-centos8") {
                     agent { label 'centos8' }
                     steps {
                         buildLibrary(true, "centos8")
+                        stash includes: 'couchbase-transactions-cxx/', name: 'couchbase-transactions-cxx', useDefaultExcludes: false
                     }
                 }
                 stage("Build-debian9") {
@@ -40,13 +40,13 @@ pipeline {
             }
         }
         stage("Test_6.6_stable") {
-            agent { label 'sdkqe-centos7' }
+            agent { label 'sdkqe-centos8' }
             steps {
                 cleanWs()
                 script {
                     unstash 'couchbase-transactions-cxx'
                     dir('couchbase-transactions-cxx') {
-                        dir('build-centos7') {
+                        dir('build-centos8') {
                             testAgainstServer("6.6-stable")
                         }
                     }
@@ -54,13 +54,13 @@ pipeline {
             }
         }
         stage(Test_7_0_0) {
-            agent { label 'sdkqe-centos7' }
+            agent { label 'sdkqe-centos8' }
             steps {
                 cleanWs()
                 script {
                     unstash 'couchbase-transactions-cxx'
                     dir('couchbase-transactions-cxx') {
-                        dir('build-centos7') {
+                        dir('build-centos8') {
                             testAgainstServer("7.0-stable")
                         }
                     }
