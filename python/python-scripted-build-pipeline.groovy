@@ -34,7 +34,7 @@ def MAC_MIN_PYVERSION="${MAC_MIN_PYVERSION}"?:"3.7"
 def DIST_COMBOS = []
 pipeline {
     options {
-      timeout(time: 1, unit: 'HOURS')
+      timeout(time: 90, unit: 'MINUTES')
     }
     agent none
     stages {
@@ -399,7 +399,7 @@ C:\\cbdep-priv\\wix-3.11.1\\dark.exe -x ${TEMP_DIR}  ${TEMP_DIR}\\${DL}
             {
                 echo("Caught exception looking for openssl: ${e}")
             }
-            
+
             shWithEcho(cmd)
         }
     }
