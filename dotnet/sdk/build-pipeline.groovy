@@ -232,14 +232,14 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
                             try {
-                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.1 --no-build")
                             }
                             finally {
                                 junit "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
                             }
                         } else {
                             try {
-                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.0 --no-build")
+                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.1 --no-build")
                             }
                             finally {
                                 junit "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
@@ -342,12 +342,12 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                     shWithEcho("cat ${configFile}")
                     
                     // run management tests to set up environment
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f netcoreapp3.0 --filter DisplayName~VerifyEnvironment ${projFileManagement}")
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f netcoreapp3.1 --filter DisplayName~VerifyEnvironment ${projFileManagement}")
                     sleep(30);
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0 ${projFile}")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.1 ${projFile}")
                     }
                     finally {
                         junit "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
@@ -355,7 +355,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.0  ${projFileManagement}")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.1  ${projFileManagement}")
                     }
                     finally {
                         junit "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
