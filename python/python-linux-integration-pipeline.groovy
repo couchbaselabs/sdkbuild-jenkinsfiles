@@ -85,7 +85,7 @@ def doStages(UPDATE_TESTS_URL, CLUSTER, NOSE_COMMAND) {
             def server_version = s
             echo "creating stages ${py_version}-${server_version}"
             mystages["${py_version}_${server_version}"] = {
-                node('sdkqe-centos8') {
+                node('sdkqe-centos7') {
                     stage("build ${py_version}-${server_version}") {
                         cleanWs()
                         dir("couchbase-python-client-${py_version}-${server_version}") {
@@ -198,7 +198,7 @@ def doStages(UPDATE_TESTS_URL, CLUSTER, NOSE_COMMAND) {
 }
 
 pipeline {
-    agent { label 'sdkqe-centos8' }
+    agent { label 'sdkqe-centos7' }
     options {
         timeout(time: 90, unit: 'MINUTES')
         timestamps()
