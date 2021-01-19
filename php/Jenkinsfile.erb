@@ -74,6 +74,9 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
@@ -198,6 +201,9 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = <%= mock_port %>
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('<%= work_dir %>\\php-couchbase') {

@@ -72,6 +72,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 1801
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('8.0.1-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
@@ -147,6 +150,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 2801
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('8.0.1-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
@@ -220,6 +226,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 1801
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('8.0.1-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
@@ -291,6 +300,9 @@ pipeline {
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 2801
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('8.0.1-nts-x64\\php-couchbase') {
@@ -365,6 +377,9 @@ pipeline {
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8414
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('7.4.14-zts-x64-ssl\\php-couchbase') {
@@ -441,6 +456,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9414
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('7.4.14-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
@@ -514,6 +532,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8414
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('7.4.14-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
@@ -585,6 +606,9 @@ pipeline {
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9414
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('7.4.14-nts-x64\\php-couchbase') {
@@ -659,6 +683,9 @@ pipeline {
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8326
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('7.3.26-zts-x64-ssl\\php-couchbase') {
@@ -735,6 +762,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9326
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('7.3.26-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
@@ -808,6 +838,9 @@ pipeline {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8326
                             }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
+                            }
                             steps {
                                 dir('7.3.26-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
@@ -879,6 +912,9 @@ pipeline {
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9326
+                            }
+                            options {
+                                timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
                                 dir('7.3.26-nts-x64\\php-couchbase') {
