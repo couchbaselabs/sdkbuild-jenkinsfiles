@@ -137,7 +137,10 @@ void testAgainstServer(String serverVersion) {
         // The transactions tests check for this environment property
         // Technically this is building on the test machines which isn't great, but it's so fast with Java that
         // it just makes sense.
-        envStr = ["TXN_CONNECTION_STRING=couchbase://" + ip ]
+        def envStr = ["TXN_CONNECTION_STRING=couchbase://" + ip ]
+        if (serverVersion.startsWith("7")) {
+            envStr << "SUPPORTS_COLLECTIONS=1"
+        }
         withEnv(envStr) {
             def results_file = serverVersion.replaceAll(".", "_") + "_results.xml"
             try {
