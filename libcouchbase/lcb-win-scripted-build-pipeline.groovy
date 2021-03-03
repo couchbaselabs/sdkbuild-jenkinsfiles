@@ -1040,6 +1040,151 @@ pipeline {
                         }
                     }
                 }
+                stage('w64v16') {
+                    agent { label 'msvc-2019' }
+                    stages {
+                        stage('prep') {
+                            steps {
+                                dir('ws_win64_vc16') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake --version --help')
+                                    bat('cmake -G"Visual Studio 16 2019" -DLCB_NO_SSL=1 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc16/build/*.xml")
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16/build') {
+                                    bat('cmake --build . --target package')
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_amd64.zip", fingerprint: true)
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc16_amd64.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('w64v16s') {
+                    agent { label 'msvc-2019' }
+                    stages {
+                        stage('prep') {
+                            steps {
+                                dir('ws_win64_vc16_ssl') {
+                                    deleteDir()
+                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16_ssl/build') {
+                                    bat('cmake --version --help')
+                                    bat('cmake -G"Visual Studio 16 2019" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
+                                    bat('cmake --build .')
+                                }
+                            }
+                        }
+                        stage('test') {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16_ssl.zip', fingerprint: false)
+                                }
+                                always {
+                                    junit("ws_win64_vc16_ssl/build/*.xml")
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16_ssl/build') {
+                                    bat('cmake --build . --target alltests')
+                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
+                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                }
+                            }
+                        }
+                        stage("pack") {
+                            post {
+                                failure {
+                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
+                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16_ssl.zip', fingerprint: false)
+                                }
+                            }
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                }
+                            }
+                            steps {
+                                dir('ws_win64_vc16_ssl/build') {
+                                    bat('cmake --build . --target package')
+                                    bat("move ${VERSION.tarName()}_vc16_amd64.zip ${VERSION.tarName()}_vc16_amd64_openssl.zip")
+                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_amd64_openssl.zip", fingerprint: true)
+                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                        s3Upload(
+                                            bucket: 'sdk-snapshots.couchbase.com',
+                                            file: "${VERSION.tarName()}_vc16_amd64_openssl.zip",
+                                            path: 'libcouchbase/'
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
