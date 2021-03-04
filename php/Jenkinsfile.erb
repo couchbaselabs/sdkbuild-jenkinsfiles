@@ -1,9 +1,9 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 patch = 'cb1'
 supported_interpreters = [
-    '8.0.1',
-    '7.4.14',
-    '7.3.26'
+    '8.0.2',
+    '7.4.15',
+    '7.3.27'
 ]
 openssl_ver = '1.1.1d-cb1'
 php_versions = supported_interpreters.map do |php_ver|
@@ -49,7 +49,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.0.6-cb1' %>
+<% lcb_ver = '3.1.0-cb1' %>
                         stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
@@ -151,7 +151,7 @@ end
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.0.6-cb1' %>
+<% lcb_ver = '3.1.0-cb1' %>
                         stage('lcb') {
                             steps {
                                 dir('<%= work_dir %>') {

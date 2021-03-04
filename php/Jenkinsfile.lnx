@@ -24,14 +24,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 8.0.1-cb1')
+                                sh('cbdep install --dir /tmp/php php-nts 8.0.2-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('8.0.1-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('8.0.2-nts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -39,11 +39,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('8.0.1-nts-x64') {
+                                dir('8.0.2-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-8.0.1-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.1-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-8.0.2-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.2-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -54,9 +54,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('8.0.1-nts-x64/php-couchbase') {
+                                dir('8.0.2-nts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.1-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.1-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.2-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-8.0.2-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -69,14 +69,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 8.0.1-cb1')
+                                sh('cbdep install --dir /tmp/php php-zts 8.0.2-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('8.0.1-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('8.0.2-zts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -84,11 +84,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('8.0.1-zts-x64') {
+                                dir('8.0.2-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-8.0.1-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.1-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-8.0.2-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.2-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -99,9 +99,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('8.0.1-zts-x64/php-couchbase') {
+                                dir('8.0.2-zts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.1-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.1-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.2-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-8.0.2-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -114,14 +114,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 7.4.14-cb1')
+                                sh('cbdep install --dir /tmp/php php-nts 7.4.15-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('7.4.14-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('7.4.15-nts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -129,11 +129,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.14-nts-x64') {
+                                dir('7.4.15-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.4.14-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.14-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-7.4.15-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.15-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -144,9 +144,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('7.4.14-nts-x64/php-couchbase') {
+                                dir('7.4.15-nts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.14-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.14-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.15-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.4.15-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -159,14 +159,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 7.4.14-cb1')
+                                sh('cbdep install --dir /tmp/php php-zts 7.4.15-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('7.4.14-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('7.4.15-zts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -174,11 +174,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.4.14-zts-x64') {
+                                dir('7.4.15-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.4.14-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.14-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-7.4.15-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.15-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -189,9 +189,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('7.4.14-zts-x64/php-couchbase') {
+                                dir('7.4.15-zts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.14-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.14-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.15-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.4.15-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -204,14 +204,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-nts 7.3.26-cb1')
+                                sh('cbdep install --dir /tmp/php php-nts 7.3.27-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('7.3.26-nts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('7.3.27-nts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -219,11 +219,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.26-nts-x64') {
+                                dir('7.3.27-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.3.26-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.26-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-7.3.27-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.27-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -234,9 +234,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('7.3.26-nts-x64/php-couchbase') {
+                                dir('7.3.27-nts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.26-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.26-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.27-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-nts-7.3.27-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
@@ -249,14 +249,14 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep install --dir /tmp/php php-zts 7.3.26-cb1')
+                                sh('cbdep install --dir /tmp/php php-zts 7.3.27-cb1')
                             }
                         }
                         stage('lcb') {
                             steps {
-                                dir('7.3.26-zts-x64') {
-                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.0.6-cb1')
-                                    sh('mv install/libcouchbase-3.0.6-cb1/libcouchbase-centos8-x86_64-3.0.6-cb1 install/libcouchbase-linux-amd64')
+                                dir('7.3.27-zts-x64') {
+                                    sh('cbdep install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.1.0-cb1')
+                                    sh('mv install/libcouchbase-3.1.0-cb1/libcouchbase-centos8-x86_64-3.1.0-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -264,11 +264,11 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('7.3.26-zts-x64') {
+                                dir('7.3.27-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.3.26-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.26-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-7.3.27-cb1/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.27-cb1/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -279,9 +279,9 @@ pipeline {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
                             steps {
-                                dir('7.3.26-zts-x64/php-couchbase') {
+                                dir('7.3.27-zts-x64/php-couchbase') {
                                     sh('sudo yum install -y libnsl')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.26-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.26-cb1/phpunit.phar tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.27-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so /tmp/php/php-zts-7.3.27-cb1/phpunit.phar tests/")
                                 }
                             }
                         }
