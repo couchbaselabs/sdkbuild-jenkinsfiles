@@ -111,7 +111,9 @@ def doStages(UPDATE_TESTS_URL, CLUSTER, NOSE_COMMAND) {
                             def cluster = new DynamicCluster()
                             def versions = server_version.tokenize("-")
                             def version = versions[0]
-                            boolean isDp = versions.size() > 1
+                            // TODO:  handle DP versions in the future?
+                            //boolean isDp = versions.size() > 1
+                            boolean isDp = false
                             echo "isDp=${isDp}"
                             CLUSTER["${py_version}-${server_version}"] = cluster
                             def alloc = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version='${server_version}'", returnStdout: true)
