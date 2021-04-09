@@ -22,6 +22,8 @@ def BRANCH = ""
 // use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
 // useful for testing test-only changes.
 def FORCE_COMBINATION_TEST_RUN = false
+def _SKIP_COMBINATION_TESTS = env.SKIP_COMBINATION_TESTS != null && SKIP_COMBINATION_TESTS
+def _RUN_COMBINATION_TESTS = FORCE_COMBINATION_TEST_RUN || (IS_GERRIT_TRIGGER.toBoolean() != true && !_SKIP_COMBINATION_TESTS)
 
 pipeline {
     agent none
@@ -29,7 +31,7 @@ pipeline {
         stage("job valid?") {
             when {
                 expression {
-                    return _INTERNAL_OK_.toBoolean() != true
+                    return _INTERNAL_OK_.toBoolean() != true || (IS_RELEASE.toBoolean() == true && (VERSION.contains('changeme') || VERSION == ""))
                 }
             }
             steps {
@@ -78,7 +80,8 @@ pipeline {
         stage("combination-test") {
             agent { label "sdkqe-centos7" }
 			when {
-                expression { return IS_GERRIT_TRIGGER.toBoolean() != true || RUN_COMBINATION_TESTS.toBoolean() == true || FORCE_COMBINATION_TEST_RUN }
+                // see top of file for criteria
+                expression { _RUN_COMBINATION_TESTS }
             }
             steps {
                 doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH)
@@ -105,6 +108,7 @@ pipeline {
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
+                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                         batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
 
