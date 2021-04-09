@@ -194,7 +194,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build -c Release couchbase-net-client\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
                         }
