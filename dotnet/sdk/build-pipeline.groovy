@@ -75,7 +75,7 @@ pipeline {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
             }
         }
-       /* stage("combination-test") {
+        stage("combination-test") {
             agent { label "sdkqe-centos7" }
 			when {
                 expression { return IS_GERRIT_TRIGGER.toBoolean() != true || RUN_COMBINATION_TESTS.toBoolean() == true || FORCE_COMBINATION_TEST_RUN }
@@ -83,7 +83,7 @@ pipeline {
             steps {
                 doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH)
             }
-        }*/
+        }
         stage("package") {
             agent { label "windows" }
             when {
@@ -194,7 +194,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build -c Release couchbase-net-client\\couchbase-net-client.sln")
+                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
                         }
