@@ -142,19 +142,6 @@ pipeline {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
 
                 script {
-                    /*
-                    dir("couchbase-net-client") {
-                        def REL_VERSION = env.VERSION
-                        sh("""
-                            git config user.name "Couchbase SDK Team"
-                            git config user.email "sdk_dev@couchbase.com"
-                            git config user.signingkey 50984187E4FCD540EF7461781616981CC4A088B2
-                            git tag -asm "Release v$REL_VERSION" v$REL_VERSION
-                            git push origin v$REL_VERSION
-                        """)
-                    }
-                    */
-
                     withCredentials([string(credentialsId: 'netsdk-nugetkey', variable: 'NUGETKEY')]) {
                         if (!NUGETKEY?.trim()) {
                             echo "No Nuget key configured, unable to publish package"
