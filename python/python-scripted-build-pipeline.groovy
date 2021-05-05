@@ -28,13 +28,15 @@ if (IS_RELEASE){
     PYCBC_DEBUG_SYMBOLS=""
 }
 def PYCBC_BRANCH="${PYCBC_BRANCH}"
+def IS_JENKINS_BUILD = "${IS_JENKINS_BUILD}" ? "${IS_JENKINS_BUILD}" : "TRUE"
+echo "Is Jenkins build: ${IS_JENKINS_BUILD}"
 
 def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
 def MAC_MIN_PYVERSION="${MAC_MIN_PYVERSION}"?:"3.7"
 def DIST_COMBOS = []
 pipeline {
     options {
-      timeout(time: 1, unit: 'HOURS')
+      timeout(time: 90, unit: 'MINUTES')
     }
     agent none
     stages {
