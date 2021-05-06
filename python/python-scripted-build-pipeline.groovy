@@ -54,13 +54,14 @@ pipeline {
             agent { label "${DEFAULT_PLATFORM}" }
             steps {
                 cleanWs()
-                shWithEcho("env")
+                print_env()
                 dir("couchbase-python-client") {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
                     script{
                         if (!PYCBC_BRANCH)
                         {
-                            FULL_PATH_BRANCH = "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
+                            FULL_PATH_BRANCH = isUnix() ? "${sh(script: 'git name-rev --name-only HEAD', returnStdout: true)}" 
+                                                        : "${bat(script: 'git name-rev --name-only HEAD', returnStdout: true)}"
                             PYCBC_BRANCH = FULL_PATH_BRANCH.substring(FULL_PATH_BRANCH.lastIndexOf('/') + 1, FULL_PATH_BRANCH.length())
                         }
                         echo("Checking PYCBC_VERSION: ${PYCBC_VERSION} and PYCBC_BRANCH: ${PYCBC_BRANCH} to detect 2.5")
@@ -130,8 +131,7 @@ pipeline {
         stage('package') {
             agent { label "${PACKAGE_PLATFORM}" }
             when {
-                expression
-                        {  return IS_GERRIT_TRIGGER.toBoolean() == false }
+                expression{  return IS_GERRIT_TRIGGER.toBoolean() == false && isUnix() }
             }
             environment {
                 LCB_PATH="${WORKSPACE}/libcouchbase"
@@ -148,12 +148,11 @@ pipeline {
                 installPython("${PACKAGE_PLATFORM}", "${PACKAGE_PY_VERSION}", "${PACKAGE_PY_VERSION_SHORT}", "python", "${PACKAGE_PY_ARCH}")
                 echo "My path:${PATH}"
                 shWithEcho("""
-
-echo "Path:${PATH}"
-echo "Pip is:"
-echo `which pip`
-
-pip install --verbose Twisted gevent""")
+                echo "Path:${PATH}"
+                echo "Pip is:"
+                echo `which pip`
+                pip install --verbose Twisted gevent
+                """)
                 script {
                     curdist_name = dist_name(PACKAGE_PLATFORM, PACKAGE_PY_VERSION, PACKAGE_PY_ARCH)
                     unstash curdist_name//"dist-" + PACKAGE_PLATFORM + "-" + PACKAGE_PY_VERSION + "-" + PACKAGE_PY_ARCH
@@ -206,7 +205,7 @@ pip install --verbose Twisted gevent""")
             agent { label 'ubuntu14||ubuntu16||centos6||centos7' }
             when {
                 expression
-                        {  return IS_RELEASE.toBoolean() == true }
+                        {  return IS_RELEASE.toBoolean() == true && isUnix() }
             }
             steps {
                 cleanWs()
@@ -227,6 +226,15 @@ pip install --verbose Twisted gevent""")
                 }
             }
         }
+    }
+}
+
+def print_env(){
+    if(isUnix()){
+        shWithEcho("env")
+    }
+    else{
+        batWithEcho("set")
     }
 }
 
