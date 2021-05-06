@@ -203,6 +203,9 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['<%= server_version %>'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -313,6 +316,9 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             post {
                                 failure {
                                     sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
@@ -370,6 +376,9 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
