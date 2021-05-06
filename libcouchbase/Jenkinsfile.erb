@@ -322,6 +322,9 @@ pipeline {
                                     junit("ws_<%= label %>_x64/build/*.xml")
                                 }
                             }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
@@ -377,6 +380,9 @@ pipeline {
                                 }
                             }
                             steps {
+                                environment {
+                                    GTEST_SHUFFLE=1
+                                }
                                 dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --build . --target alltests')
 <% if has_ssl %>
