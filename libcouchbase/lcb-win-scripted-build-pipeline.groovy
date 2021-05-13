@@ -129,9 +129,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['5.5.6'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -180,9 +184,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.0.4'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -231,9 +239,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.5.1'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -282,9 +294,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.5.1_DP'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -333,9 +349,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.6-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -384,9 +404,13 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['7.0-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -488,6 +512,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
@@ -561,6 +591,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
@@ -633,6 +669,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
@@ -706,6 +748,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
@@ -778,6 +826,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
@@ -851,6 +905,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
@@ -923,6 +983,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
@@ -996,6 +1062,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
@@ -1067,6 +1139,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
@@ -1139,6 +1217,12 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            options {
+                                timeout(time: 60, unit: 'MINUTES')
+                            }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')

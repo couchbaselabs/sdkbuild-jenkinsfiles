@@ -209,6 +209,7 @@ def doIntegrationStages(CLUSTER) {
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['<%= server_version %>'].connstr.replaceAll(',', ';')},default,Administrator,password"
+                                    GTEST_SHUFFLE=1
                                 }
                                 unstash('centos7_build')
                                 dir('ws_centos7_x64/build') {
@@ -319,6 +320,9 @@ pipeline {
                             options {
                                 timeout(time: 60, unit: 'MINUTES')
                             }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
@@ -327,9 +331,6 @@ pipeline {
                                 always {
                                     junit("ws_<%= label %>_x64/build/*.xml")
                                 }
-                            }
-                            environment {
-                                GTEST_SHUFFLE=1
                             }
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
@@ -379,6 +380,9 @@ pipeline {
                             options {
                                 timeout(time: 60, unit: 'MINUTES')
                             }
+                            environment {
+                                GTEST_SHUFFLE=1
+                            }
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
@@ -389,9 +393,6 @@ pipeline {
                                 }
                             }
                             steps {
-                                environment {
-                                    GTEST_SHUFFLE=1
-                                }
                                 dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --build . --target alltests')
 <% if has_ssl %>
