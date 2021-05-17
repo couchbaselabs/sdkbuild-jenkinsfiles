@@ -129,9 +129,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['5.5.6'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -142,7 +139,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_5.5.6_x64.tar ws_centos7_x64')
@@ -184,9 +183,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.0.4'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -197,7 +193,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_6.0.4_x64.tar ws_centos7_x64')
@@ -239,9 +237,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.5.1'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -252,7 +247,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_6.5.1_x64.tar ws_centos7_x64')
@@ -294,9 +291,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.5.1_DP'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -307,7 +301,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_6.5.1_DP_x64.tar ws_centos7_x64')
@@ -349,9 +345,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['6.6-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -362,7 +355,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_6.6-stable_x64.tar ws_centos7_x64')
@@ -404,9 +399,6 @@ def doIntegrationStages(CLUSTER) {
                            sh("curl -vv -X POST -u Administrator:password http://${ip}:8091/settings/developerPreview -d 'enabled=true'")
                         }
                         stage('test') {
-                            options {
-                                timeout(time: 60, unit: 'MINUTES')
-                            }
                             try {
                                 environment {
                                     LCB_TEST_CLUSTER_CONF="${CLUSTER['7.0-stable'].connstr.replaceAll(',', ';')},default,Administrator,password"
@@ -417,7 +409,9 @@ def doIntegrationStages(CLUSTER) {
                                     sh("pwd")
                                     sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                     sleep(20)
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    timeout(time: 60, unit: 'MINUTES') {
+                                        sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    }
                                 }
                             } catch(all) {
                                 sh('tar cf integration_failure-ws_centos7_7.0-stable_x64.tar ws_centos7_x64')
