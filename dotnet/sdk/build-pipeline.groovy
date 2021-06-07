@@ -2,19 +2,20 @@
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
 def PLATFORMS = [
-    "windows",
-    "ubuntu16",
-    "centos7",
-	"macos"
+	"windows",
+	"ubuntu16",
+	"centos7",
+	"macos",
+	"ubuntu20"
 ]
 def DOTNET_SDK_VERSIONS = ["2.2.402", "3.1.404"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
-    "7.0.0-3507",
-    "6.6.0",
-    "6.5.0",
-	"6.0.0",
-	"5.5.2"
+	"7.0-stable",
+	"6.6.2",
+	"6.5.2",
+	"6.0.5",
+	"5.5.6"
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
