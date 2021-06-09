@@ -8,7 +8,7 @@ def PLATFORMS = [
 	"macos",
 	"ubuntu20"
 ]
-def DOTNET_SDK_VERSIONS = ["2.2.402", "3.1.404"]
+def DOTNET_SDK_VERSIONS = ["3.1.410", "5.0.301"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
 	"7.0-stable",
