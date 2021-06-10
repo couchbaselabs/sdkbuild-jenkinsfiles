@@ -9,6 +9,7 @@ def PLATFORMS = [
 	"ubuntu20"
 ]
 def DOTNET_SDK_VERSIONS = ["3.1.410", "5.0.301"]
+def ALL_SUPPORTED_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.301"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
 	"7.0-stable",
@@ -69,13 +70,13 @@ pipeline {
         stage("build") {
             agent { label "master" }
             steps {
-                doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
+                doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
         }
         stage("unit-test") {
             agent { label "master" }
             steps {
-                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH)
+                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
         }
         stage("combination-test") {
@@ -85,7 +86,7 @@ pipeline {
                 expression { _RUN_COMBINATION_TESTS }
             }
             steps {
-                doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH)
+                doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
         }
         stage("package") {
@@ -98,7 +99,7 @@ pipeline {
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "couchbase-net-client-windows"
-                installSDK("windows", DOTNET_SDK_VERSION)
+                installSdksForPlatform("windows", ALL_SUPPORTED_SDK_VERSIONS)
 
                 script {
                     // get package version and apply suffix if not release build
@@ -172,7 +173,7 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
+def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -182,7 +183,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                 stage("build ${platform}") {
                     cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                     unstash "couchbase-net-client"
-                    installSDK(platform, DOTNET_SDK_VERSION)
+                    installSdksForPlatform(platform, ALL_SUPPORTED_SDK_VERSIONS)
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
@@ -209,7 +210,7 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
     parallel pairs
 }
 
-def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
+def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
     def pairs = [:]
     for (j in PLATFORMS) {
         def platform = j
@@ -219,19 +220,20 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
                 stage("unit-test ${platform}") {
                     cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                     unstash "couchbase-net-client-${platform}"
-                    installSDK(platform, DOTNET_SDK_VERSION)
+                    installSdksForPlatform(platform, ALL_SUPPORTED_SDK_VERSIONS)
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
                             try {
-                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp3.1 --no-build")
+                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet --list-sdks")
+                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build")
                             }
                             finally {
                                 junit allowEmptyResults: true, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
                             }
                         } else {
                             try {
-                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp3.1 --no-build")
+                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f net5.0 --no-build")
                             }
                             finally {
                                 junit  allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
@@ -265,8 +267,8 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH) {
     parallel pairs
 }
 
-def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
-    installSDK("ubuntu16", DOTNET_SDK_VERSION)
+def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
+    installSdksForPlatform("ubuntu20", ALL_SUPPORTED_SDK_VERSIONS)
     sh("cbdyncluster ps -a")
     for (j in CB_SERVER_VERSIONS) {
         cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
@@ -334,12 +336,12 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
                     shWithEcho("cat ${configFile}")
                     
                     // run management tests to set up environment
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f netcoreapp3.1 --filter DisplayName~VerifyEnvironment ${projFileManagement}")
+                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f net5.0  --filter DisplayName~VerifyEnvironment ${projFileManagement}")
                     sleep(30);
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.1 ${projFile}")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f net5.0 --test-adapter-path:. --logger:junit  ${projFile}")
                     }
                     finally {
                         junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
@@ -347,7 +349,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH) {
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f netcoreapp3.1  ${projFileManagement}")
+                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f net5.0  ${projFileManagement}")
                     }
                     finally {
                         junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
@@ -399,6 +401,15 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         }
+    }
+    else {
+        echo ".NET SDK ${DOTNET_SDK_VERSION} for ${PLATFORM} is already installed."
+    }
+}
+
+def installSdksForPlatform(PLATFORM, ALL_SUPPORTED_SDK_VERSIONS) {
+    for (dnv in ALL_SUPPORTED_SDK_VERSIONS) {
+        installSDK(PLATFORM, dnv)
     }
 }
 
