@@ -255,7 +255,7 @@ pipeline {
                 }
             }
         }
-        stage('integration test') {
+        stage('int') {
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -314,7 +314,7 @@ pipeline {
                 }
             }
             parallel {
-                stage('pkg centos7 x86_64') {
+                stage('centos7 x86_64') {
                     agent { label 'mock' }
                     stages {
                         stage('c64v7') {
@@ -358,7 +358,7 @@ pipeline {
                                 dir('ws_centos64_v7/build') {
                                     sh("""
                                         sudo mock --rebuild -r epel-7-x86_64 --resultdir="libcouchbase-${VERSION.tar()}_centos7_x86_64" --old-chroot \
-                                        libcouchbase-${VERSION.tar()}_centos7_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el7.src.rpm
+                                        --verbose libcouchbase-${VERSION.tar()}_centos7_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el7.src.rpm
                                     """.stripIndent())
                                     sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos7_x86_64")
                                     sh("rm -rf libcouchbase-${VERSION.tar()}_centos7_x86_64/*.log")
@@ -369,7 +369,7 @@ pipeline {
                         }
                     }
                 }
-                stage('pkg centos8 x86_64') {
+                stage('centos8 x86_64') {
                     agent { label 'mock' }
                     stages {
                         stage('c64v8') {
@@ -413,7 +413,7 @@ pipeline {
                                 dir('ws_centos64_v8/build') {
                                     sh("""
                                         sudo mock --rebuild -r epel-8-x86_64 --resultdir="libcouchbase-${VERSION.tar()}_centos8_x86_64" --old-chroot \
-                                        libcouchbase-${VERSION.tar()}_centos8_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el8.src.rpm
+                                        --verbose libcouchbase-${VERSION.tar()}_centos8_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el8.src.rpm
                                     """.stripIndent())
                                     sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos8_x86_64")
                                     sh("rm -rf libcouchbase-${VERSION.tar()}_centos8_x86_64/*.log")
@@ -425,7 +425,7 @@ pipeline {
                         }
                     }
                 }
-                    stage('pkg ubuntu2004 amd64') {
+                    stage('ubuntu2004 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('u64v20') {
@@ -512,7 +512,7 @@ pipeline {
                             }
                         }
                     }
-                    stage('pkg ubuntu1804 amd64') {
+                    stage('ubuntu1804 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('u64v18') {
@@ -599,7 +599,7 @@ pipeline {
                             }
                         }
                     }
-                    stage('pkg ubuntu1604 amd64') {
+                    stage('ubuntu1604 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('u64v16') {
@@ -686,7 +686,7 @@ pipeline {
                             }
                         }
                     }
-                    stage('pkg debian9 amd64') {
+                    stage('debian9 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('d64v9') {
@@ -773,7 +773,7 @@ pipeline {
                             }
                         }
                     }
-                    stage('pkg debian10 amd64') {
+                    stage('debian10 amd64') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('d64v10') {

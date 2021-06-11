@@ -373,7 +373,7 @@ pipeline {
             }
         }
 <% if integration_enabled %>
-        stage('integration test') {
+        stage('int') {
             when {
                 expression {
                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -435,7 +435,7 @@ pipeline {
             }
             parallel {
 <% centos_dists.each do |(relno, arch, bits)| %>
-                stage('pkg centos<%= relno %> <%= arch %>') {
+                stage('centos<%= relno %> <%= arch %>') {
                     agent { label 'mock' }
                     stages {
                         stage('c<%= bits %>v<%= relno %>') {
@@ -479,7 +479,7 @@ pipeline {
                                 dir('ws_centos<%= bits %>_v<%= relno %>/build') {
                                     sh("""
                                         sudo mock --rebuild -r epel-<%= relno %>-<%= arch %> --resultdir="libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>" --old-chroot \
-                                        libcouchbase-${VERSION.tar()}_centos<%= relno %>_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el<%= relno %>.src.rpm
+                                        --verbose libcouchbase-${VERSION.tar()}_centos<%= relno %>_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el<%= relno %>.src.rpm
                                     """.stripIndent())
                                     sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>")
                                     sh("rm -rf libcouchbase-${VERSION.tar()}_centos<%= relno %>_<%= arch %>/*.log")
@@ -495,7 +495,7 @@ pipeline {
                 }
 <% end %>
 <% ubuntu_dists.each do |(codename, arch, name, bits)| %>
-                    stage('pkg <%= name %> <%= arch %>') {
+                    stage('<%= name %> <%= arch %>') {
                         agent { label 'cowbuilder' }
                         stages {
                             stage('<%= name[0] %><%= bits %>v<%= name[/(\d{1,2})/, 1] %>') {
