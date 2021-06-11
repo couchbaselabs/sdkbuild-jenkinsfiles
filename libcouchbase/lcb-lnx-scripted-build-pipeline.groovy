@@ -579,18 +579,6 @@ pipeline {
                 }
             }
         }
-        stage('integration test') {
-            when {
-                expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
-                }
-            }
-            steps {
-                script {
-                    parallel doIntegrationStages(CLUSTER)
-                }
-            }
-        }
         stage('package') {
             when {
                 expression {
