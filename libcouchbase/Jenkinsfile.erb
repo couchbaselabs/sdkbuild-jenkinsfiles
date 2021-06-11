@@ -268,7 +268,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
-                                    sh("true || ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }

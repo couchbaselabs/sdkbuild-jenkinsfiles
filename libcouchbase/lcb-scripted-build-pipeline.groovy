@@ -194,7 +194,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_debian9_x64/build') {
-                                    sh("true || ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -247,7 +247,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_centos7_x64/build') {
-                                    sh("true || ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
