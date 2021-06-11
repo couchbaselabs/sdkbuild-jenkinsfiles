@@ -1137,7 +1137,7 @@ pipeline {
         stage('amzn2') {
             agent { label 'amzn2' }
             steps {
-                sh('sudo yum install -y rpm-build yum-utils')
+                sh('sudo yum install -y rpm-build yum-utils; cat /etc/os-release; rpm --eval "%{rhel}"')
                 cleanWs()
                 unstash('centos8-srpm')
                 sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
