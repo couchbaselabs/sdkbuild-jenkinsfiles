@@ -86,6 +86,7 @@ class Version {
 }
 
 def VERSION = new Version('0.0.0')
+def CLUSTER = [:]
 
 class DynamicCluster {
     String id = null;
