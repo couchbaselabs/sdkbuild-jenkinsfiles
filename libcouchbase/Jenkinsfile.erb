@@ -273,6 +273,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -285,7 +287,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
-                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -333,6 +335,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -349,7 +353,7 @@ pipeline {
 <% if has_ssl %>
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
 <% end %>
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -429,7 +433,7 @@ pipeline {
                         environment {
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
                             GTEST_SHUFFLE=1
-                            CTEST_PARALLEL_LEVEL=4
+                            CTEST_PARALLEL_LEVEL=2
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
                         steps {

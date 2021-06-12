@@ -204,6 +204,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -218,7 +220,7 @@ pipeline {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -283,6 +285,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -296,7 +300,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -361,6 +365,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -375,7 +381,7 @@ pipeline {
                                 dir('ws_win32_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -440,6 +446,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -453,7 +461,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -518,6 +526,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -532,7 +542,7 @@ pipeline {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -597,6 +607,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -610,7 +622,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -675,6 +687,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -689,7 +703,7 @@ pipeline {
                                 dir('ws_win32_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -754,6 +768,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -767,7 +783,7 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -831,6 +847,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -844,7 +862,7 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc16/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -909,6 +927,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -923,7 +943,7 @@ pipeline {
                                 dir('ws_win64_vc16_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --parallel=2 -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }

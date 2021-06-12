@@ -199,6 +199,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -211,7 +213,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_debian9_x64/build') {
-                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -252,6 +254,8 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
+                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
                                 failure {
@@ -264,7 +268,7 @@ pipeline {
                             }
                             steps {
                                 dir('ws_centos7_x64/build') {
-                                    sh("ctest --parallel=2 ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -311,7 +315,7 @@ pipeline {
                         environment {
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
                             GTEST_SHUFFLE=1
-                            CTEST_PARALLEL_LEVEL=4
+                            CTEST_PARALLEL_LEVEL=2
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
                         steps {
