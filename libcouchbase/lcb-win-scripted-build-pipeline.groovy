@@ -89,23 +89,39 @@ def VERSION = new Version('0.0.0')
 def CLUSTER = [:]
 
 class DynamicCluster {
-    String id = null;
-    String connstr = null;
-    String server_version = null;
+    String id_ = null;
+    String connstr_ = null;
+    String version_ = null;
+
+    DynamicCluster(String version) {
+        this.version_ = version
+    }
 
     boolean isAllocated() {
-        return !(id == null || id == "")
+        return !(id_ == null || id_ == "")
+    }
+
+    String clusterId() {
+        return id_
+    }
+
+    String connectionString() {
+        return connstr_
+    }
+
+    String version() {
+        return version_.tokenize("_")[0]
     }
 
     String extraOptions() {
-        if (server_version.tokenize("_").size() > 1) {
+        if (version_.tokenize("_").size() > 1) {
             return "--enable-developer-preview"
         }
         return ""
     }
 
     String inspect() {
-        return "Cluster(id: ${id}, connstr: ${connstr})"
+        return "Cluster(id: ${id_}, connstr: ${connstr_}, version: ${version_})"
     }
 }
 

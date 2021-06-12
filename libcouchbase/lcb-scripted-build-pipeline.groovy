@@ -89,23 +89,39 @@ def VERSION = new Version('0.0.0')
 def CLUSTER = [:]
 
 class DynamicCluster {
-    String id = null;
-    String connstr = null;
-    String server_version = null;
+    String id_ = null;
+    String connstr_ = null;
+    String version_ = null;
+
+    DynamicCluster(String version) {
+        this.version_ = version
+    }
 
     boolean isAllocated() {
-        return !(id == null || id == "")
+        return !(id_ == null || id_ == "")
+    }
+
+    String clusterId() {
+        return id_
+    }
+
+    String connectionString() {
+        return connstr_
+    }
+
+    String version() {
+        return version_.tokenize("_")[0]
     }
 
     String extraOptions() {
-        if (server_version.tokenize("_").size() > 1) {
+        if (version_.tokenize("_").size() > 1) {
             return "--enable-developer-preview"
         }
         return ""
     }
 
     String inspect() {
-        return "Cluster(id: ${id}, connstr: ${connstr})"
+        return "Cluster(id: ${id_}, connstr: ${connstr_}, version: ${version_})"
     }
 }
 
@@ -491,15 +507,14 @@ pipeline {
                         steps {
                             sh("cbdyncluster ps -a")
                             script {
-                                def cluster = new DynamicCluster()
+                                def cluster = new DynamicCluster(CB_VERSION)
+                                cluster.id_ = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${cluster.version()}", returnStdout: true).trim()
+                                cluster.connstr_ = sh(script: "cbdyncluster ips ${cluster.clusterId()}", returnStdout: true).trim().replaceAll(',', ';') + ",default,Administrator,password"
                                 CLUSTER[CB_VERSION] = cluster
-                                def ver = CB_VERSION.tokenize("_")[0]
-                                cluster.id = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${ver}", returnStdout: true).trim()
-                                cluster.connstr = sh(script: "cbdyncluster ips ${cluster.id}", returnStdout: true).trim().replaceAll(',', ';')
                             }
                             echo("Allocated ${CLUSTER[CB_VERSION].inspect()}")
-                            sh("cbdyncluster setup ${CLUSTER[CB_VERSION].id} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
-                            sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].id} --name=beer-sample")
+                            sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
+                            sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
                         }
                     }
                     stage('test') {
@@ -510,7 +525,7 @@ pipeline {
                             }
                         }
                         environment {
-                            LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connstr},default,Administrator,password"
+                            LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
                             GTEST_SHUFFLE=1
                         }
                         steps {
