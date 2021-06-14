@@ -199,7 +199,7 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
-                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
@@ -254,7 +254,7 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
-                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
@@ -307,7 +307,7 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
-                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
@@ -381,7 +381,7 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
-                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
@@ -454,7 +454,7 @@ pipeline {
                             }
                             environment {
                                 GTEST_SHUFFLE=1
-                                CTEST_PARALLEL_LEVEL=2
+                                CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
@@ -537,6 +537,7 @@ pipeline {
                         environment {
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
                             GTEST_SHUFFLE=1
+                            CTEST_PARALLEL_LEVEL=1
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
                         steps {
