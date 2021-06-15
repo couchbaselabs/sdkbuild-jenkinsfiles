@@ -528,9 +528,11 @@ pipeline {
                             }
                             echo("Allocated ${CLUSTER[CB_VERSION].inspect()}")
                             sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
-                            sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8091/settings/indexes -d 'storageMode=plasma'")
+                            sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
+                            sleep(20)
+                            sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8093/query/service -d'statement=SELECT * FROM system:indexes' -d 'timeout=300s'")
                         }
                     }
                     stage('test') {
