@@ -90,7 +90,7 @@ def CLUSTER = [:]
 
 class DynamicCluster {
     String id_ = null;
-    String connstr_ = null;
+    String ips_ = null;
     String version_ = null;
 
     DynamicCluster(String version) {
@@ -106,7 +106,11 @@ class DynamicCluster {
     }
 
     String connectionString() {
-        return connstr_
+        return "couchbase://" + ips_.replaceAll(',', ';') + ",default,Administrator,password"
+    }
+
+    String firstIP() {
+        return ips_.tokenize(",")[0]
     }
 
     String version() {
@@ -121,7 +125,7 @@ class DynamicCluster {
     }
 
     String inspect() {
-        return "Cluster(id: ${id_}, connstr: ${connstr_}, version: ${version_})"
+        return "Cluster(id: ${id_}, IPs: ${ips_}, connstr: ${connectionString()}, version: ${version_})"
     }
 }
 

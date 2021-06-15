@@ -154,7 +154,7 @@ def CLUSTER = [:]
 
 class DynamicCluster {
     String id_ = null;
-    String connstr_ = null;
+    String ips_ = null;
     String version_ = null;
 
     DynamicCluster(String version) {
@@ -170,7 +170,11 @@ class DynamicCluster {
     }
 
     String connectionString() {
-        return connstr_
+        return "couchbase://" + ips_.replaceAll(',', ';') + ",default,Administrator,password"
+    }
+
+    String firstIP() {
+        return ips_.tokenize(",")[0]
     }
 
     String version() {
@@ -185,7 +189,7 @@ class DynamicCluster {
     }
 
     String inspect() {
-        return "Cluster(id: ${id_}, connstr: ${connstr_}, version: ${version_})"
+        return "Cluster(id: ${id_}, IPs: ${ips_}, connstr: ${connectionString()}, version: ${version_})"
     }
 }
 
@@ -415,12 +419,13 @@ pipeline {
                             script {
                                 def cluster = new DynamicCluster(CB_VERSION)
                                 cluster.id_ = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${cluster.version()}", returnStdout: true).trim()
-                                cluster.connstr_ = sh(script: "cbdyncluster ips ${cluster.clusterId()}", returnStdout: true).trim().replaceAll(',', ';') + ",default,Administrator,password"
+                                cluster.ips_ = sh(script: "cbdyncluster ips ${cluster.clusterId()}", returnStdout: true).trim()
                                 CLUSTER[CB_VERSION] = cluster
                             }
                             echo("Allocated ${CLUSTER[CB_VERSION].inspect()}")
                             sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
                             sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
+                            sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
                         }
                     }
                     stage('test') {
