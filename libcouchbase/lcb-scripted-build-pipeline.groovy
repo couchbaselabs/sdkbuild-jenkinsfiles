@@ -212,7 +212,7 @@ pipeline {
                                     archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_debian9_x64/build/*.xml")
+                                    junit(testResults: "ws_debian9_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -269,7 +269,7 @@ pipeline {
                                     archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_centos7_x64/build/*.xml")
+                                    junit(testResults: "ws_centos7_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -324,7 +324,7 @@ pipeline {
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_win64_vc14_ssl/build/*.xml")
+                                    junit(testResults: "ws_win64_vc14_ssl/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -398,7 +398,7 @@ pipeline {
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_win64_vc15/build/*.xml")
+                                    junit(testResults: "ws_win64_vc15/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -471,7 +471,7 @@ pipeline {
                                     archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_win64_vc15_ssl/build/*.xml")
+                                    junit(testResults: "ws_win64_vc15_ssl/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {

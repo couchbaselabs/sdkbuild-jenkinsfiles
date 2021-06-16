@@ -286,7 +286,7 @@ pipeline {
                                     archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_<%= label %>_x64/build/*.xml")
+                                    junit(testResults: "ws_<%= label %>_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -354,7 +354,7 @@ pipeline {
                                     archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_win<%= build_id %>/build/*.xml")
+                                    junit(testResults: "ws_win<%= build_id %>/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {

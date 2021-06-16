@@ -212,7 +212,7 @@ pipeline {
                                     archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_debian9_x64/build/*.xml")
+                                    junit(testResults: "ws_debian9_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
@@ -269,7 +269,7 @@ pipeline {
                                     archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
                                 }
                                 always {
-                                    junit("ws_centos7_x64/build/*.xml")
+                                    junit(testResults: "ws_centos7_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
