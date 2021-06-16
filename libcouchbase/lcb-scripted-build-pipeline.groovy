@@ -219,7 +219,7 @@ pipeline {
                                 dir('ws_debian9_x64/build') {
                                     sh("sudo apt update; sudo apt install -y gdb");
                                     sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -276,7 +276,7 @@ pipeline {
                                 dir('ws_centos7_x64/build') {
                                     sh("sudo yum install -y gdb");
                                     sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }

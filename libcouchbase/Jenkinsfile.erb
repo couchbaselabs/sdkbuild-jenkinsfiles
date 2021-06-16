@@ -297,7 +297,7 @@ pipeline {
                                     sh("sudo yum install -y gdb");
 <% end %>
                                     sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
