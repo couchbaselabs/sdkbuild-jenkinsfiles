@@ -125,7 +125,7 @@ class DynamicCluster {
     }
 
     String inspect() {
-        return "Cluster(id: ${id_}, IPs: ${ips_}, connstr: ${connectionString()}, version: ${version_})"
+        return "Cluster(id: \"${id_}\", IPs: \"${ips_}\", connstr: \"${connectionString()}\", version: \"${version_}\")"
     }
 }
 
