@@ -204,7 +204,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -285,7 +285,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -365,7 +365,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -446,7 +446,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -526,7 +526,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -607,7 +607,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -687,7 +687,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -768,7 +768,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -847,7 +847,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -927,7 +927,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1

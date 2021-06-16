@@ -199,7 +199,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -256,7 +256,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -311,7 +311,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -385,7 +385,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -458,7 +458,7 @@ pipeline {
                         }
                         stage('test') {
                             options {
-                                timeout(time: 60, unit: 'MINUTES')
+                                timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
                                 GTEST_SHUFFLE=1
@@ -553,16 +553,17 @@ pipeline {
                             CTEST_PARALLEL_LEVEL=1
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
                         steps {
                             unstash('centos7_build')
                             dir('ws_centos7_x64/build') {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
-                                timeout(time: 60, unit: 'MINUTES') {
-                                    sh("sudo yum install -y gdb");
-                                    sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
-                                }
+                                sh("sudo yum install -y gdb");
+                                sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
+                                sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                             }
                         }
                     }
