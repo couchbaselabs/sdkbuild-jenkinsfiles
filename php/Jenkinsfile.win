@@ -79,6 +79,7 @@ pipeline {
                                 dir('8.0.2-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1802
@@ -157,6 +158,7 @@ pipeline {
                                 dir('8.0.2-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2802
@@ -232,6 +234,7 @@ pipeline {
                             steps {
                                 dir('8.0.2-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1802
@@ -307,6 +310,7 @@ pipeline {
                             steps {
                                 dir('8.0.2-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2019-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2802
@@ -385,6 +389,7 @@ pipeline {
                                 dir('7.4.15-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8415
@@ -463,6 +468,7 @@ pipeline {
                                 dir('7.4.15-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9415
@@ -538,6 +544,7 @@ pipeline {
                             steps {
                                 dir('7.4.15-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8415
@@ -613,6 +620,7 @@ pipeline {
                             steps {
                                 dir('7.4.15-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9415
@@ -691,6 +699,7 @@ pipeline {
                                 dir('7.3.27-zts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8327
@@ -769,6 +778,7 @@ pipeline {
                                 dir('7.3.27-nts-x64-ssl\\php-couchbase') {
                                     bat('copy ..\\install\\openssl-1.1.1d-cb1\\bin\\*.dll .')
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9327
@@ -844,6 +854,7 @@ pipeline {
                             steps {
                                 dir('7.3.27-zts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-zts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8327
@@ -919,6 +930,7 @@ pipeline {
                             steps {
                                 dir('7.3.27-nts-x64\\php-couchbase') {
                                     bat('copy ..\\install\\libcouchbase-windows_msvc2017-amd64\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('c:\\php\\php-nts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9327

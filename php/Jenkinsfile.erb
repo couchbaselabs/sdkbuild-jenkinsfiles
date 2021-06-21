@@ -211,6 +211,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                                     bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll .')
 <% end %>
                                     bat('copy ..\\<%= lcb_root %>\\bin\\libcouchbase.dll libcouchbase.dll')
+                                    bat("<%= php %> -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('<%= php_root %>\\msys2\\usr\\bin\\wget.exe -O <%= mock_jar %> http://packages.couchbase.com/clients/c/mock/CouchbaseMock-<%= mock_ver %>.jar')
                                     bat("""
  start /b cmd /c java -jar <%= mock_jar %> --harakiri-monitor 127.0.0.1:<%= mock_port %>
