@@ -83,7 +83,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1802
- c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-8.0.2-zts-x64-openssl
@@ -162,7 +162,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2802
- c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-8.0.2-nts-x64-openssl
@@ -238,7 +238,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:1802
- c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-8.0.2-zts-x64
@@ -314,7 +314,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-8.0.2-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:2802
- c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-8.0.2-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.0.2-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-8.0.2-nts-x64
@@ -393,7 +393,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8415
- c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.15-zts-x64-openssl
@@ -472,7 +472,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9415
- c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.15-nts-x64-openssl
@@ -548,7 +548,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8415
- c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.15-zts-x64
@@ -624,7 +624,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-7.4.15-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9415
- c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-7.4.15-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.4.15-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.4.15-nts-x64
@@ -703,7 +703,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8327
- c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.27-zts-x64-openssl
@@ -782,7 +782,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9327
- c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.27-nts-x64-openssl
@@ -858,7 +858,7 @@ pipeline {
                                     bat('c:\\php\\php-zts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:8327
- c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-zts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-zts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.27-zts-x64
@@ -934,7 +934,7 @@ pipeline {
                                     bat('c:\\php\\php-nts-default-7.3.27-cb1\\msys2\\usr\\bin\\wget.exe -O tests\\CouchbaseMock.jar http://packages.couchbase.com/clients/c/mock/CouchbaseMock-1.5.23.jar')
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --harakiri-monitor 127.0.0.1:9327
- c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll c:\\php\\php-nts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
+ c:\\php\\php-nts-default-7.3.27-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.3.27-cb1\\php-phpunit.phar --debug %cd%\\tests\\
 """)
                                     bat("""
  mkdir php_couchbase-7.3.27-nts-x64
