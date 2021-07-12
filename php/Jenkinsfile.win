@@ -976,7 +976,7 @@ pipeline {
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.2-zts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.2-zts-x64-openssl/
@@ -994,7 +994,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.2-nts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.2-nts-x64-openssl/
@@ -1012,7 +1012,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.2-zts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.2-zts-x64/
@@ -1030,7 +1030,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-8.0.2-nts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-8.0.2-nts-x64/
@@ -1048,7 +1048,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.15-zts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.15-zts-x64-openssl/
@@ -1066,7 +1066,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.15-nts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.15-nts-x64-openssl/
@@ -1084,7 +1084,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.15-zts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.15-zts-x64/
@@ -1102,7 +1102,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.4.15-nts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.4.15-nts-x64/
@@ -1120,7 +1120,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.27-zts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.27-zts-x64-openssl/
@@ -1138,7 +1138,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.27-nts-x64-openssl'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.27-nts-x64-openssl/
@@ -1156,7 +1156,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.27-zts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.27-zts-x64/
@@ -1174,7 +1174,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash 'php_couchbase-7.3.27-nts-x64'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE php_couchbase-7.3.27-nts-x64/

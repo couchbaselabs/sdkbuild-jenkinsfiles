@@ -22,7 +22,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-nts 8.0.2-cb1')
                             }
@@ -55,7 +55,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.0.2-nts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-8.0.2-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.0.2-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -67,7 +67,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-zts 8.0.2-cb1')
                             }
@@ -100,7 +100,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.0.2-zts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-8.0.2-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.0.2-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -112,7 +112,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-nts 7.4.15-cb1')
                             }
@@ -145,7 +145,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.15-nts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.4.15-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.4.15-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -157,7 +157,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-zts 7.4.15-cb1')
                             }
@@ -190,7 +190,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.15-zts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.4.15-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.4.15-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -202,7 +202,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-nts 7.3.27-cb1')
                             }
@@ -235,7 +235,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.27-nts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.3.27-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.3.27-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -247,7 +247,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep install --dir /tmp/php php-zts 7.3.27-cb1')
                             }
@@ -280,7 +280,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.27-zts-x64/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.3.27-cb1/bin/php  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.3.27-cb1/phpunit.phar --debug tests/")
                                 }
                             }

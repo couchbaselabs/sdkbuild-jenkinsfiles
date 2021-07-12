@@ -43,7 +43,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
                                 sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
                             }
@@ -79,7 +79,7 @@ pipeline {
                             }
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
-                                    sh('sudo yum install -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
                                     sh("CB_MOCK=1 <%= php %>  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE <%= php_root %>/phpunit.phar --debug tests/")
                                 }
                             }
@@ -272,7 +272,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                                 cleanWs()
                                 unstash 'tarball'
                                 unstash '<%= release_dir %>'
-                                sh('sudo yum install -y perl-XML-XPath')
+                                sh('sudo yum install --disablerepo=bintray* -y perl-XML-XPath')
                                 sh("""
 tar xf couchbase-*tgz
 cp package.xml couchbase-*/LICENSE <%= release_dir %>/
