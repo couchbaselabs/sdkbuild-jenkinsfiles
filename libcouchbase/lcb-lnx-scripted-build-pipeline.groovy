@@ -168,12 +168,12 @@ pipeline {
         stage('build and test') {
             parallel {
 
-                stage('debian9 mock') {
-                    agent { label 'debian9' }
+                stage('ubuntu20 mock') {
+                    agent { label 'ubuntu20' }
                     stages {
-                        stage('deb9') {
+                        stage('ubu20') {
                             steps {
-                                dir('ws_debian9_x64') {
+                                dir('ws_ubuntu20_x64') {
                                     deleteDir()
                                     unstash 'libcouchbase'
                                 }
@@ -181,14 +181,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('ws_debian9_x64') {
+                                dir('ws_ubuntu20_x64') {
                                     dir('build') {
                                         sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_debian9_x64/', name: 'debian9_build'
+                                stash includes: 'ws_ubuntu20_x64/', name: 'ubuntu20_build'
                             }
                         }
                         stage('test') {
@@ -206,12 +206,11 @@ pipeline {
                             }
                             post {
                                 always {
-                                    junit(testResults: "ws_debian9_x64/build/*.xml", allowEmptyResults: true)
+                                    junit(testResults: "ws_ubuntu20_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
-                                dir('ws_debian9_x64/build') {
-                                    sh("sudo apt update; sudo apt install -y gdb");
+                                dir('ws_ubuntu20_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
@@ -262,7 +261,6 @@ pipeline {
                             }
                             steps {
                                 dir('ws_centos7_x64/build') {
-                                    sh("sudo yum install -y gdb");
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }

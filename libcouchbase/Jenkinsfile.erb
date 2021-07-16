@@ -19,7 +19,7 @@ ubuntu_dists = [
 ]
 
 linux_test_builds = [
-    ['debian9', 'debian', 9],
+    ['ubuntu20', 'ubuntu', 20],
     ['centos7', 'centos', 7]
 ]
 
@@ -306,11 +306,6 @@ pipeline {
                             }
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
-<% if dist == "debian" %>
-                                    sh("sudo apt update; sudo apt install -y gdb");
-<% else %>
-                                    sh("sudo yum install -y gdb");
-<% end %>
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
