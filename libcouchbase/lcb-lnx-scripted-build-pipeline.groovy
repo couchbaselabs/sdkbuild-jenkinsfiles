@@ -212,7 +212,7 @@ pipeline {
                             steps {
                                 dir('ws_debian9_x64/build') {
                                     sh("sudo apt update; sudo apt install -y gdb");
-                                    sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
+                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -263,7 +263,7 @@ pipeline {
                             steps {
                                 dir('ws_centos7_x64/build') {
                                     sh("sudo yum install -y gdb");
-                                    sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
+                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
@@ -326,7 +326,7 @@ pipeline {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
                                 sh("sudo yum install -y gdb");
-                                sh("ulimit -c; cat /proc/sys/kernel/core_pattern || true")
+                                sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                 sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                             }
                         }
