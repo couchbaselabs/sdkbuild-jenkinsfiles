@@ -180,12 +180,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_debian9_x64') {
                                     dir('build') {
@@ -212,10 +206,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_debian9_x64/build/*.xml", allowEmptyResults: true)
                                 }
@@ -242,12 +232,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos7_x64') {
                                     dir('build') {
@@ -274,10 +258,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_centos7_x64/build/*.xml", allowEmptyResults: true)
                                 }
@@ -305,12 +285,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --version --help')
@@ -334,10 +308,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc14_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -351,12 +321,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -384,12 +348,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --version --help')
@@ -413,10 +371,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc15/build/*.xml", allowEmptyResults: true)
                                 }
@@ -429,12 +383,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -462,12 +410,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --version --help')
@@ -491,10 +433,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc15_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -508,12 +446,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -570,12 +502,6 @@ pipeline {
                                 return IS_GERRIT_TRIGGER.toBoolean() == true
                             }
                         }
-                        post {
-                            failure {
-                                sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
-                                archiveArtifacts(artifacts: "integration_failure-${CB_VERSION}_x64.tar", fingerprint: false)
-                            }
-                        }
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
@@ -620,12 +546,6 @@ pipeline {
                             }
                         }
                         stage('srpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v7/build') {
                                     unstash 'tarball'
@@ -641,12 +561,6 @@ pipeline {
                             }
                         }
                         stage('rpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v7/build') {
                                     sh("""
@@ -703,12 +617,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1804_amd64/build') {
                                         unstash 'tarball'
@@ -726,12 +634,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1804_amd64/build') {
                                         sh("""
@@ -790,12 +692,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian10_amd64/build') {
                                         unstash 'tarball'
@@ -813,12 +709,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian10_amd64/build') {
                                         sh("""

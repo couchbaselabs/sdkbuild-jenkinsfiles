@@ -23,6 +23,7 @@ linux_test_builds = [
     ['centos7', 'centos', 7]
 ]
 
+collect_failures = false
 integration_enabled = true
 if ENV['WINDOWS_ONLY']
     windows_dists = [
@@ -254,12 +255,14 @@ pipeline {
                             }
                         }
                         stage('build') {
+<% if collect_failures %>
                             post {
                                 failure {
                                     sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
                                     archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
                                 }
                             }
+<% end %>
                             steps {
                                 dir('ws_<%= label %>_x64') {
                                     dir('build') {
@@ -288,10 +291,12 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
+<% if collect_failures %>
                                 failure {
                                     sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
                                     archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
                                 }
+<% end %>
                                 always {
                                     junit(testResults: "ws_<%= label %>_x64/build/*.xml", allowEmptyResults: true)
                                 }
@@ -328,12 +333,14 @@ pipeline {
                             }
                         }
                         stage('build') {
+<% if collect_failures %>
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
                                     archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
                                 }
                             }
+<% end %>
                             steps {
                                 dir('ws_win<%= build_id %>/build') {
                                     bat('cmake --version --help')
@@ -363,10 +370,12 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
+<% if collect_failures %>
                                 failure {
                                     zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
                                     archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
                                 }
+<% end %>
                                 always {
                                     junit(testResults: "ws_win<%= build_id %>/build/*.xml", allowEmptyResults: true)
                                 }
@@ -382,12 +391,14 @@ pipeline {
                             }
                         }
                         stage("pack") {
+<% if collect_failures %>
                             post {
                                 failure {
                                     zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
                                     archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
                                 }
                             }
+<% end %>
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -459,12 +470,14 @@ pipeline {
                             }
                         }
 <% end %>
+<% if collect_failures %>
                         post {
                             failure {
                                 sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
                                 archiveArtifacts(artifacts: "integration_failure-${CB_VERSION}_x64.tar", fingerprint: false)
                             }
                         }
+<% end %>
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
@@ -512,12 +525,14 @@ pipeline {
                             }
                         }
                         stage('srpm') {
+<% if collect_failures %>
                             post {
                                 failure {
                                     sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
                                     archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
                                 }
                             }
+<% end %>
                             steps {
                                 dir('ws_centos<%= bits %>_v<%= relno %>/build') {
                                     unstash 'tarball'
@@ -533,12 +548,14 @@ pipeline {
                             }
                         }
                         stage('rpm') {
+<% if collect_failures %>
                             post {
                                 failure {
                                     sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
                                     archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
                                 }
                             }
+<% end %>
                             steps {
                                 dir('ws_centos<%= bits %>_v<%= relno %>/build') {
                                     sh("""
@@ -599,12 +616,14 @@ pipeline {
                                 }
                             }
                             stage('src') {
+<% if collect_failures %>
                                 post {
                                     failure {
                                         sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
                                         archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
                                     }
                                 }
+<% end %>
                                 steps {
                                     dir('ws_<%= name %>_<%= arch %>/build') {
                                         unstash 'tarball'
@@ -622,12 +641,14 @@ pipeline {
                                 }
                             }
                             stage('deb') {
+<% if collect_failures %>
                                 post {
                                     failure {
                                         sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
                                         archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
                                     }
                                 }
+<% end %>
                                 steps {
                                     dir('ws_<%= name %>_<%= arch %>/build') {
                                         sh("""

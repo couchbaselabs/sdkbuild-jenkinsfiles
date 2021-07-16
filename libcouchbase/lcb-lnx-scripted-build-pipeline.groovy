@@ -180,12 +180,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_debian9_x64') {
                                     dir('build') {
@@ -212,10 +206,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    sh('tar cf failure-ws_debian9_x64.tar ws_debian9_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_debian9_x64.tar", fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_debian9_x64/build/*.xml", allowEmptyResults: true)
                                 }
@@ -242,12 +232,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos7_x64') {
                                     dir('build') {
@@ -274,10 +258,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    sh('tar cf failure-ws_centos7_x64.tar ws_centos7_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_centos7_x64.tar", fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_centos7_x64/build/*.xml", allowEmptyResults: true)
                                 }
@@ -333,12 +313,6 @@ pipeline {
                                 return IS_GERRIT_TRIGGER.toBoolean() == true
                             }
                         }
-                        post {
-                            failure {
-                                sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
-                                archiveArtifacts(artifacts: "integration_failure-${CB_VERSION}_x64.tar", fingerprint: false)
-                            }
-                        }
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
@@ -383,12 +357,6 @@ pipeline {
                             }
                         }
                         stage('srpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v7/build') {
                                     unstash 'tarball'
@@ -404,12 +372,6 @@ pipeline {
                             }
                         }
                         stage('rpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v7.tar ws_centos64_v7")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v7.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v7/build') {
                                     sh("""
@@ -439,12 +401,6 @@ pipeline {
                             }
                         }
                         stage('srpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v8.tar ws_centos64_v8")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v8.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v8/build') {
                                     unstash 'tarball'
@@ -460,12 +416,6 @@ pipeline {
                             }
                         }
                         stage('rpm') {
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos64_v8.tar ws_centos64_v8")
-                                    archiveArtifacts(artifacts: "failure-ws_centos64_v8.tar", fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_centos64_v8/build') {
                                     sh("""
@@ -521,12 +471,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu2004_amd64.tar ws_ubuntu2004_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu2004_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu2004_amd64/build') {
                                         unstash 'tarball'
@@ -544,12 +488,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu2004_amd64.tar ws_ubuntu2004_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu2004_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu2004_amd64/build') {
                                         sh("""
@@ -608,12 +546,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1804_amd64/build') {
                                         unstash 'tarball'
@@ -631,12 +563,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1804_amd64.tar ws_ubuntu1804_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1804_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1804_amd64/build') {
                                         sh("""
@@ -695,12 +621,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1604_amd64.tar ws_ubuntu1604_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1604_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1604_amd64/build') {
                                         unstash 'tarball'
@@ -718,12 +638,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_ubuntu1604_amd64.tar ws_ubuntu1604_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_ubuntu1604_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_ubuntu1604_amd64/build') {
                                         sh("""
@@ -782,12 +696,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian9_amd64/build') {
                                         unstash 'tarball'
@@ -805,12 +713,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian9_amd64.tar ws_debian9_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian9_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian9_amd64/build') {
                                         sh("""
@@ -869,12 +771,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian10_amd64/build') {
                                         unstash 'tarball'
@@ -892,12 +788,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_debian10_amd64.tar ws_debian10_amd64")
-                                        archiveArtifacts(artifacts: "failure-ws_debian10_amd64.tar", fingerprint: false)
-                                    }
-                                }
                                 steps {
                                     dir('ws_debian10_amd64/build') {
                                         sh("""

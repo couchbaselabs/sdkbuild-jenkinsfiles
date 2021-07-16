@@ -188,12 +188,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --version --help')
@@ -212,10 +206,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc14_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -229,12 +219,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14_ssl.zip', archive: false, dir: 'ws_win64_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -269,12 +253,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --version --help')
@@ -293,10 +271,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc14/build/*.xml", allowEmptyResults: true)
                                 }
@@ -309,12 +283,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc14.zip', archive: false, dir: 'ws_win64_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc14.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -349,12 +317,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win32_vc14_ssl/build') {
                                     bat('cmake --version --help')
@@ -373,10 +335,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win32_vc14_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -390,12 +348,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14_ssl.zip', archive: false, dir: 'ws_win32_vc14_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -430,12 +382,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win32_vc14/build') {
                                     bat('cmake --version --help')
@@ -454,10 +400,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win32_vc14/build/*.xml", allowEmptyResults: true)
                                 }
@@ -470,12 +412,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc14.zip', archive: false, dir: 'ws_win32_vc14')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc14.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -510,12 +446,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --version --help')
@@ -534,10 +464,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc15_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -551,12 +477,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15_ssl.zip', archive: false, dir: 'ws_win64_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -591,12 +511,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --version --help')
@@ -615,10 +529,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc15/build/*.xml", allowEmptyResults: true)
                                 }
@@ -631,12 +541,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc15.zip', archive: false, dir: 'ws_win64_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc15.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -671,12 +575,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win32_vc15_ssl/build') {
                                     bat('cmake --version --help')
@@ -695,10 +593,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win32_vc15_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -712,12 +606,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15_ssl.zip', archive: false, dir: 'ws_win32_vc15_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -752,12 +640,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win32_vc15/build') {
                                     bat('cmake --version --help')
@@ -776,10 +658,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win32_vc15/build/*.xml", allowEmptyResults: true)
                                 }
@@ -792,12 +670,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win32_vc15.zip', archive: false, dir: 'ws_win32_vc15')
-                                    archiveArtifacts(artifacts: 'failure-ws_win32_vc15.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -831,12 +703,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc16/build') {
                                     bat('cmake --version --help')
@@ -855,10 +721,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc16/build/*.xml", allowEmptyResults: true)
                                 }
@@ -871,12 +733,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16.zip', archive: false, dir: 'ws_win64_vc16')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
@@ -911,12 +767,6 @@ pipeline {
                             }
                         }
                         stage('build') {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16.zip', fingerprint: false)
-                                }
-                            }
                             steps {
                                 dir('ws_win64_vc16_ssl/build') {
                                     bat('cmake --version --help')
@@ -935,10 +785,6 @@ pipeline {
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
                             post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16_ssl.zip', fingerprint: false)
-                                }
                                 always {
                                     junit(testResults: "ws_win64_vc16_ssl/build/*.xml", allowEmptyResults: true)
                                 }
@@ -952,12 +798,6 @@ pipeline {
                             }
                         }
                         stage("pack") {
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win64_vc16_ssl.zip', archive: false, dir: 'ws_win64_vc16_ssl')
-                                    archiveArtifacts(artifacts: 'failure-ws_win64_vc16_ssl.zip', fingerprint: false)
-                                }
-                            }
                             when {
                                 expression {
                                     return IS_GERRIT_TRIGGER.toBoolean() == false
