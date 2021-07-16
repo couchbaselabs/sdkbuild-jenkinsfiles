@@ -198,6 +198,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -255,6 +260,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -310,6 +320,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -384,6 +399,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -457,6 +477,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -540,6 +565,11 @@ pipeline {
                         }
                     }
                     stage('test') {
+                        when {
+                            expression {
+                                return IS_GERRIT_TRIGGER.toBoolean() == true
+                            }
+                        }
                         post {
                             failure {
                                 sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")

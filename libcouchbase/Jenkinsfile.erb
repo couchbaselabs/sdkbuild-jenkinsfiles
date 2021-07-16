@@ -272,6 +272,13 @@ pipeline {
                             }
                         }
                         stage('test') {
+<% if integration_enabled %>
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
+<% end %>
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -340,6 +347,13 @@ pipeline {
                             }
                         }
                         stage('test') {
+<% if integration_enabled %>
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                }
+                            }
+<% end %>
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -438,6 +452,13 @@ pipeline {
                         }
                     }
                     stage('test') {
+<% if integration_enabled %>
+                        when {
+                            expression {
+                                return IS_GERRIT_TRIGGER.toBoolean() == true
+                            }
+                        }
+<% end %>
                         post {
                             failure {
                                 sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
