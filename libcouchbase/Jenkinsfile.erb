@@ -23,6 +23,7 @@ linux_test_builds = [
     ['centos7', 'centos', 7]
 ]
 
+gtest_shuffle = false
 collect_failures = false
 integration_enabled = true
 if ENV['WINDOWS_ONLY']
@@ -286,7 +287,9 @@ pipeline {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
+<% if gtest_shuffle %>
                                 GTEST_SHUFFLE=1
+<% end %>
                                 CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
@@ -365,7 +368,9 @@ pipeline {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
                             environment {
+<% if gtest_shuffle %>
                                 GTEST_SHUFFLE=1
+<% end %>
                                 CTEST_PARALLEL_LEVEL=1
                                 CTEST_OUTPUT_ON_FAILURE=1
                             }
@@ -481,7 +486,9 @@ pipeline {
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
+<% if gtest_shuffle %>
                             GTEST_SHUFFLE=1
+<% end %>
                             CTEST_PARALLEL_LEVEL=1
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
