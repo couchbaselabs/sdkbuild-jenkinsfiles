@@ -194,7 +194,7 @@ pipeline {
                         stage('test') {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                    return IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             options {
@@ -244,7 +244,7 @@ pipeline {
                         stage('test') {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == true
+                                    return IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             options {
@@ -273,7 +273,7 @@ pipeline {
         stage('int') {
             when {
                 expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                    return !IS_GERRIT_TRIGGER.toBoolean()
                 }
             }
             matrix {
@@ -306,7 +306,7 @@ pipeline {
                     stage('test') {
                         when {
                             expression {
-                                return IS_GERRIT_TRIGGER.toBoolean() == true
+                                return !IS_GERRIT_TRIGGER.toBoolean()
                             }
                         }
                         environment {
@@ -323,7 +323,6 @@ pipeline {
                             dir('ws_centos7_x64/build') {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
-                                sh("sudo yum install -y gdb");
                                 sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                 sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
                             }
@@ -335,7 +334,7 @@ pipeline {
         stage('package') {
             when {
                 expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                    return !IS_GERRIT_TRIGGER.toBoolean()
                 }
             }
             parallel {
@@ -821,7 +820,7 @@ pipeline {
         stage('repositories') {
             when {
                 expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                    return !IS_GERRIT_TRIGGER.toBoolean()
                 }
             }
             agent none

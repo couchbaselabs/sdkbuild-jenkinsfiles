@@ -220,7 +220,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -283,7 +283,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -347,7 +347,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -410,7 +410,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -474,7 +474,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -537,7 +537,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -601,7 +601,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -664,7 +664,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -726,7 +726,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
@@ -790,7 +790,7 @@ pipeline {
                         stage("pack") {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() == false
+                                    return !IS_GERRIT_TRIGGER.toBoolean()
                                 }
                             }
                             steps {
