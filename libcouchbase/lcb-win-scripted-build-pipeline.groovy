@@ -197,6 +197,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -261,6 +266,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -324,6 +334,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -388,6 +403,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -451,6 +471,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -515,6 +540,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -578,6 +608,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -642,6 +677,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -704,6 +744,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -767,6 +812,11 @@ pipeline {
                             }
                         }
                         stage('test') {
+                            when {
+                                expression {
+                                    return !SKIP_TESTS.toBoolean()
+                                }
+                            }
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }

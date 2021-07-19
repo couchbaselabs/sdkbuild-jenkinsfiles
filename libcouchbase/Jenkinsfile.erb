@@ -279,7 +279,7 @@ pipeline {
 <% if integration_enabled %>
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean()
+                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                                 }
                             }
 <% end %>
@@ -352,13 +352,11 @@ pipeline {
                             }
                         }
                         stage('test') {
-<% if integration_enabled %>
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean()
+                                    return !SKIP_TESTS.toBoolean()
                                 }
                             }
-<% end %>
                             options {
                                 timeout(time: 30, unit: 'MINUTES')
                             }
@@ -433,6 +431,7 @@ pipeline {
             when {
                 expression {
                     return !IS_GERRIT_TRIGGER.toBoolean()
+
                 }
             }
             matrix {
@@ -466,7 +465,7 @@ pipeline {
 <% if integration_enabled %>
                         when {
                             expression {
-                                return !IS_GERRIT_TRIGGER.toBoolean()
+                                return !IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                             }
                         }
 <% end %>

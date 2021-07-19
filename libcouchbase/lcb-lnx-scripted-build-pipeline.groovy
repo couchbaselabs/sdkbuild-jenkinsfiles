@@ -194,7 +194,7 @@ pipeline {
                         stage('test') {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean()
+                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                                 }
                             }
                             options {
@@ -244,7 +244,7 @@ pipeline {
                         stage('test') {
                             when {
                                 expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean()
+                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                                 }
                             }
                             options {
@@ -274,6 +274,7 @@ pipeline {
             when {
                 expression {
                     return !IS_GERRIT_TRIGGER.toBoolean()
+
                 }
             }
             matrix {
@@ -306,7 +307,7 @@ pipeline {
                     stage('test') {
                         when {
                             expression {
-                                return !IS_GERRIT_TRIGGER.toBoolean()
+                                return !IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                             }
                         }
                         environment {
