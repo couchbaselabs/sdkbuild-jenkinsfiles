@@ -8,8 +8,8 @@ def PLATFORMS = [
 	"macos",
 	"ubuntu20"
 ]
-def DOTNET_SDK_VERSIONS = ["3.1.410", "5.0.301"]
-def ALL_SUPPORTED_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.301"]
+def DOTNET_SDK_VERSIONS = ["3.1.410", "5.0.302"]
+def ALL_SUPPORTED_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.302"]
 def DOTNET_SDK_VERSION = ""
 def CB_SERVER_VERSIONS = [
 	"7.0-stable",
@@ -20,6 +20,11 @@ def CB_SERVER_VERSIONS = [
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
+
+// Windows has a 255 character path limit, still.
+// cbdep trying to unzip .NET SDK 5.0.x shows a FileNotFound error, which is really a PathTooLong error
+// using this path instead of WORKSPACE\deps gets around the issue.
+def CBDEP_WIN_PATH = "%TEMP%\\cbnc\\deps"
 
 // use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
 // useful for testing test-only changes.
@@ -110,8 +115,8 @@ pipeline {
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-                        batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
                     }
 
 					// create zip file of release files
@@ -151,7 +156,7 @@ pipeline {
                             unstash "couchbase-net-client-package"
                             echo "Publishing package to Nuget .."
 
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json --no-symbols true")
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json --no-symbols true")
                         }
                     }
 
@@ -187,13 +192,13 @@ def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) 
 
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
                         }
                     } else if (BRANCH == "release27") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
                         }
@@ -225,8 +230,8 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSION
                     if (BRANCH == "master") {
                         if (platform.contains("window")) {
                             try {
-                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet --list-sdks")
-                                batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build")
+                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet --list-sdks")
+                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build")
                             }
                             finally {
                                 junit allowEmptyResults: true, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
@@ -241,10 +246,10 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSION
                         }
                     } else if (BRANCH == "release27") {
                         if (platform.contains("window")) {
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet restore couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                            batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //batWithEcho("deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet restore couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
+                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
+                            //batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
                         } else {
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet restore couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
                             shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
@@ -383,8 +388,11 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPO
 
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     def install = false
-
-    dir("deps") {
+    def depsDir = "deps"
+    if (PLATFORM.contains("window")) {
+        depsDir = "%TEMP%\\cbnc\\deps"
+    }
+    dir(depsDir) {
         dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
             if (PLATFORM.contains("window")) {
                 install = !fileExists("dotnet.exe")
@@ -397,7 +405,7 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     if (install) {
         echo "Installing .NET SDK ${DOTNET_SDK_VERSION}"
         if (PLATFORM.contains("window")) {
-            batWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+            batWithEcho("cbdep install -d %TEMP%\\cbnc\\deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         }
