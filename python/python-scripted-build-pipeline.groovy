@@ -626,7 +626,11 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
     }
+<<<<<<< HEAD
     dir(test_full_path){}
+=======
+    dir(test_full_path)
+>>>>>>> c4cd942 (move mkdir() -> built in dir())
     [test_rel_path, nosetests_args, test_full_path, runner_command, post_command]
 }
 
