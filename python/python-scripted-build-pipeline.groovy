@@ -577,7 +577,7 @@ def mkdir(GString test_full_path, platform) {
     if (isWindows(platform)) {
         batWithEcho("""
 setlocal enableextensions
-md %1
+md ${test_full_path}
 endlocal
 """)
     } else {
