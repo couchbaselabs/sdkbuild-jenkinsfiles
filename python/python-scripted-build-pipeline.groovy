@@ -647,7 +647,7 @@ def doTests(node_list, platform, pyversion, LCB_VERSION, PYCBC_DEBUG_SYMBOLS, SE
         // USING THE PACKAGE(S) CREATED ABOVE
         def (GString test_rel_path, GString nosetests_args, GString test_full_path, String runner_command, String post_command) = getNoseArgs(SERVER_VERSION ?: "Mock", platform, pyversion, testParams)
         try {
-            mkdir(test_full_path,platform)
+            //mkdir(test_full_path,platform)
             if (isWindows(platform)) {
                 dir("${WORKSPACE}\\couchbase-python-client") {
                     dir("${test_rel_path}"){}
