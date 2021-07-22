@@ -626,7 +626,7 @@ List getNoseArgs(SERVER_VERSION, String platform, pyversion = "", TestParams tes
     {
         nosetests_args+="--xunit-testsuite-name=${test_rel_path} --xunit-prefix-with-testsuite-name "
     }
-    dir(test_full_path)
+    dir(test_full_path){}
     [test_rel_path, nosetests_args, test_full_path, runner_command, post_command]
 }
 
