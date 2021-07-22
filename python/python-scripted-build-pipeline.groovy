@@ -120,7 +120,6 @@ pipeline {
             }
         }
         stage('build') {
-            agent { label "master" }
             steps {
                 script {
                     def DIST_COMBOS_COPY=DIST_COMBOS
