@@ -229,14 +229,15 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSION
                         if (platform.contains("window")) {
                             try {
                                 batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet --list-sdks")
-                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build")
+                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build -v d --blame-hang --blame-hang-timeout 5min")
                             }
                             finally {
                                 junit allowEmptyResults: false, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
                             }
                         } else {
                             try {
-                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f net5.0 --no-build")
+                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet restore couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj")
+                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f net5.0 -v d --blame-hang --blame-hang-timeout 5min")
                             }
                             finally {
                                 junit  allowEmptyResults: false, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
