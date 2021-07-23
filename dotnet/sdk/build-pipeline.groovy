@@ -46,7 +46,7 @@ pipeline {
             }
         }
         stage("prepare and validate") {
-            agent { label "centos6||centos7||ubuntu16||ubuntu14" }
+            agent { label "centos6||centos7||ubuntu16||ubuntu14||ubuntu20" }
             steps {
 
 				echo "Branch: ${GERRIT_BRANCH}"
@@ -73,13 +73,11 @@ pipeline {
             }
         }
         stage("build") {
-            agent { label "master" }
             steps {
                 doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
         }
         stage("unit-test") {
-            agent { label "master" }
             steps {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
