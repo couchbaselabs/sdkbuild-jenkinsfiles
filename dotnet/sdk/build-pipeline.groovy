@@ -46,7 +46,7 @@ pipeline {
             }
         }
         stage("prepare and validate") {
-            agent { label "centos6||centos7||ubuntu16||ubuntu14" }
+            agent { label "centos6||centos7||ubuntu16||ubuntu14||ubuntu20" }
             steps {
 
 				echo "Branch: ${GERRIT_BRANCH}"
@@ -73,13 +73,11 @@ pipeline {
             }
         }
         stage("build") {
-            agent { label "master" }
             steps {
                 doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
         }
         stage("unit-test") {
-            agent { label "master" }
             steps {
                 doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
             }
@@ -234,14 +232,14 @@ def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSION
                                 batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build")
                             }
                             finally {
-                                junit allowEmptyResults: true, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
+                                junit allowEmptyResults: false, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
                             }
                         } else {
                             try {
                                 shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f net5.0 --no-build")
                             }
                             finally {
-                                junit  allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
+                                junit  allowEmptyResults: false, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
                             }
                         }
                     } else if (BRANCH == "release27") {
