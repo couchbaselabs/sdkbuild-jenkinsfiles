@@ -4,8 +4,7 @@ pipeline {
     agent none
     stages {
         stage('prep') {
-            // agent any
-            agent { label 'master' }
+            agent any
             steps {
                 script {
                     buildName(IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
