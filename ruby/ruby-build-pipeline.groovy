@@ -103,11 +103,6 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                script {
-                                    if (PLATFORM == "centos8") {
-                                        sh("sudo dnf config-manager --set-disabled 'bintray-*'")
-                                    }
-                                }
                                 cleanWs()
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
@@ -207,7 +202,6 @@ pipeline {
                 stage("deps") {
                     steps {
                         timestamps {
-                            sh("sudo dnf config-manager --set-disabled 'bintray-*'")
                             cleanWs()
                             dir("deps-${BUILD_NUMBER}") {
                                 unstash(name: "scripts-centos7-2.7")
