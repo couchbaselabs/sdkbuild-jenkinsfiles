@@ -212,7 +212,7 @@ pipeline {
                             steps {
                                 dir('ws_ubuntu20_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -262,7 +262,7 @@ pipeline {
                             steps {
                                 dir('ws_centos7_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -281,7 +281,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '5.5.6', '6.0.5', '6.5.2', '6.6-stable', '7.0-stable' //, '7.0.0-5292'
+                        values '7.0-stable' // '5.5.6', '6.0.5', '6.5.2', '6.6-stable', '7.0-stable' //, '7.0.0-5292'
                     }
                 }
                 agent { label 'sdkqe-centos7' }
@@ -296,7 +296,7 @@ pipeline {
                                 CLUSTER[CB_VERSION] = cluster
                             }
                             echo("Allocated ${CLUSTER[CB_VERSION].inspect()}")
-                            sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql,fts --node=kv --node=kv --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
+                            sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql --node=kv,fts --node=kv,cbas --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8091/settings/indexes -d 'storageMode=plasma'")
                             sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
