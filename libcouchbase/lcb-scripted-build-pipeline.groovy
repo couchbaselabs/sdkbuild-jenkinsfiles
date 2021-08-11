@@ -504,7 +504,7 @@ pipeline {
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
                         options {
-                            timeout(time: 30, unit: 'MINUTES')
+                            timeout(time: 60, unit: 'MINUTES')
                         }
                         steps {
                             unstash('centos7_build')
