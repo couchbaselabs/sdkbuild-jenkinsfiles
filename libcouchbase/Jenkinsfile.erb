@@ -480,6 +480,7 @@ pipeline {
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
+                            LCB_MAX_TEST_DURATION=1500
 <% if gtest_shuffle %>
                             GTEST_SHUFFLE=1
 <% end %>

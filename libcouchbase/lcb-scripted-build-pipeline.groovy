@@ -499,6 +499,7 @@ pipeline {
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
+                            LCB_MAX_TEST_DURATION=1500
                             CTEST_PARALLEL_LEVEL=1
                             CTEST_OUTPUT_ON_FAILURE=1
                         }
