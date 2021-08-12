@@ -467,7 +467,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.0.0' // '5.5.6', '6.0.5', '6.5.2', '6.6.2'
+                        values '7.0.0', '6.6.3', '6.5.2', '6.0.5', '5.5.6'
                     }
                 }
                 agent { label 'sdkqe-centos7' }
