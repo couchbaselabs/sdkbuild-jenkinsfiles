@@ -138,7 +138,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '6.0-stable', '6.5-stable', '6.6-stable', '7.0.0-5292'
+                        values '7.0.0', '6.6.3', '6.5.2', '6.0.5'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
