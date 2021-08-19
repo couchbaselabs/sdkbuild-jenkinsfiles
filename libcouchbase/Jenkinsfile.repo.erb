@@ -1,6 +1,6 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 %>
-// DO NOT EDIT: this file was generated from Jenkinsfile.signing.erb
+// DO NOT EDIT: this file was generated from Jenkinsfile.repo.erb
 
 <%
 selector = "specific('199')"
@@ -71,6 +71,7 @@ gpgkey = <%= key_url %>
 <% end %>
 <%
 apt_distros = [
+    ['bullseye', 'debian11'],
     ['focal', 'ubuntu2004'],
     ['buster', 'debian10'],
     ['bionic', 'ubuntu1804'],
@@ -97,7 +98,7 @@ Suite: <%= distro %>
 Codename: <%= distro %>
 Version: <%= distro_id %>
 Components: <%= distro %>/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for <%= distro %> <%= distro_id %>
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -108,7 +109,7 @@ Description: libcouchbase package repository for <%= distro %> <%= distro_id %>
 deb <%= repo_url %> <%= distro %> <%= distro %>/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b <%= repo_dir %> include <%= distro %> \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b <%= repo_dir %> include <%= distro %> \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-<%= distro_id %>.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-<%= distro_id %>.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {

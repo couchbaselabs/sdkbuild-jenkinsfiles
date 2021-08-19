@@ -1,5 +1,5 @@
 
-// DO NOT EDIT: this file was generated from Jenkinsfile.signing.erb
+// DO NOT EDIT: this file was generated from Jenkinsfile.repo.erb
 
 
 
@@ -139,6 +139,43 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     }
                 }
 
+                stage('debian11') {
+
+                    agent { label 'debian10-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*bullseye*.tar')
+                        sh('mkdir -p repo/debian11/conf')
+                        writeFile(file: "repo/debian11/conf/distributions", text: """
+Origin: couchbase
+SignWith: ${GPG_NAME}
+Suite: bullseye
+Codename: bullseye
+Version: debian11
+Components: bullseye/main
+Architectures: amd64
+Description: libcouchbase package repository for bullseye debian11
+""")
+                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-debian11.list', text: """
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/debian11 bullseye bullseye/main
+""")
+                        }
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian11 include bullseye \$p; done")
+                        sh("tar cf repo-${BUILD_NUMBER}-debian11.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian11.tar", fingerprint: true)
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
+                    }
+                }
                 stage('ubuntu2004') {
 
                     agent { label 'debian10-signing' }
@@ -153,7 +190,7 @@ Suite: focal
 Codename: focal
 Version: ubuntu2004
 Components: focal/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for focal ubuntu2004
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -164,7 +201,7 @@ Description: libcouchbase package repository for focal ubuntu2004
 deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2004 focal focal/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu2004 include focal \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu2004 include focal \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-ubuntu2004.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu2004.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
@@ -190,7 +227,7 @@ Suite: buster
 Codename: buster
 Version: debian10
 Components: buster/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for buster debian10
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -201,7 +238,7 @@ Description: libcouchbase package repository for buster debian10
 deb https://sdk-snapshots.couchbase.com/libcouchbase/debian10 buster buster/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian10 include buster \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian10 include buster \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-debian10.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian10.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
@@ -227,7 +264,7 @@ Suite: bionic
 Codename: bionic
 Version: ubuntu1804
 Components: bionic/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for bionic ubuntu1804
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -238,7 +275,7 @@ Description: libcouchbase package repository for bionic ubuntu1804
 deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1804 bionic bionic/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1804 include bionic \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1804 include bionic \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-ubuntu1804.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu1804.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
@@ -264,7 +301,7 @@ Suite: stretch
 Codename: stretch
 Version: debian9
 Components: stretch/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for stretch debian9
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -275,7 +312,7 @@ Description: libcouchbase package repository for stretch debian9
 deb https://sdk-snapshots.couchbase.com/libcouchbase/debian9 stretch stretch/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian9 include stretch \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian9 include stretch \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-debian9.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian9.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
@@ -301,7 +338,7 @@ Suite: xenial
 Codename: xenial
 Version: ubuntu1604
 Components: xenial/main
-Architectures: amd64 i386
+Architectures: amd64
 Description: libcouchbase package repository for xenial ubuntu1604
 """)
                         sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
@@ -312,7 +349,7 @@ Description: libcouchbase package repository for xenial ubuntu1604
 deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1604 xenial xenial/main
 """)
                         }
-                        sh("for p in \$(find . -name '*.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1604 include xenial \$p; done")
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu1604 include xenial \$p; done")
                         sh("tar cf repo-${BUILD_NUMBER}-ubuntu1604.tar repo")
                         archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu1604.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
