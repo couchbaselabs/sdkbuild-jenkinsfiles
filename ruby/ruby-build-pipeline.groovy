@@ -150,7 +150,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                sh("sudo dnf config-manager --set-disabled 'bintray-*'")
+                                sh("sudo dnf config-manager --set-disabled 'bintray-*' || true")
                                 cleanWs()
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
