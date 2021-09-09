@@ -56,7 +56,7 @@ pipeline {
                     }
                 }
                 stage("static") {
-                    agent { label "centos7" }
+                    agent { label "centos8" }
                     post {
                         failure {
                             dir("static-${BUILD_NUMBER}/library") {
