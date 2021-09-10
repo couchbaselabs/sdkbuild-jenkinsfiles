@@ -45,7 +45,7 @@ pipeline {
                     }
                 }
                 stage("format") {
-                    agent { label "centos7" }
+                    agent { label "ubuntu20" }
                     steps {
                         dir("format-${BUILD_NUMBER}") {
                             unstash("src")
@@ -56,7 +56,7 @@ pipeline {
                     }
                 }
                 stage("static") {
-                    agent { label "centos8" }
+                    agent { label "ubuntu20" }
                     post {
                         failure {
                             dir("static-${BUILD_NUMBER}/library") {
