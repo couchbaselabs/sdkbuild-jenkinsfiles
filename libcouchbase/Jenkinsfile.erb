@@ -470,14 +470,17 @@ pipeline {
                             }
                         }
 <% end %>
-<% if collect_failures %>
                         post {
+<% if collect_failures %>
                             failure {
                                 sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
                                 archiveArtifacts(artifacts: "integration_failure-${CB_VERSION}_x64.tar", fingerprint: false)
                             }
-                        }
 <% end %>
+                            always {
+                                sh("cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
+                            }
+                        }
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
