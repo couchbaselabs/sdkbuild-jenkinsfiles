@@ -496,6 +496,11 @@ pipeline {
                                 return !IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                             }
                         }
+                        post {
+                            always {
+                                sh("cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
+                            }
+                        }
                         environment {
                             LCB_LOGLEVEL=5
                             LCB_TEST_CLUSTER_CONF="${CLUSTER[CB_VERSION].connectionString()}"
