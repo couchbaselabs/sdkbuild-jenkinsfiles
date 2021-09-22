@@ -308,7 +308,7 @@ pipeline {
                             steps {
                                 dir('ws_<%= label %>_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }

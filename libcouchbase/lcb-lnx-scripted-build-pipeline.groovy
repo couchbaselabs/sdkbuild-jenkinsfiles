@@ -212,7 +212,7 @@ pipeline {
                             steps {
                                 dir('ws_ubuntu20_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
@@ -262,7 +262,7 @@ pipeline {
                             steps {
                                 dir('ws_centos7_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    // sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
                                 }
                             }
                         }
