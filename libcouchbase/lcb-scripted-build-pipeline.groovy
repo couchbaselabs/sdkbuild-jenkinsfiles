@@ -212,7 +212,8 @@ pipeline {
                             steps {
                                 dir('ws_ubuntu20_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -262,7 +263,8 @@ pipeline {
                             steps {
                                 dir('ws_centos7_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -311,7 +313,8 @@ pipeline {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -372,7 +375,8 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -434,7 +438,8 @@ pipeline {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -517,7 +522,8 @@ pipeline {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
                                 sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                sh("ctest -E BUILD ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                sh("ctest --label-exclude contaminating --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                sh("ctest --label-exclude normal --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                             }
                         }
                     }

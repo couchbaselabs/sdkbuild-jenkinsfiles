@@ -218,7 +218,8 @@ pipeline {
                                 dir('ws_win64_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -286,7 +287,8 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -355,7 +357,8 @@ pipeline {
                                 dir('ws_win32_vc14_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -423,7 +426,8 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc14/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -492,7 +496,8 @@ pipeline {
                                 dir('ws_win64_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -560,7 +565,8 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -629,7 +635,8 @@ pipeline {
                                 dir('ws_win32_vc15_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -697,7 +704,8 @@ pipeline {
                             steps {
                                 dir('ws_win32_vc15/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -764,7 +772,8 @@ pipeline {
                             steps {
                                 dir('ws_win64_vc16/build') {
                                     bat('cmake --build . --target alltests')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
@@ -833,7 +842,8 @@ pipeline {
                                 dir('ws_win64_vc16_ssl/build') {
                                     bat('cmake --build . --target alltests')
                                     bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest -C debug ${VERBOSE.toBoolean() ? '-VV' : ''}")
+                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 }
                             }
                         }
