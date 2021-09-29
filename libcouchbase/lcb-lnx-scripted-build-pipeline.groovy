@@ -171,9 +171,9 @@ pipeline {
                 stage('ubuntu20 mock') {
                     agent { label 'ubuntu20' }
                     stages {
-                        stage('ubu20') {
+                        stage('ubu20_x64') {
                             steps {
-                                dir('ws_ubuntu20_x64') {
+                                dir('ws_ubu20_x64') {
                                     deleteDir()
                                     unstash 'libcouchbase'
                                 }
@@ -181,14 +181,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('ws_ubuntu20_x64') {
+                                dir('ws_ubu20_x64') {
                                     dir('build') {
                                         sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_ubuntu20_x64/', name: 'ubuntu20_build'
+                                stash includes: 'ws_ubu20_x64/', name: 'ubu20_x64_build'
                             }
                         }
                         stage('test') {
@@ -206,11 +206,11 @@ pipeline {
                             }
                             post {
                                 always {
-                                    junit(testResults: "ws_ubuntu20_x64/build/*.xml", allowEmptyResults: true)
+                                    junit(testResults: "ws_ubu20_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
-                                dir('ws_ubuntu20_x64/build') {
+                                dir('ws_ubu20_x64/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                     sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
@@ -222,9 +222,9 @@ pipeline {
                 stage('centos7 mock') {
                     agent { label 'centos7' }
                     stages {
-                        stage('cen7') {
+                        stage('cen7_x64') {
                             steps {
-                                dir('ws_centos7_x64') {
+                                dir('ws_cen7_x64') {
                                     deleteDir()
                                     unstash 'libcouchbase'
                                 }
@@ -232,14 +232,14 @@ pipeline {
                         }
                         stage('build') {
                             steps {
-                                dir('ws_centos7_x64') {
+                                dir('ws_cen7_x64') {
                                     dir('build') {
                                         sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_centos7_x64/', name: 'centos7_build'
+                                stash includes: 'ws_cen7_x64/', name: 'cen7_x64_build'
                             }
                         }
                         stage('test') {
@@ -257,11 +257,62 @@ pipeline {
                             }
                             post {
                                 always {
-                                    junit(testResults: "ws_centos7_x64/build/*.xml", allowEmptyResults: true)
+                                    junit(testResults: "ws_cen7_x64/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
-                                dir('ws_centos7_x64/build') {
+                                dir('ws_cen7_x64/build') {
+                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
+                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                }
+                            }
+                        }
+                    }
+                }
+                stage('m1 mock') {
+                    agent { label 'm1' }
+                    stages {
+                        stage('mac11_m1') {
+                            steps {
+                                dir('ws_mac11_m1') {
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('build') {
+                            steps {
+                                dir('ws_mac11_m1') {
+                                    dir('build') {
+                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
+                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                                    }
+                                }
+                                stash includes: 'ws_mac11_m1/', name: 'mac11_m1_build'
+                            }
+                        }
+                        stage('test') {
+                            when {
+                                expression {
+                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
+                                }
+                            }
+                            options {
+                                timeout(time: 30, unit: 'MINUTES')
+                            }
+                            environment {
+                                CTEST_PARALLEL_LEVEL=1
+                                CTEST_OUTPUT_ON_FAILURE=1
+                            }
+                            post {
+                                always {
+                                    junit(testResults: "ws_mac11_m1/build/*.xml", allowEmptyResults: true)
+                                }
+                            }
+                            steps {
+                                dir('ws_mac11_m1/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                     sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")

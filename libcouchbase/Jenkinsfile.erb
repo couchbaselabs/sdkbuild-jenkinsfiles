@@ -19,8 +19,9 @@ ubuntu_dists = [
 ]
 
 linux_test_builds = [
-    ['ubuntu20', 'ubuntu', 20],
-    ['centos7', 'centos', 7]
+    ['ubuntu20', 'ubuntu', 20, 'x64'],
+    ['centos7', 'centos', 7, 'x64'],
+    ['m1', 'macos', 11, 'm1']
 ]
 
 gtest_shuffle = false
@@ -244,13 +245,14 @@ pipeline {
         stage('build and test') {
             parallel {
 
-<% linux_test_builds.each do |(label, dist, relno)| %>
+<% linux_test_builds.each do |(label, dist, relno, arch)| %>
+<% name = "#{dist[0..2]}#{relno}_#{arch}" %>
                 stage('<%= label %> mock') {
                     agent { label '<%= label %>' }
                     stages {
-                        stage('<%= dist[0..2] %><%= relno %>') {
+                        stage('<%= name %>') {
                             steps {
-                                dir('ws_<%= label %>_x64') {
+                                dir('ws_<%= name %>') {
                                     deleteDir()
                                     unstash 'libcouchbase'
                                 }
@@ -260,20 +262,20 @@ pipeline {
 <% if collect_failures %>
                             post {
                                 failure {
-                                    sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
+                                    sh('tar cf failure-ws_<%= name %>.tar ws_<%= name %>')
+                                    archiveArtifacts(artifacts: "failure-ws_<%= name %>.tar", fingerprint: false)
                                 }
                             }
 <% end %>
                             steps {
-                                dir('ws_<%= label %>_x64') {
+                                dir('ws_<%= name %>') {
                                     dir('build') {
                                         sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> ../libcouchbase')
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
                                         sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
                                     }
                                 }
-                                stash includes: 'ws_<%= label %>_x64/', name: '<%= label %>_build'
+                                stash includes: 'ws_<%= name %>/', name: '<%= name %>_build'
                             }
                         }
                         stage('test') {
@@ -297,16 +299,16 @@ pipeline {
                             post {
 <% if collect_failures %>
                                 failure {
-                                    sh('tar cf failure-ws_<%= label %>_x64.tar ws_<%= label %>_x64')
-                                    archiveArtifacts(artifacts: "failure-ws_<%= label %>_x64.tar", fingerprint: false)
+                                    sh('tar cf failure-ws_<%= name %>.tar ws_<%= name %>')
+                                    archiveArtifacts(artifacts: "failure-ws_<%= name %>.tar", fingerprint: false)
                                 }
 <% end %>
                                 always {
-                                    junit(testResults: "ws_<%= label %>_x64/build/*.xml", allowEmptyResults: true)
+                                    junit(testResults: "ws_<%= name %>/build/*.xml", allowEmptyResults: true)
                                 }
                             }
                             steps {
-                                dir('ws_<%= label %>_x64/build') {
+                                dir('ws_<%= name %>/build') {
                                     sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                     sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                     sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
