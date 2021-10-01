@@ -16,11 +16,33 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.6', '2.7', '3.0'
+                        values '2.6', '2.7', '3.0', 'brew'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'centos7'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values 'brew'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'm1'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            notValues 'brew'
+                        }
                     }
                 }
                 agent { label PLATFORM }
@@ -91,11 +113,33 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'centos8', 'macos-11.0', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9'
+                        values 'centos7', 'centos8', 'macos-11.0', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9', 'm1'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.6', '2.7', '3.0'
+                        values '2.6', '2.7', '3.0', 'brew'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            notValues 'macos-11.0', 'macos-10.15', 'm1'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values 'brew'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'm1'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            notValues 'brew'
+                        }
                     }
                 }
                 agent { label PLATFORM }
@@ -105,7 +149,7 @@ pipeline {
                             timestamps {
                                 cleanWs()
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
+                                    unstash(name: "scripts-centos7-2.7")
                                     sh("bin/jenkins/install-dependencies")
                                 }
                             }
@@ -116,7 +160,7 @@ pipeline {
                             timestamps {
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     script {
-                                        if (PLATFORM =~ /macos/) {
+                                        if (PLATFORM =~ /macos|m1/) {
                                             unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
                                         } else {
                                             unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
@@ -216,6 +260,7 @@ pipeline {
                         dir("repo-${BUILD_NUMBER}") {
                             unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
+                                unstash(name: "gem-m1-brew-bin")
                                 unstash(name: "gem-macos-11.0-2.6-bin")
                                 unstash(name: "gem-macos-11.0-2.7-bin")
                                 unstash(name: "gem-macos-11.0-3.0-bin")
