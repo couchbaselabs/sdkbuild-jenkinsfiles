@@ -70,10 +70,6 @@ class Version {
         return "libcouchbase-${version()}-${rpmRel()}*.src.rpm"
     }
 
-    String[] rpm() {
-        return [version(), rpmRel()]
-    }
-
     String deb() {
         def ver = version()
         if (prerelease) {
@@ -95,10 +91,6 @@ class DynamicCluster {
 
     DynamicCluster(String version) {
         this.version_ = version
-    }
-
-    boolean isAllocated() {
-        return !(id_ == null || id_ == "")
     }
 
     String clusterId() {
@@ -157,7 +149,7 @@ pipeline {
                 dir('libcouchbase') {
                     dir('build') {
                         sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
-                        sh('make dist')
+                        sh('cmake --build . --target dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
@@ -172,699 +164,95 @@ pipeline {
             }
         }
 
-        stage('build and test') {
-            parallel {
 
-                stage('w64v14s') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc14_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc14_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc14_amd64.zip ${VERSION.tarName()}_vc14_amd64_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64_openssl.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc14_amd64_openssl.zip",
-                                            path: 'libcouchbase/'
-                                        )
+        stage('win') {
+            matrix {
+                axes {
+                    axis {
+                        name 'MSVS'
+                        values "14 2015", "15 2017", "16 2019", "14 2015 Win64", "15 2017 Win64"
+                    }
+                    axis {
+                        name 'TLS'
+                        values true, false
+                    }
+                }
+
+                agent { label "msvc-${MSVS.split(' ')[1]}" }
+                stages {
+                    stage('prep') {
+                        steps {
+                        dir("ws_win_${MSVS.replaceAll(' ', '_')}") {
+                                deleteDir()
+                                script {
+                                    if (TLS) {
+                                        bat("cbdep --platform windows_msvc2017 install ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl 1.1.1g-sdk2")
                                     }
                                 }
+                                unstash 'libcouchbase'
                             }
                         }
                     }
-                }
-                stage('w64v14') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc14') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc14/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc14/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc14_amd64.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
+                    stage('build') {
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat("cmake -G\"Visual Studio ${MSVS}\" ${TLS ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
+                                bat('cmake --build .')
                             }
                         }
                     }
-                }
-                stage('w32v14s') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win32_vc14_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install --x32 openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
+                    stage('test') {
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
                             }
                         }
-                        stage('build') {
-                            steps {
-                                dir('ws_win32_vc14_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                            always {
+                                junit(testResults: "ws_win_${MSVS.replaceAll(' ', '_')}/build/*.xml", allowEmptyResults: true)
                             }
                         }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win32_vc14_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc14_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc14_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc14_x86.zip ${VERSION.tarName()}_vc14_x86_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86_openssl.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc14_x86_openssl.zip",
-                                            path: 'libcouchbase/'
-                                        )
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target alltests')
+                                script {
+                                    if (TLS) {
+                                        bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     }
                                 }
+                                bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                             }
                         }
                     }
-                }
-                stage('w32v14') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win32_vc14') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
+                    stage("pack") {
+                        when {
+                            expression {
+                                return !IS_GERRIT_TRIGGER.toBoolean()
                             }
                         }
-                        stage('build') {
-                            steps {
-                                dir('ws_win32_vc14/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win32_vc14/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc14/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc14/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_x86.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc14_x86.zip",
-                                            path: 'libcouchbase/'
-                                        )
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target package')
+                                script {
+                                    if (TLS) {
+                                        bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}_openssl.zip")
                                     }
                                 }
-                            }
-                        }
-                    }
-                }
-                stage('w64v15s') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc15_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc15_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc15_amd64.zip ${VERSION.tarName()}_vc15_amd64_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64_openssl.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc15_amd64_openssl.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v15') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc15') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc15/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc15_amd64.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w32v15s') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win32_vc15_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install --x32 openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win32_vc15_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win32_vc15_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc15_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc15_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc15_x86.zip ${VERSION.tarName()}_vc15_x86_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86_openssl.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc15_x86_openssl.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w32v15') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win32_vc15') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win32_vc15/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win32_vc15/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc15/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win32_vc15/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_x86.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc15_x86.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v16') {
-                    agent { label 'msvc-2019' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc16') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc16/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 16 2019" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc16/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc16/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc16/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_amd64.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc16_amd64.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v16s') {
-                    agent { label 'msvc-2019' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc16_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc16_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 16 2019" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc16_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc16_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc16_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc16_amd64.zip ${VERSION.tarName()}_vc16_amd64_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc16_amd64_openssl.zip", fingerprint: true)
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc16_amd64_openssl.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip", fingerprint: true)
+                                withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                    s3Upload(
+                                        bucket: 'sdk-snapshots.couchbase.com',
+                                        file: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip",
+                                        path: 'libcouchbase/'
+                                    )
                                 }
                             }
                         }
@@ -872,5 +260,6 @@ pipeline {
                 }
             }
         }
+
     }
 }

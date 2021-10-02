@@ -1,11 +1,8 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 openssl_ver = '1.1.1g-sdk2'
 windows_dists = [
-    [2015, 14, 64, true],
-    # [2015, 14, 32, false],
-    [2017, 15, 64, false],
-    [2017, 15, 64, true],
-    # [2017, 15, 32, false],
+    [2015, 14],
+    [2017, 15],
 ]
 centos_dists = [
     [7, 'x86_64', 64],
@@ -18,29 +15,26 @@ ubuntu_dists = [
     # ['buster', 'i386', 'debian10', 32],
 ]
 
-linux_test_builds = [
+nix_test_builds = [
     ['ubuntu20', 'ubuntu', 20, 'x64'],
+    ['ubuntu16', 'ubuntu', 16, 'x64'],
+    ['debian9', 'debian', 9, 'x64'],
+    ['debian8', 'debian', 8, 'x64'],
+    ['centos8', 'centos', 8, 'x64'],
     ['centos7', 'centos', 7, 'x64'],
-    ['m1', 'macos', 11, 'm1']
+    ['m1', 'macos', 11, 'm1'],
+    ['macos-11.0', 'macos', 11, 'x64']
 ]
 
 gtest_shuffle = false
-collect_failures = false
 integration_enabled = true
 if ENV['WINDOWS_ONLY']
     windows_dists = [
-        [2015, 14, 64, true],
-        [2015, 14, 64, false],
-        [2015, 14, 32, true],
-        [2015, 14, 32, false],
-        [2017, 15, 64, true],
-        [2017, 15, 64, false],
-        [2017, 15, 32, true],
-        [2017, 15, 32, false],
-        [2019, 16, 64, false],
-        [2019, 16, 64, true],
+        [2015, 14],
+        [2017, 15],
+        [2019, 16],
     ]
-    centos_dists = ubuntu_dists = linux_test_builds = []
+    centos_dists = ubuntu_dists = nix_test_builds = []
     integration_enabled = false
 elsif ENV['LINUX_ONLY']
     windows_dists = []
@@ -138,10 +132,6 @@ class Version {
         return "libcouchbase-${version()}-${rpmRel()}*.src.rpm"
     }
 
-    String[] rpm() {
-        return [version(), rpmRel()]
-    }
-
     String deb() {
         def ver = version()
         if (prerelease) {
@@ -163,10 +153,6 @@ class DynamicCluster {
 
     DynamicCluster(String version) {
         this.version_ = version
-    }
-
-    boolean isAllocated() {
-        return !(id_ == null || id_ == "")
     }
 
     String clusterId() {
@@ -225,7 +211,7 @@ pipeline {
                 dir('libcouchbase') {
                     dir('build') {
                         sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
-                        sh('make dist')
+                        sh('cmake --build . --target dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
 <% if ENV['WINDOWS_ONLY'] %>
@@ -242,195 +228,181 @@ pipeline {
             }
         }
 
-        stage('build and test') {
-            parallel {
+<% unless ENV['WINDOWS_ONLY'] %>
+        stage('nix') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values <%= nix_test_builds.map { |(label, dist, relno, arch)| label.inspect }.join(", ") %>
+                    }
+                }
 
-<% linux_test_builds.each do |(label, dist, relno, arch)| %>
-<% name = "#{dist[0..2]}#{relno}_#{arch}" %>
-                stage('<%= label %> mock') {
-                    agent { label '<%= label %>' }
-                    stages {
-                        stage('<%= name %>') {
-                            steps {
-                                dir('ws_<%= name %>') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
+                agent { label PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                deleteDir()
+                                unstash 'libcouchbase'
                             }
                         }
-                        stage('build') {
-<% if collect_failures %>
-                            post {
-                                failure {
-                                    sh('tar cf failure-ws_<%= name %>.tar ws_<%= name %>')
-                                    archiveArtifacts(artifacts: "failure-ws_<%= name %>.tar", fingerprint: false)
-                                }
-                            }
-<% end %>
-                            steps {
-                                dir('ws_<%= name %>') {
-                                    dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> ../libcouchbase')
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
-                                    }
-                                }
-                                stash includes: 'ws_<%= name %>/', name: '<%= name %>_build'
-                            }
+                    }
+                    stage('build') {
+                        environment {
+                            CMAKE_BUILD_PARALLEL_LEVEL=8
                         }
-                        stage('test') {
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                dir('build') {
+                                    sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> ../libcouchbase')
+                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                }
+                            }
+                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
+                        }
+                    }
+                    stage('test') {
 <% if integration_enabled %>
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
-                                }
-                            }
-<% end %>
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-<% if gtest_shuffle %>
-                                GTEST_SHUFFLE=1
-<% end %>
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-<% if collect_failures %>
-                                failure {
-                                    sh('tar cf failure-ws_<%= name %>.tar ws_<%= name %>')
-                                    archiveArtifacts(artifacts: "failure-ws_<%= name %>.tar", fingerprint: false)
-                                }
-<% end %>
-                                always {
-                                    junit(testResults: "ws_<%= name %>/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_<%= name %>/build') {
-                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
                             }
                         }
+<% end %>
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+<% if gtest_shuffle %>
+                            GTEST_SHUFFLE=1
+<% end %>
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                           always {
+                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
+                           }
+                       }
+                       steps {
+                           dir("ws_${PLATFORM}/build") {
+                               sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
+                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                           }
+                       }
                     }
                 }
-<% end %>
-<% windows_dists.each do |(msvs_ver, msvcc_ver, arch, has_ssl)| %>
-<% build_id = "#{arch}_vc#{msvcc_ver}#{'_ssl' if has_ssl}" %>
-                stage('w<%= arch %>v<%= msvcc_ver %><%= 's' if has_ssl %>') {
-                    agent { label 'msvc-<%= msvs_ver %>' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win<%= build_id %>') {
-                                    deleteDir()
-<% if has_ssl %>
-                                    bat('cbdep --platform windows_msvc2017 install <% if arch == 32 %>--x32<% end %> openssl <%= openssl_ver %>')
-<% end %>
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-<% if collect_failures %>
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
-                                    archiveArtifacts(artifacts: 'failure-ws_win<%= arch %>_vc<%= msvcc_ver %>.zip', fingerprint: false)
-                                }
-                            }
-<% end %>
-                            steps {
-                                dir('ws_win<%= build_id %>/build') {
-                                    bat('cmake --version --help')
-<% if has_ssl %>
-                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" -DOPENSSL_ROOT_DIR=..\\install\\openssl-<%= openssl_ver %> ..\\libcouchbase')
-<% else %>
-                                    bat('cmake -G"Visual Studio <%= msvcc_ver %> <%= msvs_ver %><%= ' Win64' if arch == 64 && msvs_ver != 2019 %>" -DLCB_NO_SSL=1 ..\\libcouchbase')
-<% end %>
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-<% if gtest_shuffle %>
-                                GTEST_SHUFFLE=1
-<% end %>
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-<% if collect_failures %>
-                                failure {
-                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
-                                    archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
-                                }
-<% end %>
-                                always {
-                                    junit(testResults: "ws_win<%= build_id %>/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win<%= build_id %>/build') {
-                                    bat('cmake --build . --target alltests')
-<% if has_ssl %>
-                                    bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
-<% end %>
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-<% if collect_failures %>
-                            post {
-                                failure {
-                                    zip(zipFile: 'failure-ws_win<%= build_id %>.zip', archive: false, dir: 'ws_win<%= build_id %>')
-                                    archiveArtifacts(artifacts: 'failure-ws_win<%= build_id %>.zip', fingerprint: false)
-                                }
-                            }
-<% end %>
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win<%= build_id %>/build') {
-                                    bat('cmake --build . --target package')
-<% if has_ssl %>
-                                    bat("move ${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>.zip ${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %>_openssl.zip")
-<% end %>
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %><%= '_openssl' if has_ssl %>.zip", fingerprint: true)
-<% if ENV['WINDOWS_ONLY'] %>
-                                    withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                        s3Upload(
-                                            bucket: 'sdk-snapshots.couchbase.com',
-                                            file: "${VERSION.tarName()}_vc<%= msvcc_ver %>_<%= arch == 64 ? 'amd64' : 'x86' %><%= '_openssl' if has_ssl %>.zip",
-                                            path: 'libcouchbase/'
-                                        )
-                                    }
-<% end %>
-                                }
-                            }
-                        }
-                    }
-                }
-<% end %>
             }
         }
+<% end %>
+
+<% unless ENV['LINUX_ONLY'] %>
+        stage('win') {
+            matrix {
+                axes {
+                    axis {
+                        name 'MSVS'
+                        values <%= (windows_dists.map { |(msvs_ver, msvcc_ver)| "#{msvcc_ver} #{msvs_ver}".inspect } +  
+                                    windows_dists.reject { |(msvs_ver, msvcc_ver)| msvs_ver == 2019 }.map { |(msvs_ver, msvcc_ver)| "#{msvcc_ver} #{msvs_ver} Win64".inspect }).join(", ") %>
+                    }
+                    axis {
+                        name 'TLS'
+                        values true, false
+                    }
+                }
+
+                agent { label "msvc-${MSVS.split(' ')[1]}" }
+                stages {
+                    stage('prep') {
+                        steps {
+                        dir("ws_win_${MSVS.replaceAll(' ', '_')}") {
+                                deleteDir()
+                                script {
+                                    if (TLS) {
+                                        bat("cbdep --platform windows_msvc2017 install ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl <%= openssl_ver %>")
+                                    }
+                                }
+                                unstash 'libcouchbase'
+                            }
+                        }
+                    }
+                    stage('build') {
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat("cmake -G\"Visual Studio ${MSVS}\" ${TLS ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-<%= openssl_ver %>' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
+                                bat('cmake --build .')
+                            }
+                        }
+                    }
+                    stage('test') {
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
+                            }
+                        }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+<% if gtest_shuffle %>
+                            GTEST_SHUFFLE=1
+<% end %>
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                            always {
+                                junit(testResults: "ws_win_${MSVS.replaceAll(' ', '_')}/build/*.xml", allowEmptyResults: true)
+                            }
+                        }
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target alltests')
+                                script {
+                                    if (TLS) {
+                                        bat('copy ..\\install\\openssl-<%= openssl_ver %>\\bin\\*.dll bin\\Debug\\')
+                                    }
+                                }
+                                bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                            }
+                        }
+                    }
+                    stage("pack") {
+                        when {
+                            expression {
+                                return !IS_GERRIT_TRIGGER.toBoolean()
+                            }
+                        }
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target package')
+                                script {
+                                    if (TLS) {
+                                        bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}_openssl.zip")
+                                    }
+                                }
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip", fingerprint: true)
+<% if ENV['WINDOWS_ONLY'] %>
+                                withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                                    s3Upload(
+                                        bucket: 'sdk-snapshots.couchbase.com',
+                                        file: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip",
+                                        path: 'libcouchbase/'
+                                    )
+                                }
+<% end %>
+                            }
+                        }
+                    }
+                }
+            }
+        }
+<% end %>
+
 <% if integration_enabled %>
         stage('int') {
             when {
@@ -475,12 +447,6 @@ pipeline {
                         }
 <% end %>
                         post {
-<% if collect_failures %>
-                            failure {
-                                sh("tar cf integration_failure-${CB_VERSION}_x64.tar ws_centos7_x64")
-                                archiveArtifacts(artifacts: "integration_failure-${CB_VERSION}_x64.tar", fingerprint: false)
-                            }
-<% end %>
                             always {
                                 sh("cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
                             }
@@ -500,8 +466,8 @@ pipeline {
                         }
                         steps {
                             unstash('centos7_build')
-                            dir('ws_centos7_x64/build') {
-                                sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                            dir('ws_centos7/build') {
+                                sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
                                 sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                 sh("ctest --label-exclude contaminating --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
@@ -535,14 +501,6 @@ pipeline {
                             }
                         }
                         stage('srpm') {
-<% if collect_failures %>
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
-                                    archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
-                                }
-                            }
-<% end %>
                             steps {
                                 dir('ws_centos<%= bits %>_v<%= relno %>/build') {
                                     unstash 'tarball'
@@ -558,14 +516,6 @@ pipeline {
                             }
                         }
                         stage('rpm') {
-<% if collect_failures %>
-                            post {
-                                failure {
-                                    sh("tar cf failure-ws_centos<%= bits %>_v<%= relno %>.tar ws_centos<%= bits %>_v<%= relno %>")
-                                    archiveArtifacts(artifacts: "failure-ws_centos<%= bits %>_v<%= relno %>.tar", fingerprint: false)
-                                }
-                            }
-<% end %>
                             steps {
                                 dir('ws_centos<%= bits %>_v<%= relno %>/build') {
                                     sh("""
@@ -626,14 +576,6 @@ pipeline {
                                 }
                             }
                             stage('src') {
-<% if collect_failures %>
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
-                                        archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
-                                    }
-                                }
-<% end %>
                                 steps {
                                     dir('ws_<%= name %>_<%= arch %>/build') {
                                         unstash 'tarball'
@@ -651,14 +593,6 @@ pipeline {
                                 }
                             }
                             stage('deb') {
-<% if collect_failures %>
-                                post {
-                                    failure {
-                                        sh("tar cf failure-ws_<%= name %>_<%= arch %>.tar ws_<%= name %>_<%= arch %>")
-                                        archiveArtifacts(artifacts: "failure-ws_<%= name %>_<%= arch %>.tar", fingerprint: false)
-                                    }
-                                }
-<% end %>
                                 steps {
                                     dir('ws_<%= name %>_<%= arch %>/build') {
                                         sh("""

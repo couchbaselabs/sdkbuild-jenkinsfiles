@@ -70,10 +70,6 @@ class Version {
         return "libcouchbase-${version()}-${rpmRel()}*.src.rpm"
     }
 
-    String[] rpm() {
-        return [version(), rpmRel()]
-    }
-
     String deb() {
         def ver = version()
         if (prerelease) {
@@ -95,10 +91,6 @@ class DynamicCluster {
 
     DynamicCluster(String version) {
         this.version_ = version
-    }
-
-    boolean isAllocated() {
-        return !(id_ == null || id_ == "")
     }
 
     String clusterId() {
@@ -157,7 +149,7 @@ pipeline {
                 dir('libcouchbase') {
                     dir('build') {
                         sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLCB_NO_PLUGINS=1 -DLCB_NO_TESTS=1 -DLCB_NO_MOCK=1 ..')
-                        sh('make dist')
+                        sh('cmake --build . --target dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
                     }
@@ -165,353 +157,159 @@ pipeline {
             }
         }
 
-        stage('build and test') {
-            parallel {
+        stage('nix') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values "ubuntu20", "ubuntu16", "debian9", "debian8", "centos8", "centos7", "m1", "macos-11.0"
+                    }
+                }
 
-                stage('ubuntu20 mock') {
-                    agent { label 'ubuntu20' }
-                    stages {
-                        stage('ubu20_x64') {
-                            steps {
-                                dir('ws_ubu20_x64') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
+                agent { label PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                deleteDir()
+                                unstash 'libcouchbase'
                             }
                         }
-                        stage('build') {
-                            steps {
-                                dir('ws_ubu20_x64') {
-                                    dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                    }
+                    stage('build') {
+                        environment {
+                            CMAKE_BUILD_PARALLEL_LEVEL=8
+                        }
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                dir('build') {
+                                    sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
+                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                }
+                            }
+                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
+                        }
+                    }
+                    stage('test') {
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
+                            }
+                        }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                           always {
+                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
+                           }
+                       }
+                       steps {
+                           dir("ws_${PLATFORM}/build") {
+                               sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
+                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                           }
+                       }
+                    }
+                }
+            }
+        }
+
+        stage('win') {
+            matrix {
+                axes {
+                    axis {
+                        name 'MSVS'
+                        values "14 2015", "15 2017", "14 2015 Win64", "15 2017 Win64"
+                    }
+                    axis {
+                        name 'TLS'
+                        values true, false
+                    }
+                }
+
+                agent { label "msvc-${MSVS.split(' ')[1]}" }
+                stages {
+                    stage('prep') {
+                        steps {
+                        dir("ws_win_${MSVS.replaceAll(' ', '_')}") {
+                                deleteDir()
+                                script {
+                                    if (TLS) {
+                                        bat("cbdep --platform windows_msvc2017 install ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl 1.1.1g-sdk2")
                                     }
                                 }
-                                stash includes: 'ws_ubu20_x64/', name: 'ubu20_x64_build'
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_ubu20_x64/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_ubu20_x64/build') {
-                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
+                                unstash 'libcouchbase'
                             }
                         }
                     }
-                }
-                stage('centos7 mock') {
-                    agent { label 'centos7' }
-                    stages {
-                        stage('cen7_x64') {
-                            steps {
-                                dir('ws_cen7_x64') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
+                    stage('build') {
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat("cmake -G\"Visual Studio ${MSVS}\" ${TLS ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
+                                bat('cmake --build .')
                             }
                         }
-                        stage('build') {
-                            steps {
-                                dir('ws_cen7_x64') {
-                                    dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                    }
+                    stage('test') {
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
+                            }
+                        }
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
+                        environment {
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                            always {
+                                junit(testResults: "ws_win_${MSVS.replaceAll(' ', '_')}/build/*.xml", allowEmptyResults: true)
+                            }
+                        }
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target alltests')
+                                script {
+                                    if (TLS) {
+                                        bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     }
                                 }
-                                stash includes: 'ws_cen7_x64/', name: 'cen7_x64_build'
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_cen7_x64/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_cen7_x64/build') {
-                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
+                                bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                                bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                             }
                         }
                     }
-                }
-                stage('m1 mock') {
-                    agent { label 'm1' }
-                    stages {
-                        stage('mac11_m1') {
-                            steps {
-                                dir('ws_mac11_m1') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
+                    stage("pack") {
+                        when {
+                            expression {
+                                return !IS_GERRIT_TRIGGER.toBoolean()
                             }
                         }
-                        stage('build') {
-                            steps {
-                                dir('ws_mac11_m1') {
-                                    dir('build') {
-                                        sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''}")
-                                        sh("make -j8 ${VERBOSE.toBoolean() ? 'VERBOSE=1' : ''} alltests")
+                        steps {
+                            dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
+                                bat('cmake --build . --target package')
+                                script {
+                                    if (TLS) {
+                                        bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}_openssl.zip")
                                     }
                                 }
-                                stash includes: 'ws_mac11_m1/', name: 'mac11_m1_build'
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_mac11_m1/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_mac11_m1/build') {
-                                    sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
-                                    sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v14s') {
-                    agent { label 'msvc-2015' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc14_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 14 2015 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc14_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc14_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc14_amd64.zip ${VERSION.tarName()}_vc14_amd64_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc14_amd64_openssl.zip", fingerprint: true)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v15') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc15') {
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DLCB_NO_SSL=1 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc15/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15/build') {
-                                    bat('cmake --build . --target package')
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64.zip", fingerprint: true)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('w64v15s') {
-                    agent { label 'msvc-2017' }
-                    stages {
-                        stage('prep') {
-                            steps {
-                                dir('ws_win64_vc15_ssl') {
-                                    deleteDir()
-                                    bat('cbdep --platform windows_msvc2017 install  openssl 1.1.1g-sdk2')
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('build') {
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --version --help')
-                                    bat('cmake -G"Visual Studio 15 2017 Win64" -DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2 ..\\libcouchbase')
-                                    bat('cmake --build .')
-                                }
-                            }
-                        }
-                        stage('test') {
-                            when {
-                                expression {
-                                    return !SKIP_TESTS.toBoolean()
-                                }
-                            }
-                            options {
-                                timeout(time: 30, unit: 'MINUTES')
-                            }
-                            environment {
-                                CTEST_PARALLEL_LEVEL=1
-                                CTEST_OUTPUT_ON_FAILURE=1
-                            }
-                            post {
-                                always {
-                                    junit(testResults: "ws_win64_vc15_ssl/build/*.xml", allowEmptyResults: true)
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --build . --target alltests')
-                                    bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
-                                    bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                    bat("ctest --label-exclude normal --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                                }
-                            }
-                        }
-                        stage("pack") {
-                            when {
-                                expression {
-                                    return !IS_GERRIT_TRIGGER.toBoolean()
-                                }
-                            }
-                            steps {
-                                dir('ws_win64_vc15_ssl/build') {
-                                    bat('cmake --build . --target package')
-                                    bat("move ${VERSION.tarName()}_vc15_amd64.zip ${VERSION.tarName()}_vc15_amd64_openssl.zip")
-                                    archiveArtifacts(artifacts: "${VERSION.tarName()}_vc15_amd64_openssl.zip", fingerprint: true)
-                                }
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip", fingerprint: true)
                             }
                         }
                     }
                 }
             }
         }
+
         stage('int') {
             when {
                 expression {
@@ -569,8 +367,8 @@ pipeline {
                         }
                         steps {
                             unstash('centos7_build')
-                            dir('ws_centos7_x64/build') {
-                                sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7_x64/build:\$(realpath .):g tests/CTestTestfile.cmake")
+                            dir('ws_centos7/build') {
+                                sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
                                 sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                 sh("ctest --label-exclude contaminating --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
