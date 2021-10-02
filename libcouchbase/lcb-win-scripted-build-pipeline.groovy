@@ -208,7 +208,7 @@ pipeline {
                             }
                         }
                         options {
-                            timeout(time: 30, unit: 'MINUTES')
+                            timeout(time: 60, unit: 'MINUTES')
                         }
                         environment {
                             CTEST_PARALLEL_LEVEL=1

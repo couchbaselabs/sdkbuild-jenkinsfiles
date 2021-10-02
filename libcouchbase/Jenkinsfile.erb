@@ -272,7 +272,7 @@ pipeline {
                         }
 <% end %>
                         options {
-                            timeout(time: 30, unit: 'MINUTES')
+                            timeout(time: 60, unit: 'MINUTES')
                         }
                         environment {
 <% if gtest_shuffle %>
@@ -344,7 +344,7 @@ pipeline {
                             }
                         }
                         options {
-                            timeout(time: 30, unit: 'MINUTES')
+                            timeout(time: 60, unit: 'MINUTES')
                         }
                         environment {
 <% if gtest_shuffle %>
