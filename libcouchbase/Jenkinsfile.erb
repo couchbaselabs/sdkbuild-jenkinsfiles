@@ -16,10 +16,12 @@ ubuntu_dists = [
 ]
 
 nix_test_builds = [
+    # SockMgrTest.testIdleClosed hangs on old Ubuntu and Debian with system libuv
+    # ['ubuntu16', 'ubuntu', 16, 'x64'],
+    # ['debian8', 'debian', 8, 'x64'],
+
     ['ubuntu20', 'ubuntu', 20, 'x64'],
-    ['ubuntu16', 'ubuntu', 16, 'x64'],
     ['debian9', 'debian', 9, 'x64'],
-    ['debian8', 'debian', 8, 'x64'],
     ['centos8', 'centos', 8, 'x64'],
     ['centos7', 'centos', 7, 'x64'],
     ['m1', 'macos', 11, 'm1'],
