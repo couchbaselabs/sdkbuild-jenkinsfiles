@@ -10,7 +10,7 @@ pipeline {
             parallel {
 
 
-                stage('centos7') {
+                stage('centos7 x86_64') {
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
@@ -23,7 +23,7 @@ send -- "\\r"
 expect eof
 wait
 """)
-                        sh("tar xf libcouchbase-*.tar")
+                        sh("tar xf libcouchbase-*x86_64.tar")
                         sh('mkdir -p repo/el7/x86_64')
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
@@ -36,13 +36,13 @@ gpgcheck = 1
 gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
 """)
                         }
-                        sh('cp -a libcouchbase-*/*rpm repo/el7/x86_64')
+                        sh('cp -a libcouchbase-*x86_64/*rpm repo/el7/x86_64')
                         sh('for p in repo/el7/x86_64/*.rpm; do expect rpmsign-wrapper.expect \$p; done')
                         sh('createrepo --checksum sha repo/el7/x86_64')
                         sh("gpg --batch --yes --local-user ${GPG_NAME} --detach-sign --armor repo/el7/x86_64/repodata/repomd.xml")
                         sh("rm -rf repo/el7/x86_64@tmp")
-                        sh("tar cf repo-${BUILD_NUMBER}-centos7.tar repo")
-                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-centos7.tar", fingerprint: true)
+                        sh("tar cf repo-${BUILD_NUMBER}-centos7-x86_64.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-centos7-x86_64.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                             s3Upload(
                                 bucket: 'sdk-snapshots.couchbase.com',
@@ -53,7 +53,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     }
                 }
 
-                stage('centos8') {
+                stage('centos8 x86_64') {
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
@@ -66,7 +66,7 @@ send -- "\\r"
 expect eof
 wait
 """)
-                        sh("tar xf libcouchbase-*.tar")
+                        sh("tar xf libcouchbase-*x86_64.tar")
                         sh('mkdir -p repo/el8/x86_64')
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
@@ -79,13 +79,13 @@ gpgcheck = 1
 gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
 """)
                         }
-                        sh('cp -a libcouchbase-*/*rpm repo/el8/x86_64')
+                        sh('cp -a libcouchbase-*x86_64/*rpm repo/el8/x86_64')
                         sh('for p in repo/el8/x86_64/*.rpm; do expect rpmsign-wrapper.expect \$p; done')
                         sh('createrepo --checksum sha repo/el8/x86_64')
                         sh("gpg --batch --yes --local-user ${GPG_NAME} --detach-sign --armor repo/el8/x86_64/repodata/repomd.xml")
                         sh("rm -rf repo/el8/x86_64@tmp")
-                        sh("tar cf repo-${BUILD_NUMBER}-centos8.tar repo")
-                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-centos8.tar", fingerprint: true)
+                        sh("tar cf repo-${BUILD_NUMBER}-centos8-x86_64.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-centos8-x86_64.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                             s3Upload(
                                 bucket: 'sdk-snapshots.couchbase.com',
@@ -96,7 +96,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     }
                 }
 
-                stage('amzn2') {
+                stage('amzn2 x86_64') {
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
@@ -109,7 +109,7 @@ send -- "\\r"
 expect eof
 wait
 """)
-                        sh("tar xf libcouchbase-*.tar")
+                        sh("tar xf libcouchbase-*x86_64.tar")
                         sh('mkdir -p repo/amzn2/x86_64')
                         dir('repo') {
                             sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
@@ -122,13 +122,56 @@ gpgcheck = 1
 gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
 """)
                         }
-                        sh('cp -a libcouchbase-*/*rpm repo/amzn2/x86_64')
+                        sh('cp -a libcouchbase-*x86_64/*rpm repo/amzn2/x86_64')
                         sh('for p in repo/amzn2/x86_64/*.rpm; do expect rpmsign-wrapper.expect \$p; done')
                         sh('createrepo --checksum sha repo/amzn2/x86_64')
                         sh("gpg --batch --yes --local-user ${GPG_NAME} --detach-sign --armor repo/amzn2/x86_64/repodata/repomd.xml")
                         sh("rm -rf repo/amzn2/x86_64@tmp")
-                        sh("tar cf repo-${BUILD_NUMBER}-amzn2.tar repo")
-                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-amzn2.tar", fingerprint: true)
+                        sh("tar cf repo-${BUILD_NUMBER}-amzn2-x86_64.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-amzn2-x86_64.tar", fingerprint: true)
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/',
+                            )
+                        }
+                    }
+                }
+
+                stage('amzn2 aarch64') {
+                    agent { label 'centos7-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*amzn2*.tar')
+                        writeFile(file: "rpmsign-wrapper.expect", text: """
+set pkgName [lrange \$argv 0 0]
+spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
+expect -exact "Enter pass phrase: "
+send -- "\\r"
+expect eof
+wait
+""")
+                        sh("tar xf libcouchbase-*aarch64.tar")
+                        sh('mkdir -p repo/amzn2/aarch64')
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-amzn2-aarch64.repo', text: """
+[couchbase]
+enabled = 1
+name = libcouchbase package for amzn2 aarch64
+baseurl = https://sdk-snapshots.couchbase.com/libcouchbase/amzn2/aarch64
+gpgcheck = 1
+gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
+""")
+                        }
+                        sh('cp -a libcouchbase-*aarch64/*rpm repo/amzn2/aarch64')
+                        sh('for p in repo/amzn2/aarch64/*.rpm; do expect rpmsign-wrapper.expect \$p; done')
+                        sh('createrepo --checksum sha repo/amzn2/aarch64')
+                        sh("gpg --batch --yes --local-user ${GPG_NAME} --detach-sign --armor repo/amzn2/aarch64/repodata/repomd.xml")
+                        sh("rm -rf repo/amzn2/aarch64@tmp")
+                        sh("tar cf repo-${BUILD_NUMBER}-amzn2-aarch64.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-amzn2-aarch64.tar", fingerprint: true)
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                             s3Upload(
                                 bucket: 'sdk-snapshots.couchbase.com',

@@ -211,7 +211,6 @@ pipeline {
                        }
                        steps {
                            dir("ws_${PLATFORM}/build") {
-                               sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                            }
@@ -370,7 +369,6 @@ pipeline {
                             dir('ws_centos7/build') {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
-                                sh("ulimit -a; cat /proc/sys/kernel/core_pattern || true")
                                 sh("ctest --label-exclude contaminating --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 sh("ctest --label-exclude normal --exclude-regexp BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                             }
