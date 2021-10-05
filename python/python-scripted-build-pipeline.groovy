@@ -33,6 +33,8 @@ echo "Is Jenkins build: ${IS_JENKINS_BUILD}"
 
 def WIN_MIN_PYVERSION="${WIN_MIN_PYVERSION}"?:"3.7"
 def MAC_MIN_PYVERSION="${MAC_MIN_PYVERSION}"?:"3.7"
+def M1_MIN_PYVERSION="3.8"
+def GRAVITON_MIN_PYVERSION="3.6"
 def DIST_COMBOS = []
 pipeline {
     options {
@@ -1302,6 +1304,18 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                         continue
                     }
 
+                    if (arch == "aarch64") {
+                        if (!platform.contains("amzn2") && !platform.contains("macos")) {
+                            continue
+                        } 
+                        if (platform.contains("macos") && pyversion < "3.8") {
+                            continue
+                        }
+                        if (platform.contains("amzn2") && pyversion < "3.6") {
+                            continue
+                        }
+                    }
+
                     if(METADATA!=null && pyversion<"3.5.0"){
                         continue
                     }
@@ -1316,6 +1330,13 @@ def buildsAndTests(PLATFORMS, PY_VERSIONS, PY_ARCHES, PYCBC_VALGRIND, PYCBC_DEBU
                             label = "msvc-2010"
                         } else {
                             label = "msvc-2015"
+                        }
+                    }
+                    if (arch == "aarch64") {
+                        if (platform.contains("macos")) {
+                            label = "m1"
+                        } else if (platform.contains("amzn2")) {
+                            label = "qe-grav2-amzn2"
                         }
                     }
                     def stage_name=getStageName(platform, pyversion, arch, PYCBC_LCB_API, SERVER_VERSION)
