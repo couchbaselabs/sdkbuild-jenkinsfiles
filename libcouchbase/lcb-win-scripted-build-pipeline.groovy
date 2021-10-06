@@ -186,7 +186,7 @@ pipeline {
                                 deleteDir()
                                 script {
                                     if (TLS) {
-                                        bat("cbdep --platform windows_msvc2017 install ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl 1.1.1g-sdk2")
+                                        bat("cbdep --debug --platform windows_msvc2017 install --recache ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl 1.1.1g-sdk2")
                                     }
                                 }
                                 unstash 'libcouchbase'
