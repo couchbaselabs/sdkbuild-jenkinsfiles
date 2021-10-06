@@ -1113,7 +1113,7 @@ pip install wheel --no-cache"""
             dir("deps") {
                 installPython("windows", "${pyversion}", "${pyshort}", "python", "${arch}", PYCBC_DEBUG_SYMBOLS ? true : false)
             }
-            batWithEcho("cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1")
+            //batWithEcho("cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1")
             batWithEcho("python --version")
             batWithEcho("pip --version")
 
