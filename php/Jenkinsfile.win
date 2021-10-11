@@ -26,7 +26,7 @@ pipeline {
                                 cleanWs()
                                 dir('8.0.2-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-zts-default 8.0.2-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.2-cb1')
                                 }
                             }
                         }
@@ -105,7 +105,7 @@ pipeline {
                                 cleanWs()
                                 dir('8.0.2-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-nts-default 8.0.2-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.2-cb1')
                                 }
                             }
                         }
@@ -183,7 +183,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('8.0.2-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 8.0.2-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.2-cb1')
                                 }
                             }
                         }
@@ -259,7 +259,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('8.0.2-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 8.0.2-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.2-cb1')
                                 }
                             }
                         }
@@ -336,7 +336,7 @@ pipeline {
                                 cleanWs()
                                 dir('7.4.15-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.15-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.15-cb1')
                                 }
                             }
                         }
@@ -415,7 +415,7 @@ pipeline {
                                 cleanWs()
                                 dir('7.4.15-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.15-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.15-cb1')
                                 }
                             }
                         }
@@ -493,7 +493,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('7.4.15-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.4.15-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.15-cb1')
                                 }
                             }
                         }
@@ -569,7 +569,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('7.4.15-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.4.15-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.15-cb1')
                                 }
                             }
                         }
@@ -646,7 +646,7 @@ pipeline {
                                 cleanWs()
                                 dir('7.3.27-zts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.27-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 7.3.27-cb1')
                                 }
                             }
                         }
@@ -725,7 +725,7 @@ pipeline {
                                 cleanWs()
                                 dir('7.3.27-nts-x64-ssl') {
                                     bat('cbdep --platform windows_msvc2017 install openssl 1.1.1d-cb1')
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.27-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 7.3.27-cb1')
                                 }
                             }
                         }
@@ -803,7 +803,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('7.3.27-zts-x64') {
-                                    bat('cbdep install --dir c:\\php php-zts-default 7.3.27-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-zts-default 7.3.27-cb1')
                                 }
                             }
                         }
@@ -879,7 +879,7 @@ pipeline {
                             steps {
                                 cleanWs()
                                 dir('7.3.27-nts-x64') {
-                                    bat('cbdep install --dir c:\\php php-nts-default 7.3.27-cb1')
+                                    bat('cbdep --debug install --dir c:\\php php-nts-default 7.3.27-cb1')
                                 }
                             }
                         }
@@ -957,7 +957,7 @@ pipeline {
                     agent { label 'centos8' }
                     steps {
                         cleanWs()
-                        sh('cbdep install --dir /tmp/php php-zts 7.4.15-cb1')
+                        sh('cbdep --debug install --dir /tmp/php php-zts 7.4.15-cb1')
                         unstash 'php-couchbase'
                         dir('php-couchbase') {
                             sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
