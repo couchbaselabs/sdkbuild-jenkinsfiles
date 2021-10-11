@@ -64,7 +64,7 @@ pipeline {
                 axes {
                     axis {
                         name 'NODE_PLATFORM'
-                        values "windows","ubuntu16","centos7","macos","ubuntu20"
+                        values "windows","ubuntu16","centos7","macos","ubuntu20", "qe-grav2-amzn2"
                     }
                 }
                 agent { label NODE_PLATFORM }
@@ -401,6 +401,10 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
             batWithEcho("cbdep install -d ${depsDir} dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+            if(PLATFORM.contains("amzn2")) {
+            	//Required install for amazon linux 2 - related issue https://github.com/dotnet/runtime/issues/57983
+            	shWithEcho("sudo yum install -y libicu60")
+            }
         }
     }
     else {
