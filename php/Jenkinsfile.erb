@@ -144,7 +144,7 @@ end
                                 cleanWs()
                                 dir('<%= work_dir %>') {
 <% if has_ssl %>
-                                    bat('cbdep --platform windows_msvc2017 install openssl <%= openssl_ver %>')
+                                    bat('cbdep --debug --platform windows_msvc2017 install openssl <%= openssl_ver %>')
 <% end %>
                                     bat('<%= cbdep_install %> --dir c:\\php php-<%=ts %>-default <%= php_ver %>-<%= patch %>')
                                 }
@@ -156,7 +156,7 @@ end
                             steps {
                                 dir('<%= work_dir %>') {
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}#{'_openssl' if has_ssl}" %>
-                                    bat('cbdep --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
+                                    bat('cbdep --debug --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb3_root.gsub('_openssl', '') %> <%= lcb_root %>')
 <% if has_ssl %>
                                     bat('copy install\\openssl-<%= openssl_ver %>\\bin\\*.dll <%= lcb_root %>\\bin\\')
