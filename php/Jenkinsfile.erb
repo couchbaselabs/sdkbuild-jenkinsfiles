@@ -49,7 +49,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.2.0-cb1' %>
+<% lcb_ver = '3.2.2-cb1' %>
                         stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
@@ -151,7 +151,7 @@ end
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.2.0-cb1' %>
+<% lcb_ver = '3.2.2-cb1' %>
                         stage('lcb') {
                             steps {
                                 dir('<%= work_dir %>') {
