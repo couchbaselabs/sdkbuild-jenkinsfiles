@@ -240,7 +240,7 @@ pipeline {
                         dir("ws_win_${MSVS.replaceAll(' ', '_')}") {
                                 deleteDir()
                                 script {
-                                    if (TLS) {
+                                    if (TLS.toBoolean()) {
                                         bat("cbdep --debug --platform windows_msvc2017 install ${MSVS.matches(/.*(Win64|2019).*/) ? '' : '--x32'} openssl 1.1.1g-sdk2")
                                     }
                                 }
@@ -251,7 +251,7 @@ pipeline {
                     stage('build') {
                         steps {
                             dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
-                                bat("cmake -G\"Visual Studio ${MSVS}\" ${TLS ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
+                                bat("cmake -G\"Visual Studio ${MSVS}\" ${TLS.toBoolean() ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-1.1.1g-sdk2' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
                                 bat('cmake --build .')
                             }
                         }
@@ -278,7 +278,7 @@ pipeline {
                             dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
                                 bat('cmake --build . --target alltests')
                                 script {
-                                    if (TLS) {
+                                    if (TLS.toBoolean()) {
                                         bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
                                     }
                                 }
@@ -297,11 +297,11 @@ pipeline {
                             dir("ws_win_${MSVS.replaceAll(' ', '_')}/build") {
                                 bat('cmake --build . --target package')
                                 script {
-                                    if (TLS) {
+                                    if (TLS.toBoolean()) {
                                         bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}_openssl.zip")
                                     }
                                 }
-                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS ? '_openssl' : ''}.zip", fingerprint: true)
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${MSVS.matches(/.*(Win64|2019).*/) ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip", fingerprint: true)
                             }
                         }
                     }
