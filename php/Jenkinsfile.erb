@@ -151,7 +151,7 @@ end
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = "3.2.3-cb1#{'.openssl' if has_ssl}" %>
+<% lcb_ver = "3.2.3-cb3#{'.openssl' if has_ssl}" %>
                         stage('lcb') {
                             steps {
                                 dir('<%= work_dir %>') {
@@ -195,7 +195,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                             }
                         }
                         stage('test') {
-<% mock_ver = '1.5.23' %>
+<% mock_ver = '1.5.25' %>
 <% mock_jar = 'tests\\\\CouchbaseMock.jar' %>
 <% mock_port = 1000 * (ts == 'zts' ? 1 : 2) + php_ver.scan(/\d/).join.to_i %>
                             environment {
@@ -214,7 +214,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                                     bat("<%= php %> -d extension=%cd%\\release\\ext\\php_couchbase.dll -i")
                                     bat('<%= php_root %>\\msys2\\usr\\bin\\wget.exe -O <%= mock_jar %> http://packages.couchbase.com/clients/c/mock/CouchbaseMock-<%= mock_ver %>.jar')
                                     bat("""
- start /b cmd /c java -jar <%= mock_jar %> --harakiri-monitor 127.0.0.1:<%= mock_port %>
+ start /b cmd /c java -jar <%= mock_jar %> --cccp --harakiri-monitor 127.0.0.1:<%= mock_port %>
  <%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE <%= php_root %>\\php-phpunit.phar --debug %cd%\\tests\\
 """)
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
