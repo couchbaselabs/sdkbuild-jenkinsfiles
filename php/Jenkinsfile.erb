@@ -49,7 +49,7 @@ pipeline {
                             }
                         }
 <% lcb_root = "install/libcouchbase-linux-amd64" %>
-<% lcb_ver = '3.2.2-cb1' %>
+<% lcb_ver = '3.2.3-cb1' %>
                         stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
@@ -151,13 +151,13 @@ end
                             }
                         }
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
-<% lcb_ver = '3.2.2-cb1' %>
+<% lcb_ver = "3.2.3-cb1#{'.openssl' if has_ssl}" %>
                         stage('lcb') {
                             steps {
                                 dir('<%= work_dir %>') {
-<% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}#{'_openssl' if has_ssl}" %>
+<% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
                                     bat('cbdep --debug --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
-                                    bat('move <%= lcb3_root.gsub('_openssl', '') %> <%= lcb_root %>')
+                                    bat('move <%= lcb3_root %> <%= lcb_root %>')
 <% if has_ssl %>
                                     bat('copy install\\openssl-<%= openssl_ver %>\\bin\\*.dll <%= lcb_root %>\\bin\\')
 <% end %>
