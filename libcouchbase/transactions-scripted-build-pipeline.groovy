@@ -12,12 +12,12 @@ pipeline {
                          buildLibrary(true, "macos")
                     }
                 }
-                stage("Build-centos7") {
-                    agent { label 'centos7' }
-                    steps {
-                        buildLibrary(true, "centos7")
-                    }
-                }
+//                stage("Build-centos7") {
+//                    agent { label 'centos7' }
+//                    steps {
+//                        buildLibrary(true, "centos7")
+//                    }
+//                }
                 stage("Build-centos8") {
                     agent { label 'centos8' }
                     steps {
@@ -32,7 +32,7 @@ pipeline {
                     }
                 }
                 stage("Build-ubuntu-20") {
-                    agent { label 'debian9' }
+                    agent { label 'ubuntu20' }
                     steps {
                         buildLibrary(true, "ubuntu20")
                     }
@@ -77,7 +77,6 @@ void shWithEcho(String command) {
 void buildLibrary(fail_ok, agent) {
     try {
         cleanWs()
-        shWithEcho('cbdep install boost 1.67.0-cb8 -d deps')
         def builddir="build-${agent}"
         dir("couchbase-transactions-cxx/") {
             shWithEcho('pwd')
@@ -97,7 +96,7 @@ void buildLibrary(fail_ok, agent) {
                 ]]])
             dir(builddir) {
                 // For now lets make a debug build so we get asserts
-                shWithEcho("""cmake -DBOOST_ROOT='${env.WORKSPACE}/deps/boost-1.67.0-cb8' -DCMAKE_BUILD_TYPE=Debug ..""")
+                shWithEcho("""cmake -DCMAKE_BUILD_TYPE=Debug ..""")
                 shWithEcho('make')
             }
         }
@@ -135,8 +134,6 @@ void testAgainstServer(String serverVersion) {
         shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
         shWithEcho("curl -v -X POST -u Administrator:password -d name=secBucket -d ramQuotaMB=100 http://"+ ip + ":8091/pools/default/buckets")
         // The transactions tests check for this environment property
-        // Technically this is building on the test machines which isn't great, but it's so fast with Java that
-        // it just makes sense.
         def envStr = ["TXN_CONNECTION_STRING=couchbase://" + ip ]
         if (serverVersion.startsWith("7")) {
             envStr << "SUPPORTS_COLLECTIONS=1"
@@ -146,7 +143,7 @@ void testAgainstServer(String serverVersion) {
             try {
                 // for now, there is just one executable, lets invoke it directly.  Later, perhaps we can add a cmake task
                 // but I ran into some issues with gtest cmake and so on.
-                shWithEcho("LD_LIBRARY_PATH=. LCB_LOGLEVEL=5 ./client_tests --gtest_output=xml:${results_file}")
+                shWithEcho("LD_LIBRARY_PATH=. ./client_tests --gtest_output=xml:${results_file}")
             }
             finally {
                 // Process the Junit test results

@@ -37,32 +37,8 @@ pipeline {
                     steps {
                         dir("format-${BUILD_NUMBER}") {
                             unstash("src")
-                            sh("find .")
                             dir("library") {
                                 sh("scripts/jenkins/check-clang-format")
-                            }
-                        }
-                    }
-                }
-                stage("static") {
-                    agent { label "centos7" }
-                    environment {
-                        BOOST_LOCATION = "cbdep"
-                    }
-                    post {
-                        failure {
-                            dir("static-${BUILD_NUMBER}/library") {
-                                archiveArtifacts(artifacts: "cmake-build-report.tar.gz", allowEmptyArchive: true)
-                            }
-                        }
-                    }
-                    steps {
-                        dir("static-${BUILD_NUMBER}") {
-                            unstash("src")
-                            sh("find .")
-                            dir("library") {
-                                sh("cbdep install boost 1.67.0-cb8 -d deps")
-                                sh("scripts/jenkins/check-clang-static-analyzer")
                             }
                         }
                     }
