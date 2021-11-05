@@ -4,7 +4,7 @@ pipeline {
     agent none
     stages {
         stage("src") {
-            agent { label "centos7" }
+            agent { label "centos8" }
             steps {
                 timestamps {
                     cleanWs()
@@ -33,7 +33,7 @@ pipeline {
         stage("lint") {
             parallel {
                 stage("format") {
-                    agent { label "centos7" }
+                    agent { label "centos8" }
                     steps {
                         dir("format-${BUILD_NUMBER}") {
                             unstash("src")
@@ -45,7 +45,7 @@ pipeline {
                     }
                 }
                 stage("static") {
-                    agent { label "centos7" }
+                    agent { label "centos8" }
                     environment {
                         BOOST_LOCATION = "cbdep"
                     }
