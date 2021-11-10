@@ -12,23 +12,11 @@ pipeline {
                          buildLibrary(true, "macos")
                     }
                 }
-//                stage("Build-centos7") {
-//                    agent { label 'centos7' }
-//                    steps {
-//                        buildLibrary(true, "centos7")
-//                    }
-//                }
                 stage("Build-centos8") {
                     agent { label 'centos8' }
                     steps {
                         buildLibrary(true, "centos8")
                         stash includes: 'couchbase-transactions-cxx/', name: 'couchbase-transactions-cxx', useDefaultExcludes: false
-                    }
-                }
-                stage("Build-debian9") {
-                    agent { label 'debian9' }
-                    steps {
-                        buildLibrary(true, "debian9")
                     }
                 }
                 stage("Build-ubuntu-20") {
