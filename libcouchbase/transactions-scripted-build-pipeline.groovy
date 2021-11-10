@@ -4,25 +4,52 @@ pipeline {
         timeout(time: 1, unit: 'HOURS')
     }
     stages {
+        stage("Prepare") {
+            agent { label 'centos7' }
+            steps {
+                dir('couchbase-transactions-cxx') {
+                    checkoutSource('couchbase-transactions-cxx')
+                }
+                stash includes: 'couchbase-transactions-cxx/', name: 'couchbase-transactions-cxx', useDefaultExcludes: false
+            }
+        }
         stage("Build") {
             parallel {
                 stage("Build-macosx") {
                     agent {label 'macos'}
                     steps {
-                         buildLibrary(true, "macos")
+                        cleanWs()
+                        unstash 'couchbase-transactions-cxx'
+                        shWithEcho('ls -lth')
+                        dir('couchbase-transactions-cxx') {
+                            shWithEcho('ls -lth')
+                            buildLibrary("macos", "-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl")
+                        }
                     }
                 }
                 stage("Build-centos8") {
                     agent { label 'centos8' }
                     steps {
-                        buildLibrary(true, "centos8")
+                        cleanWs()
+                        unstash 'couchbase-transactions-cxx'
+                        shWithEcho('ls -lth')
+                        dir('couchbase-transactions-cxx') {
+                            shWithEcho('ls -lth')
+                            buildLibrary("centos8", '')
+                        }
                         stash includes: 'couchbase-transactions-cxx/', name: 'couchbase-transactions-cxx', useDefaultExcludes: false
                     }
                 }
                 stage("Build-ubuntu-20") {
                     agent { label 'ubuntu20' }
                     steps {
-                        buildLibrary(true, "ubuntu20")
+                        cleanWs()
+                        unstash 'couchbase-transactions-cxx'
+                        shWithEcho('ls -lth')
+                        dir('couchbase-transactions-cxx') {
+                            shWithEcho('ls -lth')
+                            buildLibrary("ubuntu20", '')
+                        }
                     }
                 }
             }
@@ -62,37 +89,31 @@ void shWithEcho(String command) {
     echo sh(script: command, returnStdout: true)
 }
 
-void buildLibrary(fail_ok, agent) {
-    try {
-        cleanWs()
-        def builddir="build-${agent}"
-        dir("couchbase-transactions-cxx/") {
-            shWithEcho('pwd')
-            checkout([
-                $class: "GitSCM",
-                branches: [[name: "$SHA"]],
-                extensions: [[
-                    $class: "SubmoduleOption",
-                    disableSubmodules: false,
-                    parentCredentials: true,
-                    recursiveSubmodules: true,
-                ]],
-                userRemoteConfigs: [[
-                    refspec: "$GERRIT_REFSPEC",
-                    url: "$REPO",
-                    poll: false
-                ]]])
-            dir(builddir) {
-                // For now lets make a debug build so we get asserts
-                shWithEcho("""cmake -DCMAKE_BUILD_TYPE=Debug ..""")
-                shWithEcho('make')
-            }
-        }
-    } catch(Exception e) {
-        echo("build failed ${e}")
-        if (!fail_ok) {
-            throw e
-        }
+void checkoutSource(srcdir) {
+    cleanWs()
+    checkout([
+            $class: "GitSCM",
+            branches: [[name: "$SHA"]],
+            extensions: [[
+                $class: "SubmoduleOption",
+                disableSubmodules: false,
+                parentCredentials: true,
+                recursiveSubmodules: true,
+            ]],
+            userRemoteConfigs: [[
+                refspec: "$GERRIT_REFSPEC",
+                url: "$REPO",
+                poll: false
+        ]]])
+}
+
+void buildLibrary(agent, extras) {
+    def builddir="build-${agent}"
+    shWithEcho('pwd')
+    dir(builddir) {
+        // For now lets make a debug build so we get asserts
+        shWithEcho("""cmake ${extras} -DCMAKE_BUILD_TYPE=Debug ..""")
+        shWithEcho('make -j8')
     }
 }
 
