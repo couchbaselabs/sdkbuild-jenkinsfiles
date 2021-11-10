@@ -398,32 +398,12 @@ pipeline {
                         }
                         stage('srpm') {
                             steps {
-                                dir('ws_centos64_v7/build') {
-                                    unstash 'tarball'
-                                    sh("""
-                                        sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
-                                        < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
-                                    """.stripIndent())
-                                    sh("""
-                                        sudo mock --buildsrpm -r epel-7-x86_64 --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
-                                        --resultdir="libcouchbase-${VERSION.tar()}_centos7_srpm"
-                                    """.stripIndent())
-                                }
+                                package_srpm(64, 7, "x86_64", VERSION)
                             }
                         }
                         stage('rpm') {
                             steps {
-                                dir('ws_centos64_v7/build') {
-                                    sh("""
-                                        sudo mock --rebuild -r epel-7-x86_64 --resultdir="libcouchbase-${VERSION.tar()}_centos7_x86_64" --old-chroot \
-                                        --verbose libcouchbase-${VERSION.tar()}_centos7_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el7.src.rpm
-                                    """.stripIndent())
-                                    sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos7_x86_64")
-                                    sh("rm -rf libcouchbase-${VERSION.tar()}_centos7_x86_64/*.log")
-                                    sh("tar cf libcouchbase-${VERSION.tar()}_centos7_x86_64.tar libcouchbase-${VERSION.tar()}_centos7_x86_64")
-                                    archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos7_x86_64.tar", fingerprint: true)
-                                    stash(includes: "libcouchbase-${VERSION.tar()}_centos7_x86_64/*.src.rpm", name: 'centos7-srpm')
-                                }
+                                package_rpm(64, 7, "x86_64", VERSION)
                             }
                         }
                     }
@@ -469,36 +449,12 @@ pipeline {
                             }
                             stage('src') {
                                 steps {
-                                    dir('ws_ubuntu1804_amd64/build') {
-                                        unstash 'tarball'
-                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
-                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
-                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
-                                        dir(VERSION.tarName()) {
-                                            sh("""
-                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
-                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
-                                            """.stripIndent())
-                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
-                                        }
-                                    }
+                                    package_src("ubuntu1804", "amd64", VERSION)
                                 }
                             }
                             stage('deb') {
                                 steps {
-                                    dir('ws_ubuntu1804_amd64/build') {
-                                        sh("""
-                                           sudo cowbuilder --build \
-                                           --basepath /var/cache/pbuilder/bionic-amd64.cow \
-                                           --buildresult libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64 \
-                                           --debbuildopts -j8 \
-                                           --debbuildopts "-us -uc" \
-                                           libcouchbase_${VERSION.deb()}-1.dsc
-                                        """.stripIndent())
-                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
-                                        sh("tar cf libcouchbase-${VERSION.tar()}_ubuntu1804_bionic_amd64.tar libcouchbase-${VERSION.deb()}_ubuntu1804_bionic_amd64")
-                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_ubuntu1804_bionic_amd64.tar", fingerprint: true)
-                                    }
+                                    package_deb("ubuntu1804", "amd64", "bionic", VERSION)
                                 }
                             }
                         }
@@ -544,41 +500,78 @@ pipeline {
                             }
                             stage('src') {
                                 steps {
-                                    dir('ws_debian10_amd64/build') {
-                                        unstash 'tarball'
-                                        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
-                                        sh("tar -xf ${VERSION.tarName()}.tar.gz")
-                                        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
-                                        dir(VERSION.tarName()) {
-                                            sh("""
-                                                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
-                                                --create "Release package for libcouchbase ${VERSION.deb()}-1"
-                                            """.stripIndent())
-                                            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
-                                        }
-                                    }
+                                    package_src("debian10", "amd64", VERSION)
                                 }
                             }
                             stage('deb') {
                                 steps {
-                                    dir('ws_debian10_amd64/build') {
-                                        sh("""
-                                           sudo cowbuilder --build \
-                                           --basepath /var/cache/pbuilder/buster-amd64.cow \
-                                           --buildresult libcouchbase-${VERSION.deb()}_debian10_buster_amd64 \
-                                           --debbuildopts -j8 \
-                                           --debbuildopts "-us -uc" \
-                                           libcouchbase_${VERSION.deb()}-1.dsc
-                                        """.stripIndent())
-                                        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
-                                        sh("tar cf libcouchbase-${VERSION.tar()}_debian10_buster_amd64.tar libcouchbase-${VERSION.deb()}_debian10_buster_amd64")
-                                        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_debian10_buster_amd64.tar", fingerprint: true)
-                                    }
+                                    package_deb("debian10", "amd64", "buster", VERSION)
                                 }
                             }
                         }
                     }
             }
+        }
+    }
+}
+def package_src(name, arch, VERSION) {
+    dir("ws_${name}_${arch}/build") {
+        unstash 'tarball'
+        sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
+        sh("tar -xf ${VERSION.tarName()}.tar.gz")
+        sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
+        dir(VERSION.tarName()) {
+            sh("""
+                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                --create "Release package for libcouchbase ${VERSION.deb()}-1"
+            """.stripIndent())
+            sh("dpkg-buildpackage -rfakeroot -d -S -sa")
+        }
+    }
+}
+
+def package_deb(name, arch, codename, VERSION) {
+    dir("ws_${name}_${arch}/build") {
+        sh("""
+            sudo cowbuilder --build \
+            --basepath /var/cache/pbuilder/${codename}-${arch}.cow \
+            --buildresult libcouchbase-${VERSION.deb()}_${name}_${codename}_${arch} \
+            --debbuildopts -j8 \
+            --debbuildopts "-us -uc" \
+            libcouchbase_${VERSION.deb()}-1.dsc
+        """.stripIndent())
+        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.deb()}_${name}_${codename}_${arch}")
+        sh("tar cf libcouchbase-${VERSION.tar()}_${name}_${codename}_${arch}.tar libcouchbase-${VERSION.deb()}_${name}_${codename}_${arch}")
+        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_${name}_${codename}_${arch}.tar", fingerprint: true)
+    }
+}
+
+def package_srpm(bits, relno, arch, VERSION) {
+    dir("ws_centos${bits}_v${relno}/build") {
+        unstash 'tarball'
+        sh("""
+            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+            < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
+        """.stripIndent())
+        sh("""
+            sudo mock --buildsrpm -r epel-${relno}-${arch} --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
+            --resultdir="libcouchbase-${VERSION.tar()}_centos${relno}_srpm"
+        """.stripIndent())
+    }
+}
+
+def package_rpm(bits, relno, arch, VERSION) {
+    dir("ws_centos${bits}_v${relno}/build") {
+        sh("""
+            sudo mock --rebuild -r epel-${relno}-${arch} --resultdir="libcouchbase-${VERSION.tar()}_centos${relno}_${arch}" --old-chroot \
+            --verbose libcouchbase-${VERSION.tar()}_centos${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el${relno}.src.rpm
+        """.stripIndent())
+        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos${relno}_${arch}")
+        sh("rm -rf libcouchbase-${VERSION.tar()}_centos${relno}_${arch}/*.log")
+        sh("tar cf libcouchbase-${VERSION.tar()}_centos${relno}_${arch}.tar libcouchbase-${VERSION.tar()}_centos${relno}_${arch}")
+        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}.tar", fingerprint: true)
+        if (relno == 7 && arch == 'x86_64') {
+            stash(includes: "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}/*.src.rpm", name: 'centos7-srpm')
         }
     }
 }
