@@ -162,7 +162,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian9", "centos8", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2"
+                        values "ubuntu20", "debian9", "centos8", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2", "alpine"
                     }
                 }
 
