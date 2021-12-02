@@ -152,6 +152,9 @@ void testAgainstServer(String serverVersion) {
             try {
                 // for now, there is just one executable, lets invoke it directly.  Later, perhaps we can add a cmake task
                 // but I ran into some issues with gtest cmake and so on.
+                echo("sleeping for 30 sec before starting tests...")
+                sleep(30);
+                echo("sleep done, beginning tests");
                 shWithEcho("LD_LIBRARY_PATH=. ./client_tests --gtest_output=xml:${results_file}")
             }
             finally {
