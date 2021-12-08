@@ -21,22 +21,16 @@ pipeline {
                 stage('wz8.1s') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.1.0-zts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.1.0-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.1.0-zts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -46,22 +40,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-8.1.0-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-8.1.0-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-8.1.0-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -84,8 +70,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:1810
  c:\\php\\php-zts-default-8.1.0-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.1.0-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.1.0-zts-x64-openssl
  copy libcouchbase.dll php_couchbase-8.1.0-zts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-8.1.0-zts-x64-openssl
@@ -100,22 +84,16 @@ pipeline {
                 stage('wn8.1s') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.1.0-nts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.1.0-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.1.0-nts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -125,22 +103,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-8.1.0-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-8.1.0-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-8.1.0-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -163,8 +133,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:2810
  c:\\php\\php-nts-default-8.1.0-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.1.0-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.1.0-nts-x64-openssl
  copy libcouchbase.dll php_couchbase-8.1.0-nts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-8.1.0-nts-x64-openssl
@@ -179,20 +147,14 @@ pipeline {
                 stage('wz8.1') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.1.0-zts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.1.0-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.1.0-zts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -202,22 +164,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-8.1.0-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-8.1.0-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-8.1.0-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -239,8 +193,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:1810
  c:\\php\\php-zts-default-8.1.0-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.1.0-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.1.0-zts-x64
  copy libcouchbase.dll php_couchbase-8.1.0-zts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-8.1.0-zts-x64
@@ -255,20 +207,14 @@ pipeline {
                 stage('wn8.1') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.1.0-nts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.1.0-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.1.0-nts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -278,22 +224,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-8.1.0-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-8.1.0-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-8.1.0-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -315,8 +253,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:2810
  c:\\php\\php-nts-default-8.1.0-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.1.0-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.1.0-nts-x64
  copy libcouchbase.dll php_couchbase-8.1.0-nts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-8.1.0-nts-x64
@@ -331,22 +267,16 @@ pipeline {
                 stage('wz8.0s') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.0.13-zts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.13-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.0.13-zts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -356,22 +286,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-8.0.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-8.0.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-8.0.13-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -394,8 +316,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9013
  c:\\php\\php-zts-default-8.0.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.0.13-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.0.13-zts-x64-openssl
  copy libcouchbase.dll php_couchbase-8.0.13-zts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-8.0.13-zts-x64-openssl
@@ -410,22 +330,16 @@ pipeline {
                 stage('wn8.0s') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.0.13-nts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.13-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.0.13-nts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -435,22 +349,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-8.0.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-8.0.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-8.0.13-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -473,8 +379,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:10013
  c:\\php\\php-nts-default-8.0.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.0.13-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.0.13-nts-x64-openssl
  copy libcouchbase.dll php_couchbase-8.0.13-nts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-8.0.13-nts-x64-openssl
@@ -489,20 +393,14 @@ pipeline {
                 stage('wz8.0') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.0.13-zts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.13-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.0.13-zts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -512,22 +410,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-8.0.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-8.0.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-8.0.13-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -549,8 +439,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9013
  c:\\php\\php-zts-default-8.0.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-8.0.13-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.0.13-zts-x64
  copy libcouchbase.dll php_couchbase-8.0.13-zts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-8.0.13-zts-x64
@@ -565,20 +453,14 @@ pipeline {
                 stage('wn8.0') {
                     agent { label 'msvc-2019' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('8.0.13-nts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.13-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('8.0.13-nts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2019-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -588,22 +470,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-8.0.13-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-8.0.13-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-8.0.13-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2019-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -625,8 +499,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:10013
  c:\\php\\php-nts-default-8.0.13-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-8.0.13-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-8.0.13-nts-x64
  copy libcouchbase.dll php_couchbase-8.0.13-nts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-8.0.13-nts-x64
@@ -641,22 +513,16 @@ pipeline {
                 stage('wz7.4s') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.4.26-zts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.26-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.4.26-zts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -666,22 +532,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.4.26-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-7.4.26-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-7.4.26-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -704,8 +562,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:8426
  c:\\php\\php-zts-default-7.4.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.4.26-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.4.26-zts-x64-openssl
  copy libcouchbase.dll php_couchbase-7.4.26-zts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-7.4.26-zts-x64-openssl
@@ -720,22 +576,16 @@ pipeline {
                 stage('wn7.4s') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.4.26-nts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.26-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.4.26-nts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -745,22 +595,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.4.26-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-7.4.26-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-7.4.26-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -783,8 +625,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9426
  c:\\php\\php-nts-default-7.4.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.4.26-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.4.26-nts-x64-openssl
  copy libcouchbase.dll php_couchbase-7.4.26-nts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-7.4.26-nts-x64-openssl
@@ -799,20 +639,14 @@ pipeline {
                 stage('wz7.4') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.4.26-zts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.26-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.4.26-zts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -822,22 +656,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.4.26-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-7.4.26-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-7.4.26-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -859,8 +685,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:8426
  c:\\php\\php-zts-default-7.4.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.4.26-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.4.26-zts-x64
  copy libcouchbase.dll php_couchbase-7.4.26-zts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-7.4.26-zts-x64
@@ -875,20 +699,14 @@ pipeline {
                 stage('wn7.4') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.4.26-nts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.26-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.4.26-nts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -898,22 +716,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.4.26-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-7.4.26-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-7.4.26-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -935,8 +745,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9426
  c:\\php\\php-nts-default-7.4.26-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.4.26-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.4.26-nts-x64
  copy libcouchbase.dll php_couchbase-7.4.26-nts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-7.4.26-nts-x64
@@ -951,22 +759,16 @@ pipeline {
                 stage('wz7.3s') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.3.33-zts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.3.33-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.3.33-zts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -976,22 +778,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.3.33-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-7.3.33-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-7.3.33-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -1014,8 +808,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:8333
  c:\\php\\php-zts-default-7.3.33-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.3.33-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.3.33-zts-x64-openssl
  copy libcouchbase.dll php_couchbase-7.3.33-zts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-7.3.33-zts-x64-openssl
@@ -1030,22 +822,16 @@ pipeline {
                 stage('wn7.3s') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.3.33-nts-x64-ssl') {
+                                    deleteDir()
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.3.33-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.3.33-nts-x64-ssl') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
                                     bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -1055,22 +841,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.3.33-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-7.3.33-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-7.3.33-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -1093,8 +871,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9333
  c:\\php\\php-nts-default-7.3.33-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.3.33-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.3.33-nts-x64-openssl
  copy libcouchbase.dll php_couchbase-7.3.33-nts-x64-openssl
  copy release\\ext\\php_couchbase.dll php_couchbase-7.3.33-nts-x64-openssl
@@ -1109,20 +885,14 @@ pipeline {
                 stage('wz7.3') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.3.33-zts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.3.33-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.3.33-zts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -1132,22 +902,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-zts-default-7.3.33-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-zts-default-7.3.33-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-zts-default-7.3.33-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -1169,8 +931,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:8333
  c:\\php\\php-zts-default-7.3.33-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-zts-default-7.3.33-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.3.33-zts-x64
  copy libcouchbase.dll php_couchbase-7.3.33-zts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-7.3.33-zts-x64
@@ -1185,20 +945,14 @@ pipeline {
                 stage('wn7.3') {
                     agent { label 'msvc-2017' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('7.3.33-nts-x64') {
+                                    deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.3.33-cb1')
-                                }
-                            }
-                        }
-                        stage('lcb') {
-                            steps {
-                                dir('7.3.33-nts-x64') {
+
                                     bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
                                     bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
-                                    bat('install\\libcouchbase-windows_msvc2017-amd64\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -1208,22 +962,14 @@ pipeline {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
 
-                                        bat('c:\\php\\php-nts-default-7.3.33-cb1\\SDK\\phpize.bat')
                                         bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  set PATH=c:\\php\\php-nts-default-7.3.33-cb1\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
-""")
-                                        bat("""
  call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2017\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
- @echo on
- nmake install
+ call c:\\php\\php-nts-default-7.3.33-cb1\\SDK\\phpize.bat
+ call configure.bat --with-couchbase=..\\install\\libcouchbase-windows_msvc2017-amd64 --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -1245,8 +991,6 @@ pipeline {
                                     bat("""
  start /b cmd /c java -jar tests\\CouchbaseMock.jar --cccp --harakiri-monitor 127.0.0.1:9333
  c:\\php\\php-nts-default-7.3.33-cb1\\php -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE c:\\php\\php-nts-default-7.3.33-cb1\\php-phpunit.phar --debug %cd%\\tests\\
-""")
-                                    bat("""
  mkdir php_couchbase-7.3.33-nts-x64
  copy libcouchbase.dll php_couchbase-7.3.33-nts-x64
  copy release\\ext\\php_couchbase.dll php_couchbase-7.3.33-nts-x64

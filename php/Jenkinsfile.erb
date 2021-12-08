@@ -140,29 +140,23 @@ end
 <% work_dir = "#{php_ver}-#{ts}-#{arch}#{'-ssl' if has_ssl}" %>
                     agent { label '<%= agent_label(php_ver) %>' }
                     stages {
-                        stage('php') {
+                        stage('deps') {
                             steps {
-                                cleanWs()
                                 dir('<%= work_dir %>') {
+                                    deleteDir()
 <% if has_ssl %>
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl <%= openssl_ver %>')
 <% end %>
                                     bat('<%= cbdep_install %> --dir c:\\php php-<%=ts %>-default <%= php_ver %>-<%= patch %>')
-                                }
-                            }
-                        }
+
 <% lcb_root = "install\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64" %>
 <% lcb_ver = "3.2.4-cb1#{'.openssl' if has_ssl}" %>
-                        stage('lcb') {
-                            steps {
-                                dir('<%= work_dir %>') {
 <% lcb3_root = "install\\\\libcouchbase-#{lcb_ver}\\\\libcouchbase-windows_#{msvc_ver(php_ver)}-amd64-#{lcb_ver}" %>
                                     bat('cbdep --debug --platform <%= cbdep_platform(php_ver) %> install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     bat('move <%= lcb3_root %> <%= lcb_root %>')
 <% if has_ssl %>
                                     bat('copy install\\openssl-<%= openssl_ver %>\\bin\\*.dll <%= lcb_root %>\\bin\\')
 <% end %>
-                                    bat('<%= lcb_root %>\\bin\\cbc.exe version')
                                 }
                             }
                         }
@@ -174,22 +168,14 @@ end
 <%
 vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)[/\d+/]}\\\\Professional\\\\VC\\\\Auxiliary\\\\Build\\\\vcvarsall.bat"
 %>
-                                        bat('<%= phpize %>')
                                         bat("""
- call "<%= vc_vars %>" x86_amd64
  set PATH=<%= php_root %>\\msys2\\usr\\bin;%PATH%
- @echo on
- configure.bat --with-couchbase=..\\<%= lcb_root %> --with-prefix=release
-""")
-                                        bat("""
  call "<%= vc_vars %>" x86_amd64
  @echo on
- nmake
-""")
-                                        bat("""
- call "<%= vc_vars %>" x86_amd64
- @echo on
- nmake install
+ call <%= phpize %>
+ call configure.bat --with-couchbase=..\\<%= lcb_root %> --with-prefix=release
+ call nmake
+ call nmake install
 """)
                                     }
                                 }
@@ -217,9 +203,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                                     bat("""
  start /b cmd /c java -jar <%= mock_jar %> --cccp --harakiri-monitor 127.0.0.1:<%= mock_port %>
  <%= php %> -d extension=php_phar.dll -d extension=%cd%\\release\\ext\\php_couchbase.dll -d couchbase.log_level=TRACE <%= php_root %>\\php-phpunit.phar --debug %cd%\\tests\\
-""")
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
-                                    bat("""
  mkdir <%= release_dir %>
  copy libcouchbase.dll <%= release_dir %>
  copy release\\ext\\php_couchbase.dll <%= release_dir %>
