@@ -64,7 +64,7 @@ pipeline {
                 axes {
                     axis {
                         name 'NODE_PLATFORM'
-                        values "windows","ubuntu16","centos7","macos","ubuntu20", "qe-grav2-amzn2"
+                        values "windows","ubuntu16","centos7","macos","ubuntu20", "qe-grav2-amzn2", "alpine"
                     }
                 }
                 agent { label NODE_PLATFORM }
