@@ -80,7 +80,7 @@ pipeline {
                             }
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 <%= php %>  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE <%= php_root %>/phpunit.phar --debug tests/")
                                 }
                             }

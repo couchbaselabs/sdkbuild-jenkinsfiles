@@ -55,7 +55,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.1.0-nts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-8.1.0-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.1.0-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -100,7 +100,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.1.0-zts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-8.1.0-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.1.0-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -145,7 +145,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.0.13-nts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-8.0.13-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.0.13-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -190,7 +190,7 @@ pipeline {
                             }
                             steps {
                                 dir('8.0.13-zts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-8.0.13-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.0.13-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -235,7 +235,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.26-nts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.4.26-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.4.26-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -280,7 +280,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.4.26-zts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.4.26-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.4.26-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -325,7 +325,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.33-nts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-nts-7.3.33-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.3.33-cb1/phpunit.phar --debug tests/")
                                 }
                             }
@@ -370,7 +370,7 @@ pipeline {
                             }
                             steps {
                                 dir('7.3.33-zts-x64/php-couchbase') {
-                                    sh('sudo yum install --disablerepo=bintray* -y libnsl')
+                                    sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
                                     sh("CB_MOCK=1 /tmp/php/php-zts-7.3.33-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.3.33-cb1/phpunit.phar --debug tests/")
                                 }
                             }
