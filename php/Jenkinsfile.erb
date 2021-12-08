@@ -81,7 +81,7 @@ pipeline {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl')
-                                    sh("CB_MOCK=1 <%= php %>  -d extension=phar.so -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE <%= php_root %>/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 <%= php %>  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE <%= php_root %>/phpunit.phar --debug tests/")
                                 }
                             }
                         }
