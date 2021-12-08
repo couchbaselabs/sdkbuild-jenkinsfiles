@@ -24,7 +24,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-nts 8.1.0-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-nts 8.1.0-cb6')
                             }
                         }
                         stage('lcb') {
@@ -42,8 +42,8 @@ pipeline {
                                 dir('8.1.0-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-8.1.0-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.1.0-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-8.1.0-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.1.0-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -56,7 +56,7 @@ pipeline {
                             steps {
                                 dir('8.1.0-nts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.1.0-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.1.0-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.1.0-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.1.0-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -69,7 +69,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-zts 8.1.0-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-zts 8.1.0-cb6')
                             }
                         }
                         stage('lcb') {
@@ -87,8 +87,8 @@ pipeline {
                                 dir('8.1.0-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-8.1.0-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.1.0-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-8.1.0-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.1.0-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -101,7 +101,7 @@ pipeline {
                             steps {
                                 dir('8.1.0-zts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.1.0-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.1.0-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.1.0-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.1.0-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -114,7 +114,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-nts 8.0.13-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-nts 8.0.13-cb6')
                             }
                         }
                         stage('lcb') {
@@ -132,8 +132,8 @@ pipeline {
                                 dir('8.0.13-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-8.0.13-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.13-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-8.0.13-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-8.0.13-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -146,7 +146,7 @@ pipeline {
                             steps {
                                 dir('8.0.13-nts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.13-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.0.13-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-8.0.13-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-8.0.13-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -159,7 +159,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-zts 8.0.13-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-zts 8.0.13-cb6')
                             }
                         }
                         stage('lcb') {
@@ -177,8 +177,8 @@ pipeline {
                                 dir('8.0.13-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-8.0.13-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.13-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-8.0.13-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-8.0.13-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -191,7 +191,7 @@ pipeline {
                             steps {
                                 dir('8.0.13-zts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.13-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.0.13-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-8.0.13-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-8.0.13-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -204,7 +204,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-nts 7.4.26-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-nts 7.4.26-cb6')
                             }
                         }
                         stage('lcb') {
@@ -222,8 +222,8 @@ pipeline {
                                 dir('7.4.26-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.4.26-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.26-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-7.4.26-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.4.26-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -236,7 +236,7 @@ pipeline {
                             steps {
                                 dir('7.4.26-nts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.26-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.4.26-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.4.26-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.4.26-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -249,7 +249,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-zts 7.4.26-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-zts 7.4.26-cb6')
                             }
                         }
                         stage('lcb') {
@@ -267,8 +267,8 @@ pipeline {
                                 dir('7.4.26-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.4.26-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.26-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-7.4.26-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.4.26-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -281,7 +281,7 @@ pipeline {
                             steps {
                                 dir('7.4.26-zts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.26-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.4.26-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.4.26-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.4.26-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -294,7 +294,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-nts 7.3.33-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-nts 7.3.33-cb6')
                             }
                         }
                         stage('lcb') {
@@ -312,8 +312,8 @@ pipeline {
                                 dir('7.3.33-nts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-nts-7.3.33-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.33-cb1/bin/php-config")
+                                        sh('/tmp/php/php-nts-7.3.33-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-nts-7.3.33-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -326,7 +326,7 @@ pipeline {
                             steps {
                                 dir('7.3.33-nts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.33-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.3.33-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-nts-7.3.33-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-nts-7.3.33-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
@@ -339,7 +339,7 @@ pipeline {
                             steps {
                                 sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
                                 cleanWs()
-                                sh('cbdep --debug install --dir /tmp/php php-zts 7.3.33-cb1')
+                                sh('cbdep --debug install --dir /tmp/php php-zts 7.3.33-cb6')
                             }
                         }
                         stage('lcb') {
@@ -357,8 +357,8 @@ pipeline {
                                 dir('7.3.33-zts-x64') {
                                     unstash 'php-couchbase'
                                     dir('php-couchbase') {
-                                        sh('/tmp/php/php-zts-7.3.33-cb1/bin/phpize')
-                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.33-cb1/bin/php-config")
+                                        sh('/tmp/php/php-zts-7.3.33-cb6/bin/phpize')
+                                        sh("./configure --with-couchbase=\$(realpath ../install/libcouchbase-linux-amd64) --with-php-config=/tmp/php/php-zts-7.3.33-cb6/bin/php-config")
                                         sh('make clean all')
                                     }
                                 }
@@ -371,7 +371,7 @@ pipeline {
                             steps {
                                 dir('7.3.33-zts-x64/php-couchbase') {
                                     sh('sudo yum install --disablerepo=bintray* -y libnsl oniguruma')
-                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.33-cb1/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.3.33-cb1/phpunit.phar --debug tests/")
+                                    sh("CB_MOCK=1 /tmp/php/php-zts-7.3.33-cb6/bin/php  -d extension=\$(pwd)/modules/couchbase.so  -d couchbase.log_level=TRACE /tmp/php/php-zts-7.3.33-cb6/phpunit.phar --debug tests/")
                                 }
                             }
                         }
