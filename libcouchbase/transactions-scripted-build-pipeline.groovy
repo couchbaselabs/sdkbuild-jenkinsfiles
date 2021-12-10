@@ -27,6 +27,18 @@ pipeline {
                         }
                     }
                 }
+                stage("Build-macosx-m1") {
+                    agent {label 'm1'}
+                    steps {
+                        cleanWs()
+                        unstash 'couchbase-transactions-cxx'
+                        shWithEcho('ls -lth')
+                        dir('couchbase-transactions-cxx') {
+                            shWithEcho('ls -lth')
+                            buildLibrary("macos-m1", "-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl")
+                        }
+                    }
+                }
                 stage("Build-centos8") {
                     agent { label 'centos8' }
                     steps {
@@ -77,6 +89,20 @@ pipeline {
                     dir('couchbase-transactions-cxx') {
                         dir('build-centos8') {
                             testAgainstServer("7.0-stable")
+                        }
+                    }
+                }
+            }
+        }
+        stage("Test_7_1") {
+            agent { label 'sdkqe-centos8' }
+            steps {
+                cleanWs()
+                script {
+                    unstash 'couchbase-transactions-cxx'
+                    dir('couchbase-transactions-cxx') {
+                        dir('build-centos8') {
+                            testAgainstServer("7.1-stable")
                         }
                     }
                 }
