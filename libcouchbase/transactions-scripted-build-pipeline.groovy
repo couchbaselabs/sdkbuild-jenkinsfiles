@@ -35,7 +35,7 @@ pipeline {
                         shWithEcho('ls -lth')
                         dir('couchbase-transactions-cxx') {
                             shWithEcho('ls -lth')
-                            buildLibrary("macos-m1", "-DOPENSSL_ROOT_DIR=/usr/local/opt/openssl")
+                            buildLibrary("macos-m1", "-DOPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl")
                         }
                     }
                 }
