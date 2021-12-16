@@ -1,13 +1,6 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def PLATFORMS = [
-	"windows",
-	"ubuntu16",
-	"centos7",
-	"macos",
-	"ubuntu20"
-]
 def DOTNET_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.404", "6.0.101"]
 def DOTNET_SDK_VERSION = "6.0.101"
 def CB_SERVER_VERSIONS = [
@@ -19,11 +12,6 @@ def CB_SERVER_VERSIONS = [
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-
-// Windows has a 255 character path limit, still.
-// cbdep trying to unzip .NET SDK 5.0.x shows a FileNotFound error, which is really a PathTooLong error
-// using this path instead of WORKSPACE\deps gets around the issue.
-def CBDEP_WIN_PATH = "%TEMP%\\cbnc\\deps"
 
 // use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
 // useful for testing test-only changes.
@@ -71,16 +59,64 @@ pipeline {
                 stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
             }
         }
-        stage("build") {
-            steps {
-                doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
+        stage("BuildAndTest") {
+            matrix {
+                axes {
+                    axis {
+                        name 'NODE_PLATFORM'
+                        values "windows","ubuntu16","centos7","macos","ubuntu20"
+                    }
+                }
+                agent { label NODE_PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                            unstash "couchbase-net-client"
+                            installSdksForPlatform(NODE_PLATFORM, DOTNET_SDK_VERSIONS)
+                        }
+                    }
+                    stage("build") {
+                        steps {
+                            dotNetWithEcho(NODE_PLATFORM, "build couchbase-net-client/couchbase-net-client.sln")
+                            stash includes: "couchbase-net-client/", name: "couchbase-net-client-${NODE_PLATFORM}", useDefaultExcludes: false
+                        }
+                    }
+                    stage("unit test") {
+                        steps {
+                            script {
+                                def pairs = [:]
+                                def unitTestProjects = findFiles(glob: "**/couchbase-net-client/tests/**UnitTest**/*.*proj")
+                                def failures = 0
+                                for (tp in unitTestProjects) {
+                                    if (tp.name.contains("OpenTelemetry")) {
+                                        // skip it due to NCBC-3076.  Remove this skip when that is fixed.
+                                    } else {
+                                        try {
+                                            testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
+                                            dotNetWithEcho(NODE_PLATFORM, "test ${testOpts}")
+                                            pairs[tp.name] = "SUCCESS"
+                                        } catch (Exception e) {
+                                            pairs[tp.name] = "FAILED"
+                                            failures = failures + 1
+                                        }
+                                    }
+                                }
+                                
+                                echo "done with unit tests for ${NODE_PLATFORM}"
+                                echo "${pairs}"
+                                testResultsGenerated = findFiles(glob:"**/TestResults/*.trx")
+                                echo "All Test Results = ${testResultsGenerated}"
+                                mstest testResultsFile:"**/*.trx", keepLongStdio: true
+                                if (failures > 0) {
+                                    error "${pairs}"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
-        // // stage("unit-test") {
-        // //     steps {
-        // //         doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
-        // //     }
-        // // }
         stage("combination-test") {
             agent { label "sdkqe-centos7" }
 			when {
@@ -196,154 +232,6 @@ void shWithEcho(String command) {
 
 void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
-}
-
-def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS) {
-    def pairs = [:]
-    for (j in PLATFORMS) {
-        def platform = j
-
-        pairs[platform] = {
-            node(platform) {
-                stage("build ${platform}") {
-                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                    unstash "couchbase-net-client"
-                    installSdksForPlatform(platform, DOTNET_SDK_VERSIONS)
-
-                    if (BRANCH == "master") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-all/dotnet build couchbase-net-client/couchbase-net-client.sln")
-                        }
-
-                        // // def TEST_PROJECT_PATH = "couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj"
-                        // // def TEST_OPTS = "--test-adapter-path:. --logger:junit ${TEST_PROJECT_PATH} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min --results-directory UnitTestResults"
-                        // // if (BRANCH == "master") {
-                        // //     if (platform.contains("window")) {
-                        // //         try {
-                        // //             batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet restore ${TEST_PROJECT_PATH}")
-                        // //             batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet test ${TEST_OPTS}")
-                        // //         }
-                        // //         finally {
-                        // //             junit allowEmptyResults: false, testResults: "UnitTestResults\\TestResults.xml"
-                        // //         }
-                        // //     } else {
-                        // //         try {
-                        // //             shWithEcho("deps/dotnet-core-sdk-all/dotnet --list-sdks")
-                        // //             shWithEcho("deps/dotnet-core-sdk-all/dotnet restore ${TEST_PROJECT_PATH}")
-                        // //             shWithEcho("deps/dotnet-core-sdk-all/dotnet test ${TEST_OPTS}")
-                        // //         }
-                        // //         finally {
-                        // //             junit  allowEmptyResults: false, testResults: "UnitTestResults/TestResults.xml"
-                        // //         }
-                        // //     }
-                        // // }
-                    } else if (BRANCH == "release27") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-all/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
-                        }
-                    } else {
-                        echo "Unknown gerrit branch ${BRANCH}"
-                    }
-
-                    stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
-                }
-                stage("unit test ${platform}") {
-//                    def TEST_PROJECT_PATH = "couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj"
-                    def TEST_PROJECT_PATH = "couchbase-net-client/couchbase-net-client.sln"
-                    def TEST_OPTS = "--test-adapter-path:. --logger:junit ${TEST_PROJECT_PATH} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min --results-directory UnitTestResults"
-                    if (BRANCH == "master") {
-                        depsDir = getDepsDir(platform)
-                        if (platform.contains("window")) {
-                            try {
-                                batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet restore ${TEST_PROJECT_PATH}")
-                                batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet test ${TEST_OPTS}")
-                            }
-                            finally {
-                                junit allowEmptyResults: false, testResults: "UnitTestResults\\TestResults.xml"
-                            }
-                        } else {
-                            try {
-                                shWithEcho("${depsDir}/dotnet-core-sdk-all/dotnet --list-sdks")
-                                shWithEcho("${depsDir}/dotnet-core-sdk-all/dotnet restore ${TEST_PROJECT_PATH}")
-                                shWithEcho("${depsDir}/dotnet-core-sdk-all/dotnet test ${TEST_OPTS}")
-                            }
-                            finally {
-                                junit  allowEmptyResults: false, testResults: "UnitTestResults/TestResults.xml"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    parallel pairs
-}
-
-def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS) {
-    def pairs = [:]
-    for (j in PLATFORMS) {
-        def platform = j
-
-        pairs[platform] = {
-            node(platform) {
-                stage("unit-test ${platform}") {
-                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                    unstash "couchbase-net-client-${platform}"
-                    installSdksForPlatform(platform, DOTNET_SDK_VERSIONS)
-
-                    // def TEST_PROJECT_PATH = "couchbase-net-client/couchbase-net-client.sln"
-                    def TEST_PROJECT_PATH = "couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj"
-                    def TEST_OPTS = "--test-adapter-path:. --logger:junit ${TEST_PROJECT_PATH} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min --results-directory UnitTestResults"
-                    if (BRANCH == "master") {
-                        if (platform.contains("window")) {
-                            try {
-                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet restore ${TEST_PROJECT_PATH}")
-                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet test ${TEST_OPTS}")
-                            }
-                            finally {
-                                junit allowEmptyResults: false, testResults: "UnitTestResults\\TestResults.xml"
-                            }
-                        } else {
-                            try {
-                                shWithEcho("deps/dotnet-core-sdk-all/dotnet --list-sdks")
-                                shWithEcho("deps/dotnet-core-sdk-all/dotnet restore ${TEST_PROJECT_PATH}")
-                                shWithEcho("deps/dotnet-core-sdk-all/dotnet test ${TEST_OPTS}")
-                            }
-                            finally {
-                                junit  allowEmptyResults: false, testResults: "UnitTestResults/TestResults.xml"
-                            }
-                        }
-                    } else if (BRANCH == "release27") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet restore couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-all/dotnet restore couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
-                            shWithEcho("deps/dotnet-core-sdk-all/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //shWithEcho("deps/dotnet-core-sdk-all/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        }
-                    } else {
-                        echo "Unknown gerrit branch ${BRANCH}"
-                    }
-
-                    // converts test results into JUnit format, requires MSTest Jenkins plugin
-                    // step([$class: "MSTestPublisher", testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
-
-                    // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-                    // USING THE PACKAGE(S) CREATED ABOVE
-                }
-            }
-        }
-    }
-
-    parallel pairs
 }
 
 def packProject(PROJ_FILE, SDKSIGNKEY, version, DOTNET_SDK_VERSION) {
@@ -472,6 +360,25 @@ def getDepsDir(PLATFORM) {
     }
 
     return "deps"
+}
+
+def getDotnetCmd(PLATFORM) {
+    depsDir = getDepsDir(PLATFORM)
+    if (PLATFORM.contains("window")) {
+        return "${depsDir}\\dotnet-core-sdk-all\\dotnet"
+    }
+
+    return "${depsDir}//dotnet-core-sdk-all/dotnet"
+}
+
+// 'dotnet' understands forward-slashes on Windows, so the only difference is bat vs. sh
+def dotNetWithEcho(PLATFORM, command) {
+    dotNetCmd = getDotnetCmd(PLATFORM)
+    if (PLATFORM.contains("window")) {
+        batWithEcho("${dotNetCmd} ${command}")
+    } else {
+        shWithEcho("${dotNetCmd} ${command}")
+    }
 }
 
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
