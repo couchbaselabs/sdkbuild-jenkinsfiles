@@ -88,6 +88,9 @@ class DynamicCluster {
     String id_ = null;
     String ips_ = null;
     String version_ = null;
+    boolean useTLS = false;
+    boolean useCertAuth = false;
+    String certsDir = null;
 
     DynamicCluster(String version) {
         this.version_ = version
@@ -98,7 +101,21 @@ class DynamicCluster {
     }
 
     String connectionString() {
-        return "couchbase://" + ips_.replaceAll(',', ';') + ",default,Administrator,password"
+        def prefix = "couchbase://"
+        if (useTLS) {
+            prefix = "couchbases://"
+        }
+        def connstr = prefix + ips_.replaceAll(',', ';')
+        def bucket = ",default"
+        def auth = ",Administrator,password"
+        if (useTLS) {
+            connstr += "?truststorepath=$certsDir/ca.pem"
+        }
+        if (useCertAuth) {
+            auth = ""
+            connstr += "&certpath=$certsDir/client.pem&keypath=$certsDir/client.key"
+        }
+        return connstr + bucket + auth
     }
 
     String firstIP() {
@@ -116,6 +133,23 @@ class DynamicCluster {
         return ""
     }
 
+    int major() {
+        return version().tokenize(".")[0] as Integer
+    }
+
+    int minor() {
+        // e.g. 7.1-stable or 7.1.0 becomes 1
+        return version().tokenize("-")[0].tokenize(".")[1] as Integer
+    }
+
+    int numRootCAs() {
+        if (major() > 7 || (major() == 7 && minor() >= 1)) {
+            return 2
+        } else {
+            return 1
+        }
+    }
+
     String inspect() {
         return "Cluster(id: \"${id_}\", IPs: \"${ips_}\", connstr: \"${connectionString()}\", version: \"${version_}\")"
     }
@@ -123,6 +157,17 @@ class DynamicCluster {
 
 pipeline {
     agent none
+    parameters {
+        string(name: "REPO", defaultValue: "ssh://review.couchbase.org:29418/libcouchbase")
+        string(name: "SHA", defaultValue: "master")
+        booleanParam(name: "IS_RELEASE", defaultValue: false)
+        booleanParam(name: "IS_GERRIT_TRIGGER", defaultValue: false)
+        string(name: "GERRIT_REFSPEC", defaultValue: "refs/heads/master")
+        booleanParam(name: "VERBOSE", defaultValue: false)
+        booleanParam(name: "SKIP_TESTS", defaultValue: false)
+        booleanParam(name: "USE_TLS", defaultValue: false)
+        booleanParam(name: "USE_CERT_AUTH", defaultValue: false)
+    }
     stages {
         stage('prepare and validate') {
             agent { label 'centos8 || centos7 || centos6' }
@@ -332,10 +377,20 @@ pipeline {
                                 def cluster = new DynamicCluster(CB_VERSION)
                                 cluster.id_ = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${cluster.version()}", returnStdout: true).trim()
                                 cluster.ips_ = sh(script: "cbdyncluster ips ${cluster.clusterId()}", returnStdout: true).trim()
+                                if (USE_TLS.toBoolean()) {
+                                    cluster.useTLS = true
+                                    cluster.certsDir = WORKSPACE
+                                }
+                                cluster.useCertAuth = USE_CERT_AUTH.toBoolean()
                                 CLUSTER[CB_VERSION] = cluster
                             }
                             echo("Allocated ${CLUSTER[CB_VERSION].inspect()}")
                             sh("cbdyncluster setup ${CLUSTER[CB_VERSION].clusterId()} --node=kv,index,n1ql --node=kv,fts --node=kv,cbas --bucket=default ${CLUSTER[CB_VERSION].extraOptions()}")
+                            script {
+                                if (USE_TLS.toBoolean()) {
+                                    sh("cbdyncluster setup-cert-auth ${CLUSTER[CB_VERSION].clusterId()} --user Administrator --num-roots ${CLUSTER[CB_VERSION].numRootCAs()}")
+                                }
+                            }
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8091/settings/indexes -d 'storageMode=plasma'")
                             sh("cbdyncluster add-sample-bucket ${CLUSTER[CB_VERSION].clusterId()} --name=beer-sample")
                             sh("curl --trace - --trace-time -sS -uAdministrator:password http://${CLUSTER[CB_VERSION].firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
