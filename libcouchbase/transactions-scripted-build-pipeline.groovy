@@ -170,22 +170,23 @@ void testAgainstServer(String serverVersion) {
         shWithEcho("curl -v -X POST -u Administrator:password -d name=secBucket -d ramQuotaMB=100 http://"+ ip + ":8091/pools/default/buckets")
         // The transactions tests check for this environment property
         def envStr = ["TXN_CONNECTION_STRING=couchbase://" + ip ]
-        if (serverVersion.startsWith("7")) {
-            envStr << "SUPPORTS_COLLECTIONS=1"
-        }
         withEnv(envStr) {
             def results_file = serverVersion.replaceAll(".", "_") + "_results.xml"
+            def exclusions = ""
+            if (!serverVersion.startsWith("7")) {
+                exclusions = "--gtest_filter=-SimpleQuery*"
+            }
             try {
                 // for now, there is just one executable, lets invoke it directly.  Later, perhaps we can add a cmake task
                 // but I ran into some issues with gtest cmake and so on.
                 echo("sleeping for 30 sec before starting tests...")
                 sleep(30);
                 echo("sleep done, beginning tests");
-                shWithEcho("LD_LIBRARY_PATH=. ./client_tests --gtest_output=xml:${results_file}")
+                shWithEcho("LD_LIBRARY_PATH=. ./client_tests ${exclusions} --gtest_output=xml:${results_file}")
             }
             finally {
                 // Process the Junit test results
-                junit '**/*_results.xml'
+               junit '**/*_results.xml'
             }
         }
     }
