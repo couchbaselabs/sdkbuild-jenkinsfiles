@@ -1,30 +1,17 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def PLATFORMS = [
-	"windows",
-	"ubuntu16",
-	"centos7",
-	"macos",
-	"ubuntu20"
-]
-def DOTNET_SDK_VERSIONS = ["3.1.410", "5.0.302"]
-def ALL_SUPPORTED_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.302"]
-def DOTNET_SDK_VERSION = ""
+def DOTNET_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.404", "6.0.101"]
+def DOTNET_SDK_VERSION = "6.0.101"
 def CB_SERVER_VERSIONS = [
 	"7.0-stable",
-	"6.6.2",
+	"6.6-stable",
 	"6.5.2",
 	"6.0.5",
 	"5.5.6"
 ]
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-
-// Windows has a 255 character path limit, still.
-// cbdep trying to unzip .NET SDK 5.0.x shows a FileNotFound error, which is really a PathTooLong error
-// using this path instead of WORKSPACE\deps gets around the issue.
-def CBDEP_WIN_PATH = "%TEMP%\\cbnc\\deps"
 
 // use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
 // useful for testing test-only changes.
@@ -72,14 +59,62 @@ pipeline {
                 stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
             }
         }
-        stage("build") {
-            steps {
-                doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
-            }
-        }
-        stage("unit-test") {
-            steps {
-                doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
+        stage("BuildAndTest") {
+            matrix {
+                axes {
+                    axis {
+                        name 'NODE_PLATFORM'
+                        values "windows","ubuntu16","centos7","macos","ubuntu20"
+                    }
+                }
+                agent { label NODE_PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
+                            unstash "couchbase-net-client"
+                            installSdksForPlatform(NODE_PLATFORM, DOTNET_SDK_VERSIONS)
+                        }
+                    }
+                    stage("build") {
+                        steps {
+                            dotNetWithEcho(NODE_PLATFORM, "build couchbase-net-client/couchbase-net-client.sln")
+                            stash includes: "couchbase-net-client/", name: "couchbase-net-client-${NODE_PLATFORM}", useDefaultExcludes: false
+                        }
+                    }
+                    stage("unit test") {
+                        steps {
+                            script {
+                                def pairs = [:]
+                                def unitTestProjects = findFiles(glob: "**/couchbase-net-client/tests/**UnitTest**/*.*proj")
+                                def failures = 0
+                                for (tp in unitTestProjects) {
+                                    if (tp.name.contains("OpenTelemetry")) {
+                                        // skip it due to NCBC-3076.  Remove this skip when that is fixed.
+                                    } else {
+                                        try {
+                                            testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
+                                            dotNetWithEcho(NODE_PLATFORM, "test ${testOpts}")
+                                            pairs[tp.name] = "SUCCESS"
+                                        } catch (Exception e) {
+                                            pairs[tp.name] = "FAILED"
+                                            failures = failures + 1
+                                        }
+                                    }
+                                }
+                                
+                                echo "done with unit tests for ${NODE_PLATFORM}"
+                                echo "${pairs}"
+                                testResultsGenerated = findFiles(glob:"**/TestResults/*.trx")
+                                echo "All Test Results = ${testResultsGenerated}"
+                                mstest testResultsFile:"**/*.trx", keepLongStdio: true
+                                if (failures > 0) {
+                                    error "${pairs}"
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         stage("combination-test") {
@@ -89,7 +124,7 @@ pipeline {
                 expression { _RUN_COMBINATION_TESTS }
             }
             steps {
-                doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS)
+                doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
             }
         }
         stage("package") {
@@ -102,7 +137,7 @@ pipeline {
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "couchbase-net-client-windows"
-                installSdksForPlatform("windows", ALL_SUPPORTED_SDK_VERSIONS)
+                installSdksForPlatform("windows", DOTNET_SDK_VERSIONS)
 
                 script {
                     // get package version and apply suffix if not release build
@@ -113,16 +148,38 @@ pipeline {
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                        batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-                        batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        if (env.VERSION != "") {
+                            packProject("couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj", SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                        }
+
+                        // // batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+                        // // batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+
+                        if (EXT_DI_VERSION != "") {
+                            if (env.IS_RELEASE.toBoolean() == false) {
+                                version = "${EXT_DI_VERSION}-${SUFFIX}"
+                            }
+                            packProject("couchbase-net-client\\Src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj". SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                        } else {
+                            echo "Skipping packaging for DI"
+                        }
+                        
+                        if (EXT_OTEL_VERSION != "") {
+                            if (env.IS_RELEASE.toBoolean() == false) {
+                                version = "${EXT_DI_VERSION}-${SUFFIX}"
+                            }
+                            packProject("couchbase-net-client\\Src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj", SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                        } else {
+                            echo "Skipping packaging for Otel"
+                        }
                     }
 
 					// create zip file of release files
 					zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
 					// stash includes: "couchbase-net-client-${version}.zip", name: "couchbase-net-client-package-zip", useDefaultExcludes: false
                 }
-                archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg", fingerprint: true
-                stash includes: "couchbase-net-client\\**\\*.nupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
+                archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg, couchbase-net-client\\**\\*.snupkg", fingerprint: true
+                stash includes: "couchbase-net-client\\**\\Release\\*.nupkg, couchbase-net-client\\**\\Release\\*.snupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
             }
         }
         stage("approval") {
@@ -154,7 +211,8 @@ pipeline {
                             unstash "couchbase-net-client-package"
                             echo "Publishing package to Nuget .."
 
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json --no-symbols true")
+                            depsDir = getDepsDir("windows")
+                            batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json")
                         }
                     }
 
@@ -176,103 +234,14 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def doBuilds(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
-    def pairs = [:]
-    for (j in PLATFORMS) {
-        def platform = j
-
-        pairs[platform] = {
-            node(platform) {
-                stage("build ${platform}") {
-                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                    unstash "couchbase-net-client"
-                    installSdksForPlatform(platform, ALL_SUPPORTED_SDK_VERSIONS)
-
-                    if (BRANCH == "master") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\couchbase-net-client.sln")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/couchbase-net-client.sln")
-                        }
-                    } else if (BRANCH == "release27") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet build couchbase-net-client\\Src\\couchbase-net-client.sln")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet build couchbase-net-client/Src/couchbase-net-client.sln")
-                        }
-                    } else {
-                        echo "Unknown gerrit branch ${BRANCH}"
-                    }
-
-                    stash includes: "couchbase-net-client/", name: "couchbase-net-client-${platform}", useDefaultExcludes: false
-                }
-            }
-        }
-    }
-
-    parallel pairs
+def packProject(PROJ_FILE, SDKSIGNKEY, version, DOTNET_SDK_VERSION) {
+    depsDir = getDepsDir("windows")
+    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet build ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
 }
 
-def doUnitTests(PLATFORMS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
-    def pairs = [:]
-    for (j in PLATFORMS) {
-        def platform = j
-
-        pairs[platform] = {
-            node(platform) {
-                stage("unit-test ${platform}") {
-                    cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-                    unstash "couchbase-net-client-${platform}"
-                    installSdksForPlatform(platform, ALL_SUPPORTED_SDK_VERSIONS)
-
-                    if (BRANCH == "master") {
-                        if (platform.contains("window")) {
-                            try {
-                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet --list-sdks")
-                                batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test --test-adapter-path:. --logger:junit couchbase-net-client\\tests\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net5.0 --no-build -v d --blame-hang --blame-hang-timeout 5min")
-                            }
-                            finally {
-                                junit allowEmptyResults: false, testResults: "couchbase-net-client\\tests\\Couchbase.UnitTests\\TestResults\\TestResults.xml"
-                            }
-                        } else {
-                            try {
-                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet restore couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj")
-                                shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit couchbase-net-client/tests/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f net5.0 -v d --blame-hang --blame-hang-timeout 5min")
-                            }
-                            finally {
-                                junit  allowEmptyResults: false, testResults: "couchbase-net-client/tests/Couchbase.UnitTests/TestResults/TestResults.xml"
-                            }
-                        }
-                    } else if (BRANCH == "release27") {
-                        if (platform.contains("window")) {
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet restore couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f net452 --no-build")
-                            batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-${DOTNET_SDK_VERSION}\\dotnet test couchbase-net-client\\Src\\Couchbase.UnitTests\\Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        } else {
-                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet restore couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj")//cleanup if NuGet hangs
-                            shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp2.0 --no-build")
-                            //shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.UnitTests/Couchbase.UnitTests.csproj -f netcoreapp1.1 --no-build")
-                        }
-                    } else {
-                        echo "Unknown gerrit branch ${BRANCH}"
-                    }
-
-                    // converts test results into JUnit format, requires MSTest Jenkins plugin
-                    // step([$class: "MSTestPublisher", testResultsFile:"**/unit_tests.xml", failOnError: true, keepLongStdio: true])
-
-                    // TODO: IF YOU HAVE INTEGRATION TESTS THAT RUN AGAINST THE MOCK DO THAT HERE
-                    // USING THE PACKAGE(S) CREATED ABOVE
-                }
-            }
-        }
-    }
-
-    parallel pairs
-}
-
-def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPORTED_SDK_VERSIONS) {
-    installSdksForPlatform("ubuntu20", ALL_SUPPORTED_SDK_VERSIONS)
+def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS) {
+    installSdksForPlatform("ubuntu20", DOTNET_SDK_VERSIONS)
     sh("cbdyncluster ps -a")
     for (j in CB_SERVER_VERSIONS) {
         cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
@@ -340,12 +309,12 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPO
                     shWithEcho("cat ${configFile}")
                     
                     // run management tests to set up environment
-                    shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f net5.0  --filter DisplayName~VerifyEnvironment ${projFileManagement}")
+                    shWithEcho("deps/dotnet-core-sdk-all/dotnet test -f net5.0  --filter DisplayName~VerifyEnvironment ${projFileManagement}")
                     sleep(30);
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test -f net5.0 --test-adapter-path:. --logger:junit  ${projFile}")
+                        shWithEcho("deps/dotnet-core-sdk-all/dotnet test -f net5.0 --test-adapter-path:. --logger:junit  ${projFile}")
                     }
                     finally {
                         junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
@@ -353,7 +322,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPO
 
                     // run integration tests
                     try {
-                        shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test --test-adapter-path:. --logger:junit -f net5.0  ${projFileManagement}")
+                        shWithEcho("deps/dotnet-core-sdk-all/dotnet test --test-adapter-path:. --logger:junit -f net5.0  ${projFileManagement}")
                     }
                     finally {
                         junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
@@ -368,7 +337,7 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPO
                     //shWithEcho("cat couchbase-net-client/Src/Couchbase.IntegrationTests/config.json")
 
                     // run integration tests
-                    //shWithEcho("deps/dotnet-core-sdk-${DOTNET_SDK_VERSION}/dotnet test couchbase-net-client/Src/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
+                    //shWithEcho("deps/dotnet-core-sdk-all/dotnet test couchbase-net-client/Src/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
                 }
                 else {
                     echo "Unknown gerrit branch ${BRANCH}"
@@ -385,12 +354,37 @@ def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, ALL_SUPPO
     }
 }
 
+def getDepsDir(PLATFORM) {
+    if (PLATFORM.contains("window")) {
+        return "${env.TEMP}\\cbnc\\deps"
+    }
+
+    return "deps"
+}
+
+def getDotnetCmd(PLATFORM) {
+    depsDir = getDepsDir(PLATFORM)
+    if (PLATFORM.contains("window")) {
+        return "${depsDir}\\dotnet-core-sdk-all\\dotnet"
+    }
+
+    return "${depsDir}//dotnet-core-sdk-all/dotnet"
+}
+
+// 'dotnet' understands forward-slashes on Windows, so the only difference is bat vs. sh
+def dotNetWithEcho(PLATFORM, command) {
+    dotNetCmd = getDotnetCmd(PLATFORM)
+    if (PLATFORM.contains("window")) {
+        batWithEcho("${dotNetCmd} ${command}")
+    } else {
+        shWithEcho("${dotNetCmd} ${command}")
+    }
+}
+
 def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     def install = false
-    def depsDir = "deps"
-    if (PLATFORM.contains("window")) {
-        depsDir = "%TEMP%\\cbnc\\deps"
-    }
+    def depsDir = getDepsDir(PLATFORM)
+
     dir(depsDir) {
         dir("dotnet-core-sdk-${DOTNET_SDK_VERSION}") {
             if (PLATFORM.contains("window")) {
@@ -404,7 +398,7 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     if (install) {
         echo "Installing .NET SDK ${DOTNET_SDK_VERSION}"
         if (PLATFORM.contains("window")) {
-            batWithEcho("cbdep install -d %TEMP%\\cbnc\\deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+            batWithEcho("cbdep install -d ${depsDir} dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
             shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         }
@@ -412,17 +406,41 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
     else {
         echo ".NET SDK ${DOTNET_SDK_VERSION} for ${PLATFORM} is already installed."
     }
+
+    return depsDir
 }
 
-def installSdksForPlatform(PLATFORM, ALL_SUPPORTED_SDK_VERSIONS) {
-    for (dnv in ALL_SUPPORTED_SDK_VERSIONS) {
+def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
+     def depsDir = getDepsDir(PLATFORM)
+    for (dnv in DOTNET_SDK_VERSIONS) {
         installSDK(PLATFORM, dnv)
+    }
+
+    echo "Combining installed dotnet SDKs into dotnet-core-sdk-all"
+    // NOTE:  do these in order, even if the deps were already there, so we don't end up with SDK.older overwriting files form SDK.newer.
+    for (dnv in DOTNET_SDK_VERSIONS) {
+        dir(depsDir) {
+            dir ("dotnet-core-sdk-all") {
+                if (PLATFORM.contains("window")) {
+                    // Zip + Unzip is faster than copy, and windows doesn't care about executable bits
+                    // Xcopy might be faster, if we could get the parameters correct
+                    zipFile = "..\\dotnet-core-sdk-${dnv}-windows.zip"
+                    if (!fileExists(zipFile)) {
+                        zip dir: "..\\dotnet-core-sdk-${dnv}", zipFile: zipFile
+                    }
+                    unzip zipFile: zipFile, dir: "."
+                } else {
+                    // For UNIX, we use cp to preserve file permissions
+                    shWithEcho("cp -r ../dotnet-core-sdk-${dnv}/* .")
+                }
+            }
+        }
     }
 }
 
 def selectSDK(BRANCH, DOTNET_SDK_VERSIONS){
     if(BRANCH == "master"){
-        return DOTNET_SDK_VERSIONS[1]
+        return DOTNET_SDK_VERSIONS.last()
     }else{
         return DOTNET_SDK_VERSIONS[0]
     }
