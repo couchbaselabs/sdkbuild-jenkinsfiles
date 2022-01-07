@@ -182,7 +182,7 @@ void testAgainstServer(String serverVersion) {
                 echo("sleeping for 30 sec before starting tests...")
                 sleep(30);
                 echo("sleep done, beginning tests");
-                shWithEcho("LD_LIBRARY_PATH=. ./client_tests ${exclusions} --gtest_output=xml:${results_file}")
+                shWithEcho("LD_PRELOAD=/lib64/libSegFault.so LD_LIBRARY_PATH=. ./client_tests ${exclusions} --gtest_output=xml:${results_file}")
             }
             finally {
                 // Process the Junit test results
