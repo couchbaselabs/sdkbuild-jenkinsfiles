@@ -174,7 +174,7 @@ void testAgainstServer(String serverVersion) {
             def results_file = serverVersion.replaceAll(".", "_") + "_results.xml"
             def exclusions = ""
             if (!serverVersion.startsWith("7")) {
-                exclusions = "--gtest_filter=-SimpleQuery*"
+                exclusions = "--gtest_filter=-*Query*"
             }
             try {
                 // for now, there is just one executable, lets invoke it directly.  Later, perhaps we can add a cmake task
