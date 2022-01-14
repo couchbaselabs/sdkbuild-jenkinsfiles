@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -113,7 +113,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'centos8', 'macos-11.0', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9', 'm1', 'alpine'
+                        values 'centos7', 'centos8', 'macos-11.0', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -160,7 +160,7 @@ pipeline {
                             timestamps {
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     script {
-                                        if (PLATFORM =~ /macos|m1|alpine/) {
+                                        if (PLATFORM =~ /macos|m1|alpine|grav2/) {
                                             unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
                                         } else {
                                             unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
