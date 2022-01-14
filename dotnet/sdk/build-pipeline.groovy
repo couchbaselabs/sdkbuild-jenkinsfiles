@@ -63,23 +63,24 @@ pipeline {
             matrix {
                 axes {
                     axis {
-                        name 'NODE_PLATFORM'
-                        values "windows","ubuntu16","centos7","macos","ubuntu20", "qe-grav2-amzn2", "alpine"
+                        name 'PLAT'
+                        values "windows","ubuntu16","centos7","macos","ubuntu20", "qe-grav2-amzn2", "alpine", "m1"
                     }
                 }
-                agent { label NODE_PLATFORM }
+                agent { label PLAT }
                 stages {
                     stage("prep") {
                         steps {
                             cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                             unstash "couchbase-net-client"
-                            installSdksForPlatform(NODE_PLATFORM, DOTNET_SDK_VERSIONS)
+                            installSdksForPlatform(PLAT, DOTNET_SDK_VERSIONS)
+                            dotNetWithEcho(PLAT, "--info")
                         }
                     }
                     stage("build") {
                         steps {
-                            dotNetWithEcho(NODE_PLATFORM, "build couchbase-net-client/couchbase-net-client.sln")
-                            stash includes: "couchbase-net-client/", name: "couchbase-net-client-${NODE_PLATFORM}", useDefaultExcludes: false
+                            dotNetWithEcho(PLAT, "build couchbase-net-client/couchbase-net-client.sln")
+                            stash includes: "couchbase-net-client/", name: "couchbase-net-client-${PLAT}", useDefaultExcludes: false
                         }
                     }
                     stage("unit test") {
@@ -94,7 +95,11 @@ pipeline {
                                     } else {
                                         try {
                                             testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
-                                            dotNetWithEcho(NODE_PLATFORM, "test ${testOpts}")
+                                            if (PLAT == "m1") {
+                                                // we only support Apple M1 on .NET 6.0 or later
+                                                testOpts = testOpts + " -f net6.0"
+                                            }
+                                            dotNetWithEcho(PLAT, "test ${testOpts}")
                                             pairs[tp.name] = "SUCCESS"
                                         } catch (Exception e) {
                                             pairs[tp.name] = "FAILED"
@@ -103,7 +108,7 @@ pipeline {
                                     }
                                 }
                                 
-                                echo "done with unit tests for ${NODE_PLATFORM}"
+                                echo "done with unit tests for ${PLAT}"
                                 echo "${pairs}"
                                 testResultsGenerated = findFiles(glob:"**/TestResults/*.trx")
                                 echo "All Test Results = ${testResultsGenerated}"
@@ -400,7 +405,8 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
         if (PLATFORM.contains("window")) {
             batWithEcho("cbdep install -d ${depsDir} dotnet-core-sdk ${DOTNET_SDK_VERSION}")
         } else {
-            shWithEcho("cbdep install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
+            shWithEcho("cbdep -V")
+            shWithEcho("cbdep --debug install -d deps dotnet-core-sdk ${DOTNET_SDK_VERSION}")
             if(PLATFORM.contains("amzn2")) {
             	//Required install for amazon linux 2 - related issue https://github.com/dotnet/runtime/issues/57983
             	shWithEcho("sudo yum install -y libicu60")
@@ -415,9 +421,13 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
 }
 
 def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
-     def depsDir = getDepsDir(PLATFORM)
+    def depsDir = getDepsDir(PLATFORM)
     for (dnv in DOTNET_SDK_VERSIONS) {
-        installSDK(PLATFORM, dnv)
+        if (PLATFORM != "m1" || dnv.startsWith("6.0")) {
+            installSDK(PLATFORM, dnv)
+        } else {
+            echo "Skipping ${dnv} on ${PLATFORM}"
+        }
     }
 
     echo "Combining installed dotnet SDKs into dotnet-core-sdk-all"
@@ -434,8 +444,12 @@ def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
                     }
                     unzip zipFile: zipFile, dir: "."
                 } else {
-                    // For UNIX, we use cp to preserve file permissions
-                    shWithEcho("cp -r ../dotnet-core-sdk-${dnv}/* .")
+                    if (PLATFORM != "m1" || dnv.startsWith("6.0")) {
+                        // For UNIX, we use cp to preserve file permissions
+                        shWithEcho("cp -r ../dotnet-core-sdk-${dnv}/* .")
+                    } else {
+                        // We only support .NET 6 on M1
+                    }
                 }
             }
         }
