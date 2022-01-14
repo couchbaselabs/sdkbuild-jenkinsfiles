@@ -134,11 +134,6 @@ pipeline {
         }
         stage("package") {
             agent { label "windows" }
-            when {
-                expression {
-                    return IS_GERRIT_TRIGGER.toBoolean() == false
-                }
-            }
             steps {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 unstash "couchbase-net-client-windows"
