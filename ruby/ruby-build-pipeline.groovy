@@ -273,6 +273,10 @@ pipeline {
                                 unstash(name: "gem-centos7-2.7-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
                                 unstash(name: "gem-centos7-3.1-bin")
+                                unstash(name: "gem-alpine-2.6-bin")
+                                unstash(name: "gem-alpine-2.7-bin")
+                                unstash(name: "gem-alpine-3.0-bin")
+                                unstash(name: "gem-alpine-3.1-bin")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                             dir("gem-src") {
