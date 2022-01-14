@@ -92,15 +92,6 @@ pipeline {
                                     }
                                     stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
                                     stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
-                                    script {
-                                        if (PLATFORM == "centos7") {
-                                            stash(name: "scripts-ubuntu20-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
-                                            stash(name: "tests-ubuntu20-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
-                                            dir("pkg/binary") {
-                                                stash(name: "gem-ubuntu20-${CB_RUBY_VERSION}-bin", includes: "*.gem")
-                                            }
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -113,7 +104,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'centos8', 'macos-11.0', 'macos-10.15', 'ubuntu16', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
