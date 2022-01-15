@@ -91,7 +91,7 @@ pipeline {
                                         }
                                     }
                                     stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
-                                    stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "test/*,test_data/*")
+                                    stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "Gemfile,test/**/*,test_data/**/*")
                                 }
                             }
                         }
