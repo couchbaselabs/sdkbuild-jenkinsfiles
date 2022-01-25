@@ -163,7 +163,7 @@ void testAgainstServer(String serverVersion) {
         echo "Got cluster IP http://" + ip + ":8091"
 
         // Create the cluster
-        shWithEcho("cbdyncluster --node kv --node kv,n1ql --node kv --bucket default setup $clusterId")
+        shWithEcho("cbdyncluster --node kv,n1ql --node kv,n1ql,index --node kv,n1ql --bucket default setup $clusterId")
 
         // Make the bucket flushable
         shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
