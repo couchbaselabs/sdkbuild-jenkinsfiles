@@ -167,7 +167,11 @@ void testAgainstServer(String serverVersion) {
 
         // Make the bucket flushable
         shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://" + ip + ":8091/pools/default/buckets/default")
+        // Create secBucket
         shWithEcho("curl -v -X POST -u Administrator:password -d name=secBucket -d ramQuotaMB=100 http://"+ ip + ":8091/pools/default/buckets")
+        // Add a primary index...
+        shWithEcho("curl -vv -X POST -u Administrator:password http://" + ip + ":8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `default` USING GSI'")
+
         // The transactions tests check for this environment property
         def envStr = ["TXN_CONNECTION_STRING=couchbase://" + ip ]
         withEnv(envStr) {
