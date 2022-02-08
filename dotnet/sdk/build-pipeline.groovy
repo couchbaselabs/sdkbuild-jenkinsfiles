@@ -147,80 +147,27 @@ pipeline {
                     }
 
                     // pack with SNK
-                    withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                        if (env.VERSION != "") {
-                            packProject("couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj", SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                    if (env.VERSION != "") {
+                        withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
+                            def toPack = [
+                                "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
+                                "couchbase-net-client\\src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj",
+                                "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj",
+                                "couchbase-net-client\\src\\Couchbase.Transactions\\Couchbase.Transactions.csproj"
+                            ]
+
+                            for (tp in toPack) {
+                                packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                            }
                         }
 
-                        // // batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet build couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-                        // // batWithEcho("%TEMP%\\cbnc\\deps\\dotnet-core-sdk-all\\dotnet pack couchbase-net-client\\Src\\Couchbase\\Couchbase.csproj -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-
-                        if (EXT_DI_VERSION != "") {
-                            if (env.IS_RELEASE.toBoolean() == false) {
-                                version = "${EXT_DI_VERSION}-${SUFFIX}"
-                            }
-                            packProject("couchbase-net-client\\Src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj". SDKSIGNKEY, version, DOTNET_SDK_VERSION)
-                        } else {
-                            echo "Skipping packaging for DI"
-                        }
-                        
-                        if (EXT_OTEL_VERSION != "") {
-                            if (env.IS_RELEASE.toBoolean() == false) {
-                                version = "${EXT_DI_VERSION}-${SUFFIX}"
-                            }
-                            packProject("couchbase-net-client\\Src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj", SDKSIGNKEY, version, DOTNET_SDK_VERSION)
-                        } else {
-                            echo "Skipping packaging for Otel"
-                        }
+                        // create zip file of release files and add it to archived artifacts
+                        zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
                     }
-
-					// create zip file of release files
-					zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
-					// stash includes: "couchbase-net-client-${version}.zip", name: "couchbase-net-client-package-zip", useDefaultExcludes: false
                 }
+
                 archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg, couchbase-net-client\\**\\*.snupkg", fingerprint: true
                 stash includes: "couchbase-net-client\\**\\Release\\*.nupkg, couchbase-net-client\\**\\Release\\*.snupkg", name: "couchbase-net-client-package", useDefaultExcludes: false
-            }
-        }
-        stage("approval") {
-            agent none
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                input "Publish .NET SDK to Nuget?"
-            }
-        }
-        stage("publish") {
-            agent { label "windows" }
-            when {
-                expression {
-                    return IS_RELEASE.toBoolean() == true
-                }
-            }
-            steps {
-                cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-
-                script {
-                    withCredentials([string(credentialsId: 'netsdk-nugetkey', variable: 'NUGETKEY')]) {
-                        if (!NUGETKEY?.trim()) {
-                            echo "No Nuget key configured, unable to publish package"
-                        } else {
-                            unstash "couchbase-net-client-package"
-                            echo "Publishing package to Nuget .."
-
-                            depsDir = getDepsDir("windows")
-                            batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet nuget push couchbase-net-client\\**\\*.nupkg -k ${NUGETKEY} -s https://api.nuget.org/v3/index.json")
-                        }
-                    }
-
-					// TODO: S3 credentials not configured yet
-					// unstash "couchbase-net-client-package-zip"
-					// echo "Pushing ZIP to S3 .."
-					// s3Upload(file:'*.zip', bucket:'packages.couchbase.com', path:'clients/net/3.0/', acl:'PublicRead')
-                }
             }
         }
     }
@@ -234,10 +181,16 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def packProject(PROJ_FILE, SDKSIGNKEY, version, DOTNET_SDK_VERSION) {
+def packProject(PROJ_FILE, nugetSignKey, version, DOTNET_SDK_VERSION) {
     depsDir = getDepsDir("windows")
-    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet build ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=${SDKSIGNKEY} /p:Version=${version} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+    env.NUGET_SIGN_KEY = nugetSignKey
+    versionParam = ""
+    if (version != "") {
+        versionParam = "/p:Version=${version}"
+    }
+
+    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet build ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+    batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
 }
 
 def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS) {
