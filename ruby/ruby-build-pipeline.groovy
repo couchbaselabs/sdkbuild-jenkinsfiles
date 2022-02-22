@@ -20,7 +20,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.6', '2.7', '3.0', '3.1', 'brew'
+                        values '2.7', '3.0', '3.1', 'brew'
                     }
                 }
                 excludes {
@@ -108,7 +108,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.6', '2.7', '3.0', '3.1', 'brew'
+                        values '2.7', '3.0', '3.1', 'brew'
                     }
                 }
                 excludes {
@@ -177,7 +177,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.6', '2.7', '3.0', '3.1'
+                        values '2.7', '3.0', '3.1'
                     }
                 }
                 agent { label PLATFORM }
@@ -252,19 +252,15 @@ pipeline {
                             unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
                                 unstash(name: "gem-m1-brew-bin")
-                                unstash(name: "gem-macos-11.0-2.6-bin")
                                 unstash(name: "gem-macos-11.0-2.7-bin")
                                 unstash(name: "gem-macos-11.0-3.0-bin")
                                 unstash(name: "gem-macos-11.0-3.1-bin")
-                                unstash(name: "gem-macos-10.15-2.6-bin")
                                 unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
                                 unstash(name: "gem-macos-10.15-3.1-bin")
-                                unstash(name: "gem-centos7-2.6-bin")
                                 unstash(name: "gem-centos7-2.7-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
                                 unstash(name: "gem-centos7-3.1-bin")
-                                unstash(name: "gem-alpine-2.6-bin")
                                 unstash(name: "gem-alpine-2.7-bin")
                                 unstash(name: "gem-alpine-3.0-bin")
                                 unstash(name: "gem-alpine-3.1-bin")
@@ -326,9 +322,6 @@ pipeline {
                                     cfInvalidate(
                                         distribution: "$AWS_CF_DISTRIBUTION",
                                         paths: [
-                                            "/${prefix}ruby/2.6.0/latest_specs.*",
-                                            "/${prefix}ruby/2.6.0/prerelease_specs.*",
-                                            "/${prefix}ruby/2.6.0/specs.*",
                                             "/${prefix}ruby/2.7.0/latest_specs.*",
                                             "/${prefix}ruby/2.7.0/prerelease_specs.*",
                                             "/${prefix}ruby/2.7.0/specs.*",
