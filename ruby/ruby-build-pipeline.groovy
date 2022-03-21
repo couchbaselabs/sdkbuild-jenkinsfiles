@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', /* 'macos-11.0', */ 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -27,7 +27,7 @@ pipeline {
                     exclude {
                         axis {
                             name 'PLATFORM'
-                            notValues /* 'macos-11.0', */ 'macos-10.15', 'm1'
+                            notValues 'macos-11.0', 'macos-10.15', 'm1'
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
@@ -104,7 +104,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', /* 'macos-11.0', */ 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -115,7 +115,7 @@ pipeline {
                     exclude {
                         axis {
                             name 'PLATFORM'
-                            notValues /* 'macos-11.0', */ 'macos-10.15', 'm1'
+                            notValues 'macos-11.0', 'macos-10.15', 'm1'
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
@@ -252,11 +252,9 @@ pipeline {
                             unstash(name: "scripts-centos7-2.7")
                             dir("gem-bin") {
                                 unstash(name: "gem-m1-brew-bin")
-/*
                                 unstash(name: "gem-macos-11.0-2.7-bin")
                                 unstash(name: "gem-macos-11.0-3.0-bin")
                                 unstash(name: "gem-macos-11.0-3.1-bin")
-*/
                                 unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
                                 unstash(name: "gem-macos-10.15-3.1-bin")
