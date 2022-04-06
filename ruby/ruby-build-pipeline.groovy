@@ -52,6 +52,7 @@ pipeline {
                             timestamps {
                                 cleanWs()
                                 dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                    deleteDir()
                                     checkout([
                                         $class: "GitSCM",
                                         branches: [[name: "$SHA"]],
