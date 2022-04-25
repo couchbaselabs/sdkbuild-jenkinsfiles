@@ -7,7 +7,7 @@ pipeline {
             agent any
             steps {
                 script {
-                    buildName(IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+                    buildName(IS_PULL_REQUEST.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
                 }
             }
         }
@@ -63,7 +63,7 @@ pipeline {
                                             recursiveSubmodules: true,
                                         ]],
                                         userRemoteConfigs: [[
-                                            refspec: "$GERRIT_REFSPEC",
+                                            refspec: "$REFSPEC",
                                             url: "$REPO",
                                             poll: false
                                     ]]])

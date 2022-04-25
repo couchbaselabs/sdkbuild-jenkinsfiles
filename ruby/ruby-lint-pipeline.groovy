@@ -20,7 +20,7 @@ pipeline {
                                     recursiveSubmodules: true,
                                 ]],
                                 userRemoteConfigs: [[
-                                    refspec: "$GERRIT_REFSPEC",
+                                    refspec: "$REFSPEC",
                                     url: "$REPO",
                                     poll: false
                             ]]])
