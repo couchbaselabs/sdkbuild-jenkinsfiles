@@ -1,0 +1,315 @@
+pipeline {
+    agent none
+    parameters {
+        string(name: "REPO", defaultValue: "https://github.com/couchbaselabs/couchbase-php-client")
+        string(name: "SHA", defaultValue: "main")
+        booleanParam(name: "IS_RELEASE", defaultValue: false)
+        booleanParam(name: "IS_GERRIT_TRIGGER", defaultValue: false)
+        string(name: "REFSPEC", defaultValue: "+refs/heads/*:refs/remotes/origin/*")
+    }
+    stages {
+        stage('prep') {
+            agent any
+            steps {
+                script {
+                    buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+                }
+            }
+        }
+        stage('build') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values 'centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20', 'windows'
+                    }
+                    axis {
+                        name 'CB_PHP_VERSION'
+                        values '8.1.4', '8.0.17', '7.4.28'
+                    }
+                }
+                agent { label PLATFORM }
+                stages {
+                    stage("src") {
+                        steps {
+                            timestamps {
+                                cleanWs()
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                    checkout([
+                                        $class: "GitSCM",
+                                        branches: [[name: params.SHA]],
+                                        extensions: [[
+                                            $class: "SubmoduleOption",
+                                            disableSubmodules: false,
+                                            parentCredentials: true,
+                                            recursiveSubmodules: true,
+                                        ]],
+                                        userRemoteConfigs: [[
+                                            refspec: params.REFSPEC,
+                                            url: params.REPO
+                                    ]]])
+                                }
+                            }
+                        }
+                    }
+                    stage("deps") {
+                        steps {
+                            timestamps {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                    cbdep_config()
+                                    install_system_deps(PLATFORM)
+                                    install_php(CB_PHP_VERSION)
+                                }
+                            }
+                        }
+                    }
+                    stage("build") {
+                        steps {
+                            timestamps {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                    withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                                        build_sdk()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    stage("stash") {
+                        steps {
+                            stash(includes: "build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}", useDefaultExcludes: false)
+                        }
+                    }
+                    stage("test") {
+                        options {
+                            timeout(time: 5, unit: 'MINUTES')
+                        }
+                        steps {
+                            dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                                    execute("ruby bin/test")
+                                }
+                            }
+                        }
+                    }
+                    // stage("package") {
+                    //     steps {
+                    //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                    //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                    //                 // TODO: change script to work with ruby <2.5
+                    //                 sh("sed -i -s 's/~//' bin/package")
+                    //                 execute("ruby bin/package")
+                    //                 stash(name: "pecl-${PLATFORM}-${CB_PHP_VERSION}", includes: "*.tgz")
+                    //             }
+                    //         }
+                    //     }
+                    // }
+                    // stage("pecl install") {
+                    //     steps {
+                    //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                    //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                    //                 execute("pecl install couchbase-4.0.0.tgz")
+                    //             }
+                    //         }
+                    //     }
+                    // }
+                }
+            }
+        }
+        stage('test') {
+            environment {
+                PLATFORM = 'sdkqe-centos7'
+            }
+            matrix {
+                axes {
+                    axis {
+                        name 'CB_VERSION'
+                        values '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release', '5.5-release'
+                    }
+                    axis {
+                        name 'CB_PHP_VERSION'
+                        values '8.1.4', '8.0.17', '7.4.28'
+                    }
+                }
+                agent { label PLATFORM }
+                stages {
+                    stage("deps") {
+                        steps {
+                            timestamps {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                    cbdep_config()
+                                    install_system_deps(PLATFORM)
+                                    install_php(CB_PHP_VERSION)
+                                }
+                            }
+                        }
+                    }
+                    stage("inst") {
+                        steps {
+                            deleteDir()
+                            unstash(name: "stash-centos7-${CB_PHP_VERSION}-${BUILD_NUMBER}")
+                        }
+                    }
+                    stage("test") {
+                        steps {
+                            dir("build-centos7-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                withEnv(calculate_env("centos7", CB_PHP_VERSION)) {
+                                    test_with_cbdyncluster(CB_VERSION)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+def test_with_cbdyncluster(version) {
+    def clusterId = ""
+    try {
+        clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${version}", returnStdout: true).trim()
+        sh("cbdyncluster setup ${clusterId} --node=kv,index,n1ql --node kv --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 1024 --bucket default")
+        sh("cbdyncluster add-sample-bucket ${clusterId} --name beer-sample")
+        def connstr = sh(script: "cbdyncluster connstr ${clusterId}", returnStdout: true).trim()
+        withEnv([
+            "TEST_CONNECTION_STRING=${connstr}",
+        ]) {
+            timeout(time: 5, unit: 'MINUTES') {
+                execute("ruby bin/test")
+            }
+        }
+    } finally {
+        sh("cbdyncluster rm ${clusterId}")
+    }
+}
+
+def cbdep_config() {
+    writeFile(file: "cbdep.config", text: '''
+---
+# YAML anchor for the repeated PHP packages
+x-php-variant: &php-variant
+  - if_platform: [linux, macos]
+    actions:
+      - run: |
+          ${HOME}/.phps/${PACKAGE}-${VERSION}/bin/php --version || rm -rf ${HOME}/.phps/${PACKAGE}-${VERSION}
+      - run: |
+          rm -rf ${HOME}/.phps_build/${PACKAGE}-${VERSION}-cb1
+          git clone https://github.com/couchbase/build-tools ${HOME}/.build-tools 2>/dev/null || true
+          cd ${HOME}/.build-tools && git pull
+          ${HOME}/.build-tools/cbdeps/php/php_unix.sh ${HOME}/.phps_build ${VERSION} 1
+          mkdir -p ${HOME}/.phps/
+          ln -s -f ${HOME}/.phps_build/${PACKAGE}-${VERSION}-cb1 ${FIXED_DIR}
+        fixed_dir: ${HOME}/.phps/${PACKAGE}-${VERSION}
+      - run: |
+          mkdir -p ${INSTALL_DIR}
+          ln -s ${FIXED_DIR} ${INSTALL_DIR}/${PACKAGE}-${VERSION}
+
+  - if_platform: [windows]
+    base_url: http://latestbuilds.service.couchbase.com/builds/releases/cbdeps/php
+    actions:
+      - url: ${BASE_URL}/${VERSION}/${PACKAGE}-default-${PLATFORM}-amd64-${VERSION}.tgz
+      - install_dir: C:\\php
+      - unarchive:
+          toplevel_dir: ${PACKAGE}-default-${VERSION}
+
+
+packages:
+  php-zts: *php-variant
+  php-nts: *php-variant
+  php-zts-default: *php-variant
+  php-nts-default: *php-variant
+  php-zts-igbinary: *php-variant
+  php-nts-igbinary: *php-variant''')
+}
+
+def build_sdk() {
+    if (isUnix()) {
+        execute("ruby bin/build")
+    } else {
+        bat("""call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64""")
+        bat("phpize")
+        bat("configure --enable-couchbase")
+        bat("nmake")
+    }
+}
+
+def calculate_env(platform, php_version) {
+    def curr_dir = pwd()
+    def phpPrefix = "${curr_dir}/install/php-nts-${php_version}"
+    if (!isUnix()) {
+        phpPrefix = "C:\\php\\php-nts-${php_version}-cb1"
+    }
+    def path = PATH
+    def envs = ["CB_PHP_PREFIX=${phpPrefix}"]
+    if (platform == "macos" || platform == "m1") {
+        envs.push("CB_CC=/usr/bin/cc")
+        envs.push("CB_CXX=/usr/bin/c++")
+    }
+    if (platform == "macos") {
+        envs.push("OPENSSL_ROOT_DIR=/usr/local/opt/openssl")
+    }
+    if (platform == "m1") {
+        envs.push("OPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl")
+    }
+    if (platform == "qe-grav2-amzn2") {
+        envs.push("CB_CC=/usr/bin/gcc10-cc")
+        envs.push("CB_CXX=/usr/bin/gcc10-c++")
+    }
+    if (platform == "amzn2") {
+        envs.push("CB_CC=/opt/gcc-10.2.0/bin/cc")
+        envs.push("CB_CXX=/opt/gcc-10.2.0/bin/c++")
+    }
+    if (platform == "centos7") {
+        envs.push("CB_CC=/opt/rh/devtoolset-9/root/usr/bin/cc")
+        envs.push("CB_CXX=/opt/rh/devtoolset-9/root/usr/bin/c++")
+    }
+    if (platform == "windows") {
+        path = "${curr_dir}/install/openssl-1.1.1g-sdk2;${path}"
+    }
+    if (platform == "windows") {
+        def rubyPath = "C:\\tools\\ruby31\\bin"
+        path = "${rubyPath};${phpPrefix};${phpPrefix}/SDK;${phpPrefix}/msys2/usr/bin;${path}"
+    } else {
+        path = "${phpPrefix}/bin:${path}"
+    }
+    envs.push("PATH=${path}")
+    return envs
+}
+
+def install_system_deps(platform) {
+    // TODO: Remove when added to base images
+    if (platform == "alpine") {
+        sh("sudo /sbin/apk add ruby autoconf")
+    }
+    if (platform == "ubuntu20") {
+        sh("sudo apt-get install -y ruby libxml2-dev pkg-config libonig-dev autoconf")
+    }
+    if (platform == "qe-grav2-amzn2") {
+        sh("sudo yum install -y ruby")
+    }
+    if (platform == "amzn2") {
+        sh("sudo yum install -y oniguruma-devel")
+    }
+
+    if (platform == "windows") {
+        bat("cbdep install openssl 1.1.1g-sdk2")
+        bat("choco install -y --no-progress ruby")
+    }
+}
+
+def install_php(php_version) {
+    if (isUnix()) {
+        sh("cbdep install php-nts ${php_version} -c cbdep.config")
+    } else {
+        def curr_dir = pwd()
+        bat("cbdep install php-nts ${php_version}-cb1 -c cbdep.config")
+    }
+}
+
+def execute(cmd) {
+    if (isUnix()) {
+        sh(cmd)
+    } else {
+        bat(cmd)
+    }
+}
