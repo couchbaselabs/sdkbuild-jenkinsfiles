@@ -1,7 +1,7 @@
 pipeline {
     agent none
     parameters {
-        string(name: "REPO", defaultValue: "https://github.com/couchbaselabs/couchbase-php-client")
+        string(name: "REPO", defaultValue: "https://github.com/couchbase/couchbase-php-client")
         string(name: "SHA", defaultValue: "main")
         booleanParam(name: "IS_RELEASE", defaultValue: false)
         booleanParam(name: "IS_GERRIT_TRIGGER", defaultValue: false)
@@ -27,6 +27,10 @@ pipeline {
                         name 'CB_PHP_VERSION'
                         values '8.1.4', '8.0.17', '7.4.28'
                     }
+                    axis {
+                        name 'THREAD_SAFETY'
+                        values 'nts', 'zts'
+                    }
                 }
                 agent { label PLATFORM }
                 stages {
@@ -34,7 +38,7 @@ pipeline {
                         steps {
                             timestamps {
                                 cleanWs()
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
                                     checkout([
                                         $class: "GitSCM",
                                         branches: [[name: params.SHA]],
@@ -55,10 +59,10 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
                                     cbdep_config()
                                     install_system_deps(PLATFORM)
-                                    install_php(CB_PHP_VERSION)
+                                    install_php(CB_PHP_VERSION, THREAD_SAFETY)
                                 }
                             }
                         }
@@ -66,8 +70,8 @@ pipeline {
                     stage("build") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
-                                    withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                    withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
                                         build_sdk()
                                     }
                                 }
@@ -76,18 +80,26 @@ pipeline {
                     }
                     stage("stash") {
                         steps {
-                            stash(includes: "build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}", useDefaultExcludes: false)
+                            stash(includes: "build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
                         }
                     }
                     stage("test") {
                         options {
                             timeout(time: 5, unit: 'MINUTES')
                         }
+                        environment {
+                            COUCHBASE_LOG_LEVEL = 'trace'
+                        }
                         steps {
-                            dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
-                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                            dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
                                     execute("ruby bin/test")
                                 }
+                            }
+                        }
+                        post {
+                            always {
+                                junit("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/results.xml")
                             }
                         }
                     }
@@ -115,10 +127,7 @@ pipeline {
                 }
             }
         }
-        stage('test') {
-            environment {
-                PLATFORM = 'sdkqe-centos7'
-            }
+        stage('combination') {
             matrix {
                 axes {
                     axis {
@@ -129,16 +138,20 @@ pipeline {
                         name 'CB_PHP_VERSION'
                         values '8.1.4', '8.0.17', '7.4.28'
                     }
+                    axis {
+                        name 'THREAD_SAFETY'
+                        values 'nts', 'zts'
+                    }
                 }
-                agent { label PLATFORM }
+                agent { label 'sdkqe-centos7' }
                 stages {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                                dir("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
                                     cbdep_config()
-                                    install_system_deps(PLATFORM)
-                                    install_php(CB_PHP_VERSION)
+                                    install_system_deps('centos7')
+                                    install_php(CB_PHP_VERSION, THREAD_SAFETY)
                                 }
                             }
                         }
@@ -146,15 +159,23 @@ pipeline {
                     stage("inst") {
                         steps {
                             deleteDir()
-                            unstash(name: "stash-centos7-${CB_PHP_VERSION}-${BUILD_NUMBER}")
+                            unstash(name: "stash-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}")
                         }
                     }
                     stage("test") {
+                        environment {
+                            COUCHBASE_LOG_LEVEL = 'trace'
+                        }
                         steps {
-                            dir("build-centos7-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
-                                withEnv(calculate_env("centos7", CB_PHP_VERSION)) {
+                            dir("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
                                     test_with_cbdyncluster(CB_VERSION)
                                 }
+                            }
+                        }
+                        post {
+                            always {
+                                junit("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/results.xml")
                             }
                         }
                     }
@@ -167,10 +188,14 @@ pipeline {
 def test_with_cbdyncluster(version) {
     def clusterId = ""
     try {
-        clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${version}", returnStdout: true).trim()
+        clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${version} --platform ec2", returnStdout: true).trim()
         sh("cbdyncluster setup ${clusterId} --node=kv,index,n1ql --node kv --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 1024 --bucket default")
         sh("cbdyncluster add-sample-bucket ${clusterId} --name beer-sample")
+        sh("cbdyncluster add-sample-bucket ${clusterId} --name travel-sample")
         def connstr = sh(script: "cbdyncluster connstr ${clusterId}", returnStdout: true).trim()
+        def ips = sh(script: "cbdyncluster ips ${clusterId}", returnStdout: true).trim()
+        def searchIp = ips.split(",")[-1]
+        create_search_index(searchIp)
         withEnv([
             "TEST_CONNECTION_STRING=${connstr}",
         ]) {
@@ -233,11 +258,11 @@ def build_sdk() {
     }
 }
 
-def calculate_env(platform, php_version) {
+def calculate_env(platform, php_version, thread_safety) {
     def curr_dir = pwd()
-    def phpPrefix = "${curr_dir}/install/php-nts-${php_version}"
+    def phpPrefix = "${curr_dir}/install/php-${thread_safety}-${php_version}"
     if (!isUnix()) {
-        phpPrefix = "C:\\php\\php-nts-${php_version}-cb1"
+        phpPrefix = "C:\\php\\php-${thread_safety}-${php_version}-cb1"
     }
     def path = PATH
     def envs = ["CB_PHP_PREFIX=${phpPrefix}"]
@@ -297,12 +322,12 @@ def install_system_deps(platform) {
     }
 }
 
-def install_php(php_version) {
+def install_php(php_version, thread_safety) {
     if (isUnix()) {
-        sh("cbdep install php-nts ${php_version} -c cbdep.config")
+        sh("cbdep install php-${thread_safety} ${php_version} -c cbdep.config")
     } else {
         def curr_dir = pwd()
-        bat("cbdep install php-nts ${php_version}-cb1 -c cbdep.config")
+        bat("cbdep install php-${thread_safety} ${php_version}-cb1 -c cbdep.config")
     }
 }
 
@@ -312,4 +337,147 @@ def execute(cmd) {
     } else {
         bat(cmd)
     }
+}
+
+// TODO: Remove when search index manager is implemented in SDK
+def create_search_index(ip) {
+    sh("""
+curl -XPUT -H "Content-Type: application/json" \
+-u Administrator:password http://${ip}:8094/api/index/beer-search -d \
+'{
+  "type": "fulltext-index",
+  "name": "beer-search",
+  "sourceType": "couchbase",
+  "sourceName": "beer-sample",
+  "planParams": {
+    "maxPartitionsPerPIndex": 171,
+    "indexPartitions": 6
+  },
+  "params": {
+    "doc_config": {
+      "docid_prefix_delim": "",
+      "docid_regexp": "",
+      "mode": "type_field",
+      "type_field": "type"
+    },
+    "mapping": {
+      "analysis": {},
+      "default_analyzer": "standard",
+      "default_datetime_parser": "dateTimeOptional",
+      "default_field": "_all",
+      "default_mapping": {
+        "dynamic": true,
+        "enabled": true
+      },
+      "default_type": "_default",
+      "docvalues_dynamic": true,
+      "index_dynamic": true,
+      "store_dynamic": false,
+      "type_field": "_type",
+      "types": {
+        "beer": {
+          "dynamic": true,
+          "enabled": true,
+          "properties": {
+            "abv": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "abv",
+                  "store": true,
+                  "type": "number"
+                }
+              ]
+            },
+            "category": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "category",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "description": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "description",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "name": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "name",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "style": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "style",
+                  "store": true,
+                  "type": "text"
+                }
+              ]
+            },
+            "updated": {
+              "dynamic": false,
+              "enabled": true,
+              "fields": [
+                {
+                  "docvalues": true,
+                  "include_in_all": true,
+                  "include_term_vectors": true,
+                  "index": true,
+                  "name": "updated",
+                  "store": true,
+                  "type": "datetime"
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "store": {
+      "indexType": "scorch"
+    }
+  },
+  "sourceParams": {}
+}'
+""")
 }
