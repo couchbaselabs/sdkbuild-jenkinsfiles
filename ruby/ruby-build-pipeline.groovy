@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
+                        values 'centos7'/* , 'macos-11.0' */, 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -100,12 +100,13 @@ pipeline {
                 }
             }
         }
+
         stage('inst') {
             matrix {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
+                        values 'centos7'/* , 'macos-11.0' */, 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -166,7 +167,13 @@ pipeline {
                 }
             }
         }
+
         stage('test') {
+            when {
+                expression {
+                    return SKIP_TESTS.toBoolean() == false
+                }
+            }
             environment {
                 PLATFORM = 'sdkqe-centos8'
             }
@@ -224,14 +231,16 @@ pipeline {
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
                                 unstash(name: "tests-centos7-${CB_RUBY_VERSION}")
-                                sh("bin/jenkins/test-with-cbdyncluster")
+                                sh("bin/jenkins/test-with-cbdyncluster ./couchbase-*.gem")
                             }
                         }
                     }
                 }
             }
         }
+
         stage('pub') {
             agent { label 'centos8' }
             stages {
@@ -277,7 +286,7 @@ pipeline {
                 stage("repo") {
                     when {
                         expression {
-                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                            return IS_PULL_REQUEST.toBoolean() == false
                         }
                     }
                     steps {
