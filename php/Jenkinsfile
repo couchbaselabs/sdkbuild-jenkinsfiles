@@ -25,7 +25,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_PHP_VERSION'
-                        values '8.1.4', '8.0.17', '7.4.28'
+                        values '8.1.4', '8.0.17'
                     }
                     axis {
                         name 'THREAD_SAFETY'
@@ -38,7 +38,7 @@ pipeline {
                         steps {
                             timestamps {
                                 cleanWs()
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                dir("php-build") {
                                     checkout([
                                         $class: "GitSCM",
                                         branches: [[name: params.SHA]],
@@ -59,7 +59,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                dir("php-build") {
                                     cbdep_config()
                                     install_system_deps(PLATFORM)
                                     install_php(CB_PHP_VERSION, THREAD_SAFETY)
@@ -70,7 +70,7 @@ pipeline {
                     stage("build") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                dir("php-build") {
                                     withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
                                         build_sdk()
                                     }
@@ -80,7 +80,7 @@ pipeline {
                     }
                     stage("stash") {
                         steps {
-                            stash(includes: "build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
+                            stash(includes: "php-build", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
                         }
                     }
                     stage("test") {
@@ -91,7 +91,7 @@ pipeline {
                             COUCHBASE_LOG_LEVEL = 'trace'
                         }
                         steps {
-                            dir("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                            dir("php-build") {
                                 withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
                                     execute("ruby bin/test")
                                 }
@@ -99,7 +99,7 @@ pipeline {
                         }
                         post {
                             always {
-                                junit("build-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/results.xml")
+                                junit("php-build/results.xml")
                             }
                         }
                     }
@@ -148,7 +148,7 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                                dir("php-build") {
                                     cbdep_config()
                                     install_system_deps('centos7')
                                     install_php(CB_PHP_VERSION, THREAD_SAFETY)
@@ -167,7 +167,7 @@ pipeline {
                             COUCHBASE_LOG_LEVEL = 'trace'
                         }
                         steps {
-                            dir("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}") {
+                            dir("php-build") {
                                 withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
                                     test_with_cbdyncluster(CB_VERSION)
                                 }
@@ -175,7 +175,7 @@ pipeline {
                         }
                         post {
                             always {
-                                junit("build-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}/results.xml")
+                                junit("php-build/results.xml")
                             }
                         }
                     }
