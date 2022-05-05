@@ -16,7 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7'/* , 'macos-11.0' */, 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -106,7 +106,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7'/* , 'macos-11.0' */, 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
+                        values 'centos7', 'macos-11.0', 'macos-10.15', 'ubuntu20', 'debian9', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
