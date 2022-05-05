@@ -80,7 +80,7 @@ pipeline {
                     }
                     stage("stash") {
                         steps {
-                            stash(includes: "php-build", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
+                            stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
                         }
                     }
                     stage("test") {
@@ -251,10 +251,12 @@ def build_sdk() {
     if (isUnix()) {
         execute("ruby bin/build")
     } else {
-        bat("""call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64""")
-        bat("phpize")
-        bat("configure --enable-couchbase")
-        bat("nmake")
+        bat("""
+        call "%PROGRAMFILES(X86)%\\Microsoft Visual Studio\\2019\\Professional\\VC\\Auxiliary\\Build\\vcvarsall.bat" x86_amd64
+        phpize
+        configure --enable-couchbase
+        nmake
+        """)
     }
 }
 
