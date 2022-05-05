@@ -319,17 +319,17 @@ def install_system_deps(platform) {
     }
 
     if (platform == "windows") {
-        bat("cbdep install openssl 1.1.1g-sdk2")
+        bat("cbdep --debug install openssl 1.1.1g-sdk2")
         bat("choco install -y --no-progress ruby")
     }
 }
 
 def install_php(php_version, thread_safety) {
     if (isUnix()) {
-        sh("cbdep install php-${thread_safety} ${php_version} -c cbdep.config")
+        sh("cbdep --debug install php-${thread_safety} ${php_version} -c cbdep.config")
     } else {
         def curr_dir = pwd()
-        bat("cbdep install php-${thread_safety} ${php_version}-cb1 -c cbdep.config")
+        bat("cbdep --debug install php-${thread_safety} ${php_version}-cb1 -c cbdep.config")
     }
 }
 
