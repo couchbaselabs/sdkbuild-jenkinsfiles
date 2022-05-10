@@ -695,7 +695,7 @@ pipeline {
                 stages {
                     stage('rpm') {
                         steps {
-                            sh('sudo yum install -y rpm-build yum-utils; cat /etc/os-release')
+                            sh('sudo yum erase openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
                             cleanWs()
                             unstash('centos7-srpm')
                             sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
