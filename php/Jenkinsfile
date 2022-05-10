@@ -1,3 +1,5 @@
+// vim: ft=groovy
+
 pipeline {
     agent none
     parameters {
@@ -21,7 +23,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20', 'windows'
+                        values 'centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20' //, 'windows'
                     }
                     axis {
                         name 'CB_PHP_VERSION'
