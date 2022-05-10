@@ -572,6 +572,33 @@ pipeline {
                     }
             }
         }
+        stage('amzn2') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values 'x86_64', 'aarch64'
+                    }
+                }
+                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
+                stages {
+                    stage('rpm') {
+                        steps {
+                            sh('sudo yum install -y rpm-build yum-utils; cat /etc/os-release')
+                            cleanWs()
+                            unstash('centos7-srpm')
+                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
+                            sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
+                            dir('output') {
+                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
+                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
+                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 def package_src(name, arch, VERSION) {
