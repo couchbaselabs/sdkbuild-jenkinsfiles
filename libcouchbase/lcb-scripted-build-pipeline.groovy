@@ -170,7 +170,7 @@ pipeline {
     }
     stages {
         stage('prepare and validate') {
-            agent { label 'centos8 || centos7 || centos6' }
+            agent { label 'centos7 || centos6' }
             steps {
                 cleanWs()
                 script {
@@ -207,7 +207,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian9", "centos8", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2", "alpine"
+                        values "ubuntu20", "debian9", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2", "alpine"
                     }
                 }
 

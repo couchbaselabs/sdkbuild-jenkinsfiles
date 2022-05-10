@@ -170,7 +170,7 @@ pipeline {
     }
     stages {
         stage('prepare and validate') {
-            agent { label 'centos8 || centos7 || centos6' }
+            agent { label 'centos7 || centos6' }
             steps {
                 cleanWs()
                 script {
@@ -207,7 +207,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian9", "centos8", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2", "alpine"
+                        values "ubuntu20", "debian9", "centos7", "m1", "macos-11.0", "qe-grav2-amzn2", "alpine"
                     }
                 }
 
@@ -371,30 +371,6 @@ pipeline {
                         stage('rpm') {
                             steps {
                                 package_rpm(64, 7, "x86_64", VERSION)
-                            }
-                        }
-                    }
-                }
-                stage('centos8 x86_64') {
-                    agent { label 'mock' }
-                    stages {
-                        stage('c64v8') {
-                            steps {
-                                dir('ws_centos64_v8') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('srpm') {
-                            steps {
-                                package_srpm(64, 8, "x86_64", VERSION)
-                            }
-                        }
-                        stage('rpm') {
-                            steps {
-                                package_rpm(64, 8, "x86_64", VERSION)
                             }
                         }
                     }
@@ -705,33 +681,6 @@ pipeline {
                             }
                         }
                     }
-            }
-        }
-        stage('amzn2') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values 'x86_64', 'aarch64'
-                    }
-                }
-                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
-                stages {
-                    stage('rpm') {
-                        steps {
-                            sh('sudo yum install -y rpm-build yum-utils; cat /etc/os-release')
-                            cleanWs()
-                            unstash('centos7-srpm')
-                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
-                            sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
-                            dir('output') {
-                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
-                            }
-                        }
-                    }
-                }
             }
         }
         stage('repositories') {

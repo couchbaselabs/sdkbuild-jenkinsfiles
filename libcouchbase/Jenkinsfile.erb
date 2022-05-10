@@ -22,7 +22,8 @@ nix_test_builds = [
 
     ['ubuntu20', 'ubuntu', 20, 'x64'],
     ['debian9', 'debian', 9, 'x64'],
-    ['centos8', 'centos', 8, 'x64'],
+    # Error: Failed to download metadata for repo 'baseos': Cannot prepare internal mirrorlist: No URLs in mirrorlist
+    # ['centos8', 'centos', 8, 'x64'],
     ['centos7', 'centos', 7, 'x64'],
     ['m1', 'macos', 11, 'm1'],
     ['macos-11.0', 'macos', 11, 'x64'],
@@ -44,7 +45,7 @@ elsif ENV['LINUX_ONLY']
     windows_dists = []
     centos_dists = [
         [7, 'x86_64', 64],
-        [8, 'x86_64', 64],
+        # [8, 'x86_64', 64],
     ]
     ubuntu_dists = [
         ['focal', 'amd64', 'ubuntu2004', 64],
@@ -236,7 +237,7 @@ pipeline {
     }
     stages {
         stage('prepare and validate') {
-            agent { label 'centos8 || centos7 || centos6' }
+            agent { label 'centos7 || centos6' }
             steps {
                 cleanWs()
                 script {
