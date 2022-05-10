@@ -134,7 +134,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release', '5.5-release'
+                        values '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release' //, '5.5-release'
                     }
                     axis {
                         name 'CB_PHP_VERSION'
