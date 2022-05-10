@@ -138,7 +138,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_PHP_VERSION'
-                        values '8.1.4', '8.0.17', '7.4.28'
+                        values '8.1.4', '8.0.17'
                     }
                     axis {
                         name 'THREAD_SAFETY'
