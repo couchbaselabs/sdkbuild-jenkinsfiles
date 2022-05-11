@@ -8,6 +8,7 @@ pipeline {
         booleanParam(name: "IS_RELEASE", defaultValue: false)
         booleanParam(name: "IS_GERRIT_TRIGGER", defaultValue: false)
         string(name: "REFSPEC", defaultValue: "+refs/heads/*:refs/remotes/origin/*")
+        booleanParam(name: "SKIP_TESTS", defaultValue: false)
     }
     stages {
         stage('prep') {
@@ -15,6 +16,34 @@ pipeline {
             steps {
                 script {
                     buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+                }
+                dir("couchbase-php-client") {
+                    checkout([
+                        $class: "GitSCM",
+                        branches: [[name: params.SHA]],
+                        extensions: [[
+                            $class: "SubmoduleOption",
+                            disableSubmodules: false,
+                            parentCredentials: true,
+                            recursiveSubmodules: true,
+                        ]],
+                        userRemoteConfigs: [[
+                            refspec: params.REFSPEC,
+                            url: params.REPO
+                    ]]])
+                }
+                stash includes: 'couchbase-php-client/', name: 'couchbase-php-client', useDefaultExcludes: false
+            }
+        }
+        stage("package") {
+            agent { label 'centos7' }
+            steps {
+                dir("package-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                    unstash("couchbase-php-client")
+                    dir("couchbase-php-client") {
+                        execute("ruby bin/package")
+                        archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
+                    }
                 }
             }
         }
@@ -130,6 +159,11 @@ pipeline {
             }
         }
         stage('combination') {
+            when {
+                expression {
+                    return !SKIP_TESTS.toBoolean()
+                }
+            }
             matrix {
                 axes {
                     axis {
