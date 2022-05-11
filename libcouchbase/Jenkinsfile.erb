@@ -460,8 +460,7 @@ pipeline {
         stage('int') {
             when {
                 expression {
-                    return !IS_GERRIT_TRIGGER.toBoolean()
-
+                    return !IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                 }
             }
             matrix {

@@ -269,8 +269,7 @@ pipeline {
         stage('int') {
             when {
                 expression {
-                    return !IS_GERRIT_TRIGGER.toBoolean()
-
+                    return !IS_GERRIT_TRIGGER.toBoolean() && !SKIP_TESTS.toBoolean()
                 }
             }
             matrix {
@@ -695,7 +694,7 @@ pipeline {
                 stages {
                     stage('rpm') {
                         steps {
-                            sh('sudo yum erase openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
+                            sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
                             cleanWs()
                             unstash('centos7-srpm')
                             sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
