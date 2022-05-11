@@ -758,7 +758,7 @@ def package_srpm(bits, relno, arch, VERSION) {
     dir("ws_centos${bits}_v${relno}/build") {
         unstash 'tarball'
         sh("""
-            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;s/openssl-devel/openssl11-devel/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
         """.stripIndent())
         sh("""
