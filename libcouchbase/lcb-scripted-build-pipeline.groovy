@@ -572,6 +572,11 @@ pipeline {
             }
         }
         stage('amzn2') {
+            when {
+                expression {
+                    return !IS_GERRIT_TRIGGER.toBoolean()
+                }
+            }
             matrix {
                 axes {
                     axis {

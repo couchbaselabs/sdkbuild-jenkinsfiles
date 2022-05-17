@@ -631,6 +631,11 @@ pipeline {
         }
 <% if centos_dists.any? {|(relno, arch, bits)| relno == 7 && arch = 'x86_64' } %>
         stage('amzn2') {
+            when {
+                expression {
+                    return !IS_GERRIT_TRIGGER.toBoolean()
+                }
+            }
             matrix {
                 axes {
                     axis {
