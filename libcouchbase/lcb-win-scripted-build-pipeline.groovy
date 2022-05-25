@@ -197,13 +197,6 @@ pipeline {
                         sh('cmake --build . --target dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
-                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                            s3Upload(
-                                bucket: 'sdk-snapshots.couchbase.com',
-                                file: "${VERSION.tarName()}.tar.gz",
-                                path: 'libcouchbase/'
-                            )
-                        }
                     }
                 }
             }
@@ -297,13 +290,6 @@ pipeline {
                                     }
                                 }
                                 archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip", fingerprint: true)
-                                withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                                    s3Upload(
-                                        bucket: 'sdk-snapshots.couchbase.com',
-                                        file: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip",
-                                        path: 'libcouchbase/'
-                                    )
-                                }
                             }
                         }
                     }

@@ -264,7 +264,7 @@ pipeline {
                         sh('cmake --build . --target dist')
                         archiveArtifacts(artifacts: "${VERSION.tarName()}.tar.gz", fingerprint: true)
                         stash includes: "${VERSION.tarName()}.tar.gz", name: 'tarball', useDefaultExcludes: false
-<% if ENV['WINDOWS_ONLY'] %>
+<% if false && ENV['WINDOWS_ONLY'] %>
                         withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                             s3Upload(
                                 bucket: 'sdk-snapshots.couchbase.com',
@@ -439,7 +439,7 @@ pipeline {
                                     }
                                 }
                                 archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip", fingerprint: true)
-<% if ENV['WINDOWS_ONLY'] %>
+<% if false && ENV['WINDOWS_ONLY'] %>
                                 withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                     s3Upload(
                                         bucket: 'sdk-snapshots.couchbase.com',
