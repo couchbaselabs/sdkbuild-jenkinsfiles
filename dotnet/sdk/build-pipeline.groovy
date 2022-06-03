@@ -122,16 +122,17 @@ pipeline {
                 }
             }
         }
-        stage("combination-test") {
-            agent { label "sdkqe-centos7" }
-			when {
-                // see top of file for criteria
-                expression { _RUN_COMBINATION_TESTS }
-            }
-            steps {
-                doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
-            }
-        }
+        /** Combination tests are not useful nor functional currently, so no point wasting a node on them until that is fixed **/
+        // stage("combination-test") {
+        //     agent { label "ubuntu20" }
+		// 	when {
+        //         // see top of file for criteria
+        //         expression { _RUN_COMBINATION_TESTS }
+        //     }
+        //     steps {
+        //         doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
+        //     }
+        // }
         stage("package") {
             agent { label "windows" }
             steps {
@@ -191,120 +192,6 @@ def packProject(PROJ_FILE, nugetSignKey, version, DOTNET_SDK_VERSION) {
 
     batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet build ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
     batWithEcho("${depsDir}\\dotnet-core-sdk-all\\dotnet pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-}
-
-def doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS) {
-    installSdksForPlatform("ubuntu20", DOTNET_SDK_VERSIONS)
-    sh("cbdyncluster ps -a")
-    for (j in CB_SERVER_VERSIONS) {
-        cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
-        unstash "couchbase-net-client-ubuntu16"
-        def cluster_version = j
-        def caps = "kv,index,n1ql,fts"
-        if (cluster_version>="5.5"){
-            caps=caps+",cbas"
-        }
-
-        stage("combination-test ${cluster_version}") {
-            environment {
-                CB_SERVER_VERSION = cluster_version
-            }
-            def clusterId = null
-            try {
-                // Allocate the cluster
-                clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=" + cluster_version, returnStdout: true)
-                echo "Got cluster ID $clusterId"
-
-                // Find the cluster IP
-                def ips = sh(script: "cbdyncluster ips $clusterId", returnStdout: true).trim()
-                echo "Got raw cluster IPs " + ips
-                ips = ips.tokenize(',')
-                def ip = ips[0]
-                echo "Got cluster IP http://" + ip + ":8091"
-
-                shWithEcho("cbdyncluster --node ${caps} --node kv --node kv --bucket default setup ${clusterId}")
-
-                // Create the cluster
-                shWithEcho("curl -v -X POST -u Administrator:password -d 'memoryQuota=2048' http://${ip}:8091/pools/default" )
-                shWithEcho("cbdyncluster --name=beer-sample add-sample-bucket $clusterId")
-                shWithEcho("cbdyncluster --name=travel-sample add-sample-bucket $clusterId")
-
-                // setup buckets, users, storage mode
-                // TODO: one command that does all the default bucket setup (flush, replica, etc...)
-                shWithEcho("curl -vv -X POST -u Administrator:password -d'storageMode=plasma' http://${ip}:8091/settings/indexes")
-                shWithEcho("curl -v -X POST -u Administrator:password -d flushEnabled=1 http://${ip}:8091/pools/default/buckets/default")
-                shWithEcho("curl -v -X POST -u Administrator:password -d replicaNumber=2 http://${ip}:8091/pools/default/buckets/default")
-                // give time for bucket to populate, before rebalancing
-                sleep(30)
-                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/beer-sample")
-                shWithEcho("curl http://Administrator:password@${ip}:8091/pools/default/buckets/travel-sample")
-                shWithEcho("curl -vv -X POST -u Administrator:password -d 'knownNodes=ns_1%40${ip}%2Cns_1%40${ips[1]}%2Cns_1%40${ips[2]}' http://${ip}:8091/controller/rebalance")
-                waitUntilRebalanceComplete("${ip}")
-                shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `default` USING GSI'")
-                shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `beer-sample` USING GSI'")
-                shWithEcho("curl -vv -XPOST http://Administrator:password@${ip}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON `travel-sample` USING GSI'")
-
-                // sleep a bit so the index should probably be ready.
-                sleep(30)
-
-
-                if (BRANCH == "master") {
-                    def configFile = "couchbase-net-client/tests/Couchbase.IntegrationTests/config.json"
-                    def projFile   = "couchbase-net-client/tests/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj"
-                    def configFileManagement = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/config.json"
-                    def testResults = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults/TestResults.xml"
-                    def projFileManagement   = "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/Couchbase.IntegrationTests.Management.csproj"
-                    
-                    // replace hostname in config.json
-                    shWithEcho("sed -i -e 's/localhost/${ip}/' ${configFile}")
-                    shWithEcho("cat ${configFile}")
-                    shWithEcho("sed -i -e 's/localhost/${ip}/' ${configFileManagement}")
-                    shWithEcho("cat ${configFile}")
-                    
-                    // run management tests to set up environment
-                    shWithEcho("deps/dotnet-core-sdk-all/dotnet test -f net5.0  --filter DisplayName~VerifyEnvironment ${projFileManagement}")
-                    sleep(30);
-
-                    // run integration tests
-                    try {
-                        shWithEcho("deps/dotnet-core-sdk-all/dotnet test -f net5.0 --test-adapter-path:. --logger:junit  ${projFile}")
-                    }
-                    finally {
-                        junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests/TestResults/TestResults.xml"
-                    }
-
-                    // run integration tests
-                    try {
-                        shWithEcho("deps/dotnet-core-sdk-all/dotnet test --test-adapter-path:. --logger:junit -f net5.0  ${projFileManagement}")
-                    }
-                    finally {
-                        junit allowEmptyResults: true, testResults: "couchbase-net-client/tests/Couchbase.IntegrationTests.Management/TestResults.xml"
-                    }
-                }
-                else if (BRANCH == "release27") {
-                    // This does not actually work as it doesn't appear the integration tests
-                    // in the 2.7 releases actually supports our CI environment currently.
-                    
-                    // replace hostname in config.json
-                    //shWithEcho("sed -i -e 's/localhost/${ip}/' couchbase-net-client/Src/Couchbase.IntegrationTests/config.json")
-                    //shWithEcho("cat couchbase-net-client/Src/Couchbase.IntegrationTests/config.json")
-
-                    // run integration tests
-                    //shWithEcho("deps/dotnet-core-sdk-all/dotnet test couchbase-net-client/Src/Couchbase.IntegrationTests/Couchbase.IntegrationTests.csproj")
-                }
-                else {
-                    echo "Unknown gerrit branch ${BRANCH}"
-                }
-            }
-            finally {
-                if (clusterId != null) {
-                    // Easy to run out of resources during iterating, so cleanup even
-                    // though cluster will be auto-removed after a time
-                    shWithEcho("cbdyncluster rm $clusterId")
-                }
-            }
-        }
-    }
 }
 
 def getDepsDir(PLATFORM) {
