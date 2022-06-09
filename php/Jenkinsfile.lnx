@@ -22,7 +22,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-nts 8.1.0-cb6')
                             }
@@ -72,7 +72,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-zts 8.1.0-cb6')
                             }
@@ -122,7 +122,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-nts 8.0.13-cb6')
                             }
@@ -172,7 +172,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-zts 8.0.13-cb6')
                             }
@@ -222,7 +222,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-nts 7.4.26-cb6')
                             }
@@ -272,7 +272,7 @@ pipeline {
                     stages {
                         stage('php') {
                             steps {
-                                sh(script: 'sudo yum install --disablerepo=bintray* -y openssl-libs', returnStatus: true)
+                                sh(script: 'sudo yum install -y openssl-libs openssl11-libs', returnStatus: true)
                                 cleanWs()
                                 sh('cbdep --debug install --dir /tmp/php php-zts 7.4.26-cb6')
                             }
