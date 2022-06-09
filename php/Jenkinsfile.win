@@ -54,11 +54,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 1810
@@ -122,11 +117,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 2810
@@ -188,11 +178,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 1810
@@ -253,11 +238,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 2810
@@ -320,11 +300,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9013
@@ -388,11 +363,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 10013
@@ -454,11 +424,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9013
@@ -519,11 +484,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 10013
@@ -586,11 +546,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8426
@@ -654,11 +609,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9426
@@ -720,11 +670,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 8426
@@ -785,11 +730,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             environment {
                                 CB_MOCK = 1
                                 CB_MOCK_CTL_PORT = 9426

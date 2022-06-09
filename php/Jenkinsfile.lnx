@@ -50,11 +50,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -100,11 +95,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -150,11 +140,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -200,11 +185,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -250,11 +230,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -300,11 +275,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }

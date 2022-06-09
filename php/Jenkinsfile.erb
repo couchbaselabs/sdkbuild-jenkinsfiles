@@ -74,11 +74,6 @@ pipeline {
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
                             options {
                                 timeout(time: 15, unit: 'MINUTES')
                             }
@@ -186,11 +181,6 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                             }
                         }
                         stage('test') {
-                            when {
-                                expression {
-                                    return SKIP_TESTS.toBoolean() == false
-                                }
-                            }
 <% mock_ver = '1.5.25' %>
 <% mock_jar = 'tests\\\\CouchbaseMock.jar' %>
 <% mock_port = 1000 * (ts == 'zts' ? 1 : 2) + php_ver.scan(/\d/).join.to_i %>
