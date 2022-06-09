@@ -28,8 +28,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.1.0-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
                                 }
                             }
@@ -96,8 +96,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.1.0-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
                                 }
                             }
@@ -163,8 +163,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.1.0-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2019-amd64')
                                 }
                             }
                         }
@@ -228,8 +228,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.1.0-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2019-amd64')
                                 }
                             }
                         }
@@ -294,8 +294,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.13-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
                                 }
                             }
@@ -362,8 +362,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.13-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2019-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2019-amd64\\bin\\')
                                 }
                             }
@@ -429,8 +429,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 8.0.13-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2019-amd64')
                                 }
                             }
                         }
@@ -494,8 +494,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 8.0.13-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2019-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2019-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2019 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2019-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2019-amd64')
                                 }
                             }
                         }
@@ -560,8 +560,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.26-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                 }
                             }
@@ -628,8 +628,8 @@ pipeline {
                                     bat('cbdep --debug --platform windows_msvc2017 install openssl 1.1.1g-sdk2')
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.26-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1.openssl')
-                                    bat('move install\\libcouchbase-3.2.4-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1.openssl')
+                                    bat('move install\\libcouchbase-3.3.1-cb1.openssl\\libcouchbase-windows_msvc2017-amd64-3.3.1-cb1.openssl install\\libcouchbase-windows_msvc2017-amd64')
                                     bat('copy install\\openssl-1.1.1g-sdk2\\bin\\*.dll install\\libcouchbase-windows_msvc2017-amd64\\bin\\')
                                 }
                             }
@@ -695,8 +695,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-zts-default 7.4.26-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2017-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                 }
                             }
                         }
@@ -760,8 +760,8 @@ pipeline {
                                     deleteDir()
                                     bat('cbdep --debug install --dir c:\\php php-nts-default 7.4.26-cb6')
 
-                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    bat('move install\\libcouchbase-3.2.4-cb1\\libcouchbase-windows_msvc2017-amd64-3.2.4-cb1 install\\libcouchbase-windows_msvc2017-amd64')
+                                    bat('cbdep --debug --platform windows_msvc2017 install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    bat('move install\\libcouchbase-3.3.1-cb1\\libcouchbase-windows_msvc2017-amd64-3.3.1-cb1 install\\libcouchbase-windows_msvc2017-amd64')
                                 }
                             }
                         }

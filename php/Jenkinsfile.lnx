@@ -30,8 +30,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('8.1.0-nts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -80,8 +80,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('8.1.0-zts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -130,8 +130,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('8.0.13-nts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -180,8 +180,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('8.0.13-zts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -230,8 +230,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('7.4.26-nts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
@@ -280,8 +280,8 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('7.4.26-zts-x64') {
-                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.2.4-cb1')
-                                    sh('mv install/libcouchbase-3.2.4-cb1/libcouchbase-centos7-x86_64-3.2.4-cb1 install/libcouchbase-linux-amd64')
+                                    sh('cbdep --debug install --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase 3.3.1-cb1')
+                                    sh('mv install/libcouchbase-3.3.1-cb1/libcouchbase-centos7-x86_64-3.3.1-cb1 install/libcouchbase-linux-amd64')
                                     sh('rm -rf install/libcouchbase-linux-amd64/lib; ln -sf \$(realpath install/libcouchbase-linux-amd64/lib64) install/libcouchbase-linux-amd64/lib')
                                     sh('LD_LIBRARY_PATH=\$(realpath install/libcouchbase-linux-amd64/lib) install/libcouchbase-linux-amd64/bin/cbc version')
                                 }
