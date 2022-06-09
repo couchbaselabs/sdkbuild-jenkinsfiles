@@ -5,7 +5,7 @@ pipeline {
     agent none
     stages {
         stage('prepare') {
-            agent { label 'centos8' }
+            agent { label 'centos7' }
             steps {
                 cleanWs()
                 sh('sudo yum remove -y libcouchbase*')
@@ -822,7 +822,7 @@ pipeline {
         stage('package') {
             stages {
                 stage('src') {
-                    agent { label 'centos8' }
+                    agent { label 'centos7' }
                     steps {
                         cleanWs()
                         sh('cbdep --debug install --dir /tmp/php php-zts 7.4.26-cb6')
@@ -839,7 +839,7 @@ pipeline {
                 stage('bin') {
                     parallel {
                         stage('wz8.1s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -857,7 +857,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.1s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -875,7 +875,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz8.1') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -893,7 +893,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.1') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -911,7 +911,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz8.0s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -929,7 +929,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.0s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -947,7 +947,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz8.0') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -965,7 +965,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn8.0') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -983,7 +983,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.4s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -1001,7 +1001,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.4s') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -1019,7 +1019,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wz7.4') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
@@ -1037,7 +1037,7 @@ zip -r9 \${pkg_name}.zip \${pkg_name}
                             }
                         }
                         stage('wn7.4') {
-                            agent { label 'centos8' }
+                            agent { label 'centos7' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
