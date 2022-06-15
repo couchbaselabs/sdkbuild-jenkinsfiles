@@ -1,0 +1,13 @@
+import sys
+
+from auditwheel.main import main
+from auditwheel.policy import _POLICIES as POLICIES
+
+# we want to dynamically link against OpenSSL libraries
+# libcrypto.so.1.1, libssl.so.1.1
+openssl_libs = ['libssl.so.1.1', 'libcrypto.so.1.1']
+for p in POLICIES:
+    p['lib_whitelist'].extend(openssl_libs)
+
+if __name__ == "__main__":
+    sys.exit(main())
