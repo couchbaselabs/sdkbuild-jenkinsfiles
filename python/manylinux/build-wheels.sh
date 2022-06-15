@@ -2,8 +2,8 @@
 set -e -u
 
 /opt/python/cp38-cp38/bin/python -m pip install auditwheel
-export AUDITWHEEL=/tmp/auditwheel-pycbc
-export PLATFORM=manylinux2014_x86_64
+# export AUDITWHEEL=/tmp/auditwheel-pycbc
+# export PLATFORM=manylinux2014_x86_64
 
 #allowed_python_versions=("cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310")
 #allowed_python_versions=("cp38-cp38")
@@ -41,7 +41,7 @@ function repair_wheel {
     if ! auditwheel show "$wheel"; then
         echo "Skipping non-platform wheel $wheel"
     else
-        /opt/python/cp38-cp38/bin/python $AUDITWHEEL repair "$wheel" --plat "$PLATFORM" -w $PYTHON_SDK_WHEELHOUSE/dist
+        /opt/python/cp38-cp38/bin/python $AUDITWHEEL repair "$wheel" --plat "$WHEEL_PLATFORM" -w $PYTHON_SDK_WHEELHOUSE/dist
     fi
 }
 
