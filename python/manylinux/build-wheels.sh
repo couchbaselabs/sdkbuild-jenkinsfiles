@@ -51,7 +51,12 @@ for PYBIN in /opt/python/*; do
     if in_allowed_python_versions "${python_bin}" "${allowed_python_versions[@]}" ; then
         python_version=$(get_python_version "${python_bin}")
         export PYCBC_PYTHON3_EXECUTABLE="/opt/python/${python_bin}/bin/python${python_version}"
-        export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}"
+        if [ $python_version == '3.7' ]
+        then
+            export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}m"
+        else
+            export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}"
+        fi
         "/opt/python/${python_bin}/bin/pip" wheel $PYTHON_SDK_WORKDIR --no-deps -w $PYTHON_SDK_WHEELHOUSE
     fi
 done
