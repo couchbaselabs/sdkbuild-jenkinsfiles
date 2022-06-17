@@ -7,7 +7,7 @@ set -e -u
 
 #allowed_python_versions=("cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310")
 #allowed_python_versions=("cp38-cp38")
-IFS=' ' read -r -a allowed_python_versions <<< $PYTHON_VERSIONS
+IFS=' ' read -r -a allowed_python_versions <<< $CPYTHON_VERSIONS
 
 function in_allowed_python_versions {
     local e match="$1"
