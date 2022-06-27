@@ -232,7 +232,7 @@ def test_with_cbdyncluster(version) {
     def clusterId = ""
     try {
         clusterId = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${version} --platform ec2", returnStdout: true).trim()
-        sh("cbdyncluster setup ${clusterId} --node=kv,index,n1ql --node kv --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 1024 --bucket default")
+        sh("cbdyncluster setup ${clusterId} --node=kv,index,n1ql --node kv --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 2048 --bucket default")
         sh("cbdyncluster add-sample-bucket ${clusterId} --name beer-sample")
         sh("cbdyncluster add-sample-bucket ${clusterId} --name travel-sample")
         def connstr = sh(script: "cbdyncluster connstr ${clusterId}", returnStdout: true).trim()
