@@ -777,6 +777,11 @@ pipeline {
                     }
                 }
                 stage('bin') {
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
+                    }
                     parallel {
                         stage('wz8.1s') {
                             agent { label 'centos7' }

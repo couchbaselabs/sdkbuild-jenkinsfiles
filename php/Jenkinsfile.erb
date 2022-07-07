@@ -245,6 +245,11 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
                     }
                 }
                 stage('bin') {
+                    when {
+                        expression {
+                            return IS_GERRIT_TRIGGER.toBoolean() == false
+                        }
+                    }
                     parallel {
 <% ['x64'].each do |arch| %>
 <%   php_versions.each do |(php_ver, has_ssl)| %>
