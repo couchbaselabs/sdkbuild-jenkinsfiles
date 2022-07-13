@@ -5,13 +5,16 @@ pipeline {
     }
     stages {
         stage('Pick Packages') {
-            agent { label 'centos6||centos7||ubuntu16||ubuntu14||ubuntu20' }
+            agent { label 'centos8||ubuntu16||ubuntu20' }
             steps {
                 cleanWs()
                 
                 // shWithEcho("cbdep install -d deps dotnet-core-sdk 6.0.101")
                 script {
                     echo "SELECTED_BUILD = ${SELECTED_BUILD}"
+                    echo "PACKAGES_TO_PUBLISH = ${PACKAGES_TO_PUBLISH}"
+                    def pattern = PACKAGES_TO_PUBLISH.split('\n').join('|')
+                    pattern = "(${pattern}).*\\.nupkg"
                     copyArtifacts(projectName: params.BUILD_PIPELINE_NAME, selector: buildParameter('SELECTED_BUILD'))
                     nugets = findFiles(glob: "**/Release/**/*.nupkg")
                     snugets = findFiles(glob: "**/**/*.snupkg")
@@ -21,24 +24,24 @@ pipeline {
                         echo "No releease packages found.  Looking for debug packages."
                         nugets = findFiles(glob: "**/*.nupkg")
                     }
+
                     def toPublish = [ ]
                     for (pkg in nugets) {
                         echo "pkg = ${pkg}"
-                        confirm = input(id: 'publish', message: "Publish ${pkg.name} from ${pkg.path}?", ok: "Next", parameters: [choice(name:"Publish this package", choices: ['include', 'skip'])])
-                        if (confirm == 'include') {
+                        if (pkg =~ pattern) {
+                            echo "${pkg} matches ${pattern}"
                             toPublish.add(pkg.path)
                         }
-
-                        echo "confirm = ${confirm}"
+                        else {
+                            echo "(no match)"
+                        }
                     }
 
                     def stashDir = "publish-nuget-${BUILD_NUMBER}"
                     dir (stashDir) {
                         for (filePath in toPublish) {
                             shWithEcho("cp ../${filePath} .")
-                        }
-                        for (filePath in snugets) {
-                            shWithEcho("cp ../${filePath} .")
+                            shWithEcho("nupkg=${filePath} && cp \"../\${nupkg%.*}.snupkg\" .")
                         }
                     }
 
@@ -56,7 +59,7 @@ pipeline {
             }
         }
         stage('Publish NuGets') {
-            agent { label 'centos6||centos7||ubuntu16||ubuntu14||ubuntu20' }
+            agent { label 'centos8||ubuntu16||ubuntu20' }
             steps {
                 shWithEcho("cbdep install -d deps dotnet-core-sdk 6.0.101")
                 unstash "publish-nuget-${BUILD_NUMBER}"
