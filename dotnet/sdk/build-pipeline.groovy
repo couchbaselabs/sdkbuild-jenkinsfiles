@@ -3,21 +3,9 @@
 // to the sdkbuilds-jenkinsfile repository.
 def DOTNET_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.404", "6.0.101"]
 def DOTNET_SDK_VERSION = "6.0.101"
-def CB_SERVER_VERSIONS = [
-	"7.0-stable",
-	"6.6-stable",
-	"6.5.2",
-	"6.0.5",
-	"5.5.6"
-]
+def FLAVOR = IS_GERRIT_TRIGGER ? "-gerrit-" : "-latest-"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-
-// use Replay and change this line to force Combination tests to run, even on a gerrit-trigger build.
-// useful for testing test-only changes.
-def FORCE_COMBINATION_TEST_RUN = false
-def _SKIP_COMBINATION_TESTS = env.SKIP_COMBINATION_TESTS != null && SKIP_COMBINATION_TESTS
-def _RUN_COMBINATION_TESTS = FORCE_COMBINATION_TEST_RUN || (IS_GERRIT_TRIGGER.toBoolean() != true && !_SKIP_COMBINATION_TESTS)
 
 pipeline {
     agent none
@@ -44,16 +32,7 @@ pipeline {
                 dir("couchbase-net-client") {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO"]]])
                 }
-
-				script {
-					BRANCH = "${GERRIT_BRANCH}"
-					DOTNET_SDK_VERSION = selectSDK(BRANCH, DOTNET_SDK_VERSIONS)
-				}
-
-                // TODO: UPDATE METADATA HERE (SEE GOCB OR COUCHNODE FOR EXAMPLES)
-                // TODO: PUT ANY LINTING/CODE QUALITY TOOLS HERE TOO
                 
-
                 echo "Using dotnet core ${DOTNET_SDK_VERSION}"
 
                 stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
@@ -90,21 +69,17 @@ pipeline {
                                 def unitTestProjects = findFiles(glob: "**/couchbase-net-client/tests/**UnitTest**/*.*proj")
                                 def failures = 0
                                 for (tp in unitTestProjects) {
-                                    if (tp.name.contains("OpenTelemetry")) {
-                                        // skip it due to NCBC-3076.  Remove this skip when that is fixed.
-                                    } else {
-                                        try {
-                                            testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
-                                            if (PLAT == "m1") {
-                                                // we only support Apple M1 on .NET 6.0 or later
-                                                testOpts = testOpts + " -f net6.0"
-                                            }
-                                            dotNetWithEcho(PLAT, "test ${testOpts}")
-                                            pairs[tp.name] = "SUCCESS"
-                                        } catch (Exception e) {
-                                            pairs[tp.name] = "FAILED"
-                                            failures = failures + 1
+                                    try {
+                                        testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
+                                        if (PLAT == "m1") {
+                                            // we only support Apple M1 on .NET 6.0 or later
+                                            testOpts = testOpts + " -f net6.0"
                                         }
+                                        dotNetWithEcho(PLAT, "test ${testOpts}")
+                                        pairs[tp.name] = "SUCCESS"
+                                    } catch (Exception e) {
+                                        pairs[tp.name] = "FAILED"
+                                        failures = failures + 1
                                     }
                                 }
                                 
@@ -122,17 +97,6 @@ pipeline {
                 }
             }
         }
-        /** Combination tests are not useful nor functional currently, so no point wasting a node on them until that is fixed **/
-        // stage("combination-test") {
-        //     agent { label "ubuntu20" }
-		// 	when {
-        //         // see top of file for criteria
-        //         expression { _RUN_COMBINATION_TESTS }
-        //     }
-        //     steps {
-        //         doCombinationTests(CB_SERVER_VERSIONS, DOTNET_SDK_VERSION, BRANCH, DOTNET_SDK_VERSIONS)
-        //     }
-        // }
         stage("package") {
             agent { label "windows" }
             steps {
@@ -144,11 +108,11 @@ pipeline {
                     // get package version and apply suffix if not release build
                     def version = env.VERSION
                     if (env.IS_RELEASE.toBoolean() == false) {
-                        version = "${version}-${SUFFIX}"
+                        version = "${version}-${FLAVOR}-${SUFFIX}"
                     }
 
                     // pack with SNK
-                    if (env.VERSION != "") {
+                    if (version != "") {
                         withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
                             def toPack = [
                                 "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
