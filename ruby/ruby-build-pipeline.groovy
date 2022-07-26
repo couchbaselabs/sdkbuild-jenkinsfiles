@@ -155,6 +155,8 @@ pipeline {
                                     script {
                                         if (PLATFORM =~ /macos|m1|alpine|grav2/) {
                                             unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
+                                        } else if (PLATFORM =~ /arm64/) {
+                                            unstash(name: "gem-qe-grav2-amzn2-${CB_RUBY_VERSION}-bin")
                                         } else {
                                             unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
                                         }
