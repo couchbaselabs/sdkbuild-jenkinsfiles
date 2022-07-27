@@ -20,7 +20,7 @@ pipeline {
                     echo "nugets = ${nugets}"
                     echo "symbols = ${snugets}"
                     if (nugets.length == 0) {
-                        echo "No releease packages found.  Looking for debug packages."
+                        echo "No release packages found.  Looking for debug packages."
                         nugets = findFiles(glob: "**/CouchbaseNetClient.*.nupkg")
                     }
 
