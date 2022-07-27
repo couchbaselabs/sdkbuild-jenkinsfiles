@@ -1,144 +1,106 @@
 // vim: ft=groovy
 
-pipeline {
-    agent none
-    parameters {
-        string(name: "REPO", defaultValue: "https://github.com/couchbase/couchbase-php-client")
-        string(name: "SHA", defaultValue: "main")
-        booleanParam(name: "IS_RELEASE", defaultValue: false)
-        booleanParam(name: "IS_GERRIT_TRIGGER", defaultValue: false)
-        string(name: "REFSPEC", defaultValue: "+refs/heads/*:refs/remotes/origin/*")
-        booleanParam(name: "SKIP_TESTS", defaultValue: false)
+PLATFORMS = ['centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20', 'qe-ubuntu20-arm64'] //, 'windows'
+PHP_VERSIONS = ['8.1.4', '8.0.17', '7.4.28']
+THREAD_SAFETY_OPTIONS = ['nts', 'zts']
+CB_VERSIONS = ['7.2-stable', '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release']
+
+stage('prep') {
+    buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+    dir("couchbase-php-client") {
+        checkout([
+            $class: "GitSCM",
+            branches: [[name: params.SHA]],
+            extensions: [[
+                $class: "SubmoduleOption",
+                disableSubmodules: false,
+                parentCredentials: true,
+                recursiveSubmodules: true,
+            ]],
+            userRemoteConfigs: [[
+                refspec: params.REFSPEC,
+                url: params.REPO
+        ]]])
     }
-    stages {
-        stage('prep') {
-            agent any
-            steps {
-                script {
-                    buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+    stash includes: 'couchbase-php-client/', name: 'source-tree', useDefaultExcludes: false
+}
+
+stage("package") {
+    node("centos7") {
+        dir("package--${BUILD_NUMBER}") {
+            unstash("source-tree")
+            dir("couchbase-php-client") {
+                cbdep_config()
+                install_php('8.1.4', 'nts')
+                withEnv(calculate_env('centos7', '8.1.4', 'nts')) {
+                    withEnv(["CB_CONFIGURE_ONLY=true"]) {
+                        execute("ruby bin/build")
+                    }
+                    execute("ruby bin/package")
                 }
-                dir("couchbase-php-client") {
-                    checkout([
-                        $class: "GitSCM",
-                        branches: [[name: params.SHA]],
-                        extensions: [[
-                            $class: "SubmoduleOption",
-                            disableSubmodules: false,
-                            parentCredentials: true,
-                            recursiveSubmodules: true,
-                        ]],
-                        userRemoteConfigs: [[
-                            refspec: params.REFSPEC,
-                            url: params.REPO
-                    ]]])
-                }
-                stash includes: 'couchbase-php-client/', name: 'source-tree', useDefaultExcludes: false
+                archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
             }
         }
-        stage("package") {
-            agent { label 'centos7' }
-            steps {
-                dir("package--${BUILD_NUMBER}") {
-                    unstash("source-tree")
-                    dir("couchbase-php-client") {
-                        cbdep_config()
-                        install_php('8.1.4', 'nts')
-                        withEnv(calculate_env('centos7', '8.1.4', 'nts')) {
-                            withEnv(["CB_CONFIGURE_ONLY=true"]) {
-                                execute("ruby bin/build")
-                            }
-                            execute("ruby bin/package")
-                        }
-                        archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
-                    }
-                }
-            }
-        }
-        stage('build') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values 'centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20', 'qe-ubuntu20-arm64' //, 'windows'
-                    }
-                    axis {
-                        name 'CB_PHP_VERSION'
-                        values '8.1.4', '8.0.17', '7.4.28'
-                    }
-                    axis {
-                        name 'THREAD_SAFETY'
-                        values 'nts', 'zts'
-                    }
-                }
-                agent { label PLATFORM }
-                stages {
+    }
+}
+
+stage("build") {
+    def builds = [:]
+    for (p in PLATFORMS) {
+        def PLATFORM = p
+        for (v in PHP_VERSIONS) {
+            def CB_PHP_VERSION = v
+            for (t in THREAD_SAFETY_OPTIONS) {
+                def THREAD_SAFETY = t
+                builds[PLATFORM + "-" + CB_PHP_VERSION + "-" + THREAD_SAFETY] = {
                     stage("src") {
-                        steps {
-                            timestamps {
-                                cleanWs()
-                                dir("php-build") {
-                                    checkout([
-                                        $class: "GitSCM",
-                                        branches: [[name: params.SHA]],
-                                        extensions: [[
-                                            $class: "SubmoduleOption",
-                                            disableSubmodules: false,
-                                            parentCredentials: true,
-                                            recursiveSubmodules: true,
-                                        ]],
-                                        userRemoteConfigs: [[
-                                            refspec: params.REFSPEC,
-                                            url: params.REPO
-                                    ]]])
-                                }
-                            }
+                        cleanWs()
+                        dir("php-build") {
+                            checkout([
+                                $class: "GitSCM",
+                                branches: [[name: params.SHA]],
+                                extensions: [[
+                                    $class: "SubmoduleOption",
+                                    disableSubmodules: false,
+                                    parentCredentials: true,
+                                    recursiveSubmodules: true,
+                                ]],
+                                userRemoteConfigs: [[
+                                    refspec: params.REFSPEC,
+                                    url: params.REPO
+                            ]]])
                         }
                     }
                     stage("deps") {
-                        steps {
-                            timestamps {
-                                dir("php-build") {
-                                    cbdep_config()
-                                    install_system_deps(PLATFORM)
-                                    install_php(CB_PHP_VERSION, THREAD_SAFETY)
-                                }
-                            }
+                        dir("php-build") {
+                            cbdep_config()
+                            install_system_deps(PLATFORM)
+                            install_php(CB_PHP_VERSION, THREAD_SAFETY)
                         }
                     }
                     stage("build") {
-                        steps {
-                            timestamps {
-                                dir("php-build") {
-                                    withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
-                                        build_sdk()
-                                    }
-                                }
+                        dir("php-build") {
+                            withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
+                                build_sdk()
                             }
                         }
                     }
                     stage("stash") {
-                        steps {
-                            stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
-                        }
+                        stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
                     }
                     stage("test") {
-                        options {
-                            timeout(time: 5, unit: 'MINUTES')
-                        }
-                        environment {
-                            COUCHBASE_LOG_LEVEL = 'trace'
-                        }
-                        steps {
-                            dir("php-build") {
-                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
-                                    execute("ruby bin/test")
+                        try {
+                            timeout(time: 5, unit: 'MINUTES') {
+                                withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
+                                    dir("php-build") {
+                                        withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
+                                            execute("ruby bin/test")
+                                        }
+                                    }
                                 }
                             }
-                        }
-                        post {
-                            always {
-                                junit("php-build/results.xml")
-                            }
+                        } finally {
+                            junit("php-build/results.xml")
                         }
                     }
                     // stage("package") {
@@ -165,59 +127,41 @@ pipeline {
                 }
             }
         }
-        stage('combination') {
-            when {
-                expression {
-                    return !SKIP_TESTS.toBoolean()
-                }
-            }
-            matrix {
-                axes {
-                    axis {
-                        name 'CB_VERSION'
-                        values '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release' //, '5.5-release'
-                    }
-                    axis {
-                        name 'CB_PHP_VERSION'
-                        values '8.1.4', '8.0.17', '7.4.28'
-                    }
-                    axis {
-                        name 'THREAD_SAFETY'
-                        values 'nts', 'zts'
-                    }
-                }
-                agent { label 'sdkqe-centos7' }
-                stages {
-                    stage("deps") {
-                        steps {
-                            timestamps {
-                                dir("php-build") {
-                                    cbdep_config()
-                                    install_system_deps('centos7')
-                                    install_php(CB_PHP_VERSION, THREAD_SAFETY)
-                                }
+    }
+    parallel(builds)
+}
+
+if (!SKIP_TESTS.toBoolean()) {
+    stage("combination") {
+        def cbverStages = [:]
+        for (v in CB_VERSIONS) {
+            def CB_VERSION = v
+            for (p in PHP_VERSIONS) {
+                def CB_PHP_VERSION = p
+                for (t in THREAD_SAFETY_OPTIONS) {
+                    def THREAD_SAFETY = t
+                    cbverStages[CB_VERSION + "-" + CB_PHP_VERSION + "-" + THREAD_SAFETY] = {
+                        stage("deps") {
+                            dir("php-build") {
+                                cbdep_config()
+                                install_system_deps('centos7')
+                                install_php(CB_PHP_VERSION, THREAD_SAFETY)
                             }
                         }
-                    }
-                    stage("inst") {
-                        steps {
+                        stage("inst") {
                             deleteDir()
                             unstash(name: "stash-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}")
                         }
-                    }
-                    stage("test") {
-                        environment {
-                            COUCHBASE_LOG_LEVEL = 'trace'
-                        }
-                        steps {
-                            dir("php-build") {
-                                withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
-                                    test_with_cbdyncluster(CB_VERSION)
+                        stage("test") {
+                            try {
+                                withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
+                                    dir("php-build") {
+                                        withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
+                                            test_with_cbdyncluster(CB_VERSION)
+                                        }
+                                    }
                                 }
-                            }
-                        }
-                        post {
-                            always {
+                            } finally {
                                 junit("php-build/results.xml")
                             }
                         }
@@ -225,6 +169,7 @@ pipeline {
                 }
             }
         }
+        parallel(cbverStages)
     }
 }
 
