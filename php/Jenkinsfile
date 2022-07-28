@@ -6,23 +6,25 @@ THREAD_SAFETY_OPTIONS = ['nts', 'zts']
 CB_VERSIONS = ['7.2-stable', '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release']
 
 stage('prep') {
-    buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
-    dir("couchbase-php-client") {
-        checkout([
-            $class: "GitSCM",
-            branches: [[name: params.SHA]],
-            extensions: [[
-                $class: "SubmoduleOption",
-                disableSubmodules: false,
-                parentCredentials: true,
-                recursiveSubmodules: true,
-            ]],
-            userRemoteConfigs: [[
-                refspec: params.REFSPEC,
-                url: params.REPO
-        ]]])
+    node("centos7") {
+        buildName(params.IS_GERRIT_TRIGGER.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+        dir("couchbase-php-client") {
+            checkout([
+                $class: "GitSCM",
+                branches: [[name: params.SHA]],
+                extensions: [[
+                    $class: "SubmoduleOption",
+                    disableSubmodules: false,
+                    parentCredentials: true,
+                    recursiveSubmodules: true,
+                ]],
+                userRemoteConfigs: [[
+                    refspec: params.REFSPEC,
+                    url: params.REPO
+            ]]])
+        }
+        stash includes: 'couchbase-php-client/', name: 'source-tree', useDefaultExcludes: false
     }
-    stash includes: 'couchbase-php-client/', name: 'source-tree', useDefaultExcludes: false
 }
 
 stage("package") {
@@ -53,77 +55,79 @@ stage("build") {
             for (t in THREAD_SAFETY_OPTIONS) {
                 def THREAD_SAFETY = t
                 builds[PLATFORM + "-" + CB_PHP_VERSION + "-" + THREAD_SAFETY] = {
-                    stage("src") {
-                        cleanWs()
-                        dir("php-build") {
-                            checkout([
-                                $class: "GitSCM",
-                                branches: [[name: params.SHA]],
-                                extensions: [[
-                                    $class: "SubmoduleOption",
-                                    disableSubmodules: false,
-                                    parentCredentials: true,
-                                    recursiveSubmodules: true,
-                                ]],
-                                userRemoteConfigs: [[
-                                    refspec: params.REFSPEC,
-                                    url: params.REPO
-                            ]]])
-                        }
-                    }
-                    stage("deps") {
-                        dir("php-build") {
-                            cbdep_config()
-                            install_system_deps(PLATFORM)
-                            install_php(CB_PHP_VERSION, THREAD_SAFETY)
-                        }
-                    }
-                    stage("build") {
-                        dir("php-build") {
-                            withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
-                                build_sdk()
+                    node(PLATFORM) {
+                        stage("src") {
+                            cleanWs()
+                            dir("php-build") {
+                                checkout([
+                                    $class: "GitSCM",
+                                    branches: [[name: params.SHA]],
+                                    extensions: [[
+                                        $class: "SubmoduleOption",
+                                        disableSubmodules: false,
+                                        parentCredentials: true,
+                                        recursiveSubmodules: true,
+                                    ]],
+                                    userRemoteConfigs: [[
+                                        refspec: params.REFSPEC,
+                                        url: params.REPO
+                                ]]])
                             }
                         }
-                    }
-                    stage("stash") {
-                        stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
-                    }
-                    stage("test") {
-                        try {
-                            timeout(time: 5, unit: 'MINUTES') {
-                                withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
-                                    dir("php-build") {
-                                        withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
-                                            execute("ruby bin/test")
+                        stage("deps") {
+                            dir("php-build") {
+                                cbdep_config()
+                                install_system_deps(PLATFORM)
+                                install_php(CB_PHP_VERSION, THREAD_SAFETY)
+                            }
+                        }
+                        stage("build") {
+                            dir("php-build") {
+                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
+                                    build_sdk()
+                                }
+                            }
+                        }
+                        stage("stash") {
+                            stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
+                        }
+                        stage("test") {
+                            try {
+                                timeout(time: 5, unit: 'MINUTES') {
+                                    withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
+                                        dir("php-build") {
+                                            withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
+                                                execute("ruby bin/test")
+                                            }
                                         }
                                     }
                                 }
+                            } finally {
+                                junit("php-build/results.xml")
                             }
-                        } finally {
-                            junit("php-build/results.xml")
                         }
+                        // stage("package") {
+                        //     steps {
+                        //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                        //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                        //                 // TODO: change script to work with ruby <2.5
+                        //                 sh("sed -i -s 's/~//' bin/package")
+                        //                 execute("ruby bin/package")
+                        //                 stash(name: "pecl-${PLATFORM}-${CB_PHP_VERSION}", includes: "*.tgz")
+                        //             }
+                        //         }
+                        //     }
+                        // }
+                        // stage("pecl install") {
+                        //     steps {
+                        //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
+                        //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
+                        //                 execute("pecl install couchbase-4.0.0.tgz")
+                        //             }
+                        //         }
+                        //     }
+                        // }
                     }
-                    // stage("package") {
-                    //     steps {
-                    //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
-                    //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
-                    //                 // TODO: change script to work with ruby <2.5
-                    //                 sh("sed -i -s 's/~//' bin/package")
-                    //                 execute("ruby bin/package")
-                    //                 stash(name: "pecl-${PLATFORM}-${CB_PHP_VERSION}", includes: "*.tgz")
-                    //             }
-                    //         }
-                    //     }
-                    // }
-                    // stage("pecl install") {
-                    //     steps {
-                    //         dir("build-${PLATFORM}-${CB_PHP_VERSION}-${BUILD_NUMBER}") {
-                    //             withEnv(calculate_env(PLATFORM, CB_PHP_VERSION)) {
-                    //                 execute("pecl install couchbase-4.0.0.tgz")
-                    //             }
-                    //         }
-                    //     }
-                    // }
                 }
             }
         }
@@ -141,28 +145,30 @@ if (!SKIP_TESTS.toBoolean()) {
                 for (t in THREAD_SAFETY_OPTIONS) {
                     def THREAD_SAFETY = t
                     cbverStages[CB_VERSION + "-" + CB_PHP_VERSION + "-" + THREAD_SAFETY] = {
-                        stage("deps") {
-                            dir("php-build") {
-                                cbdep_config()
-                                install_system_deps('centos7')
-                                install_php(CB_PHP_VERSION, THREAD_SAFETY)
+                        node("centos7") {
+                            stage("deps") {
+                                dir("php-build") {
+                                    cbdep_config()
+                                    install_system_deps('centos7')
+                                    install_php(CB_PHP_VERSION, THREAD_SAFETY)
+                                }
                             }
-                        }
-                        stage("inst") {
-                            deleteDir()
-                            unstash(name: "stash-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}")
-                        }
-                        stage("test") {
-                            try {
-                                withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
-                                    dir("php-build") {
-                                        withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
-                                            test_with_cbdyncluster(CB_VERSION)
+                            stage("inst") {
+                                deleteDir()
+                                unstash(name: "stash-centos7-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}")
+                            }
+                            stage("test") {
+                                try {
+                                    withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
+                                        dir("php-build") {
+                                            withEnv(calculate_env("centos7", CB_PHP_VERSION, THREAD_SAFETY)) {
+                                                test_with_cbdyncluster(CB_VERSION)
+                                            }
                                         }
                                     }
+                                } finally {
+                                    junit("php-build/results.xml")
                                 }
-                            } finally {
-                                junit("php-build/results.xml")
                             }
                         }
                     }
@@ -296,7 +302,7 @@ def install_system_deps(platform) {
     if (platform == "alpine") {
         sh("sudo /sbin/apk add ruby autoconf")
     }
-    if (platform == "ubuntu20") {
+    if (platform == "ubuntu20" || platform == "qe-ubuntu20-arm64") {
         sh("sudo apt-get install -y ruby libxml2-dev pkg-config libonig-dev autoconf")
     }
     if (platform == "qe-grav2-amzn2") {
