@@ -145,7 +145,7 @@ if (!SKIP_TESTS.toBoolean()) {
                 for (t in THREAD_SAFETY_OPTIONS) {
                     def THREAD_SAFETY = t
                     cbverStages[CB_VERSION + "-" + CB_PHP_VERSION + "-" + THREAD_SAFETY] = {
-                        node("centos7") {
+                        node("qe-centos7") {
                             stage("deps") {
                                 dir("php-build") {
                                     cbdep_config()
