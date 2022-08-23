@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import platform
 import socket
 import sys
 import time
@@ -32,7 +33,7 @@ class CavesMockServer:
 
         self._caves_version = caves_version
         if self._caves_version is None:
-            self._caves_version = 'v0.0.1-69'
+            self._caves_version = 'v0.0.1-74'
 
         self._current_dir = pathlib.Path(__file__).parent
 
@@ -49,9 +50,9 @@ class CavesMockServer:
         return self._connstr
 
     def _build_caves_url(self, url):
-
         if sys.platform.startswith('linux'):
-            self._caves_url = f"{url}/{self._caves_version}/gocaves-linux-amd64"
+            linux_arch = 'gocaves-linux-arm64' if platform.machine() == 'aarch64' else 'gocaves-linux-amd64'
+            self._caves_url = f"{url}/{self._caves_version}/{linux_arch}"
         elif sys.platform.startswith('darwin'):
             self._caves_url = f"{url}/{self._caves_version}/gocaves-macos"
         elif sys.platform.startswith('win32'):
@@ -62,7 +63,7 @@ class CavesMockServer:
     def _validate_caves_path(self, caves_path=None):
         if not (caves_path and not caves_path.isspace()):
             if sys.platform.startswith('linux'):
-                caves_path = 'gocaves-linux-amd64'
+                caves_path = 'gocaves-linux-arm64' if platform.machine() == 'aarch64' else 'gocaves-linux-amd64'
             elif sys.platform.startswith('darwin'):
                 caves_path = 'gocaves-macos'
             elif sys.platform.startswith('win32'):
@@ -208,7 +209,7 @@ def create_mock_server(mock_path,  # type: str
 def run_quick_test():
     mock_server = create_mock_server(None,
                                      mock_download_url='https://github.com/couchbaselabs/gocaves/releases/download',
-                                     mock_version='v0.0.1-69')
+                                     mock_version='v0.0.1-74')
     bucket_name = 'default'
     username = 'Administrator'
     pw = 'password'
