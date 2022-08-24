@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import certifi
 import json
 import os
 import pathlib
 import platform
 import socket
+import ssl
 import sys
 import time
 from subprocess import (STDOUT,
                         Popen,
                         call)
 from typing import Optional
-from urllib.request import urlretrieve
+from urllib.request import urlopen
 from uuid import uuid4
 
 from couchbase.auth import PasswordAuthenticator
@@ -72,7 +74,9 @@ class CavesMockServer:
         self._caves_path = os.path.join(self._current_dir, caves_path)
 
         if not os.path.exists(self._caves_path):
-            urlretrieve(self._caves_url, self._caves_path)
+            resp = urlopen(self._caves_url, context=ssl.create_default_context(cafile=certifi.where()))
+            with open(self._caves_path, 'wb') as caves_out:
+                caves_out.write(resp.read())
             if not sys.platform.startswith('win32'):
                 # make executable
                 call(['chmod', 'a+x', self._caves_path])
