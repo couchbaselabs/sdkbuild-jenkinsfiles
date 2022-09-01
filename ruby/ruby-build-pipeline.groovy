@@ -81,6 +81,9 @@ pipeline {
                         }
                     }
                     stage("gem") {
+                        options {
+                            timeout(time: 30, unit: 'MINUTES')
+                        }
                         steps {
                             timestamps {
                                 dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
