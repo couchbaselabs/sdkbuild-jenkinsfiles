@@ -180,7 +180,7 @@ pipeline {
                 }
             }
             environment {
-                PLATFORM = 'sdkqe-centos8'
+                PLATFORM = 'sdkqe-centos7'
             }
             matrix {
                 axes {
