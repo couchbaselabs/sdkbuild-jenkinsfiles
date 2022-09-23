@@ -3,9 +3,10 @@
 // to the sdkbuilds-jenkinsfile repository.
 def DOTNET_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.404", "6.0.101"]
 def DOTNET_SDK_VERSION = "6.0.101"
-def FLAVOR = IS_GERRIT_TRIGGER ? "-gerrit-" : "-latest-"
+def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
+DERIVED_VERSION = "3.3.4-hardcoded"
 
 pipeline {
     agent none
@@ -31,8 +32,32 @@ pipeline {
                 cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                 dir("couchbase-net-client") {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO"]]])
+                    script
+                    {
+                        // first, look for a PACKAGE_VERSION line in the commit message of the latest checkin.
+                        // NOTE: PACKAGE_VERSION should not be in the final commit message that goes into master.
+                        explicitVersion = sh(
+                            script: "git log -n 1 | grep PACKAGE_VERSION | perl -pe 's/PACKAGE_VERSION\\s*[:=]\\s*(.*)/\$1/g'",
+                            returnStdout: true
+                        ).trim()
+
+                        if (explicitVersion != "")
+                        {
+                            DERIVED_VERSION = explicitVersion
+                        }
+                        else
+                        {
+                            // git tag -n1  # list the tags with the first line of the message
+                            // grep  # only release versions in N.N.N format (no hyphens, extra info, etc)
+                            // awk # keep only the first column (the version, not the message)
+                            // sort + tail # get the highest version
+                            DERIVED_VERSION=sh(
+                                script: "git tag -n1 | grep -iE '[0-9]+.[0-9]+.[0-9]+\\s+*release' | awk '{print \$1}' | sort --version-sort -s | tail -1",
+                                returnStdout: true)
+                        }
+                    }
                 }
-                
+                echo "DERIVED_VERSION=${DERIVED_VERSION}"
                 echo "Using dotnet core ${DOTNET_SDK_VERSION}"
 
                 stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
@@ -50,6 +75,7 @@ pipeline {
                 stages {
                     stage("prep") {
                         steps {
+                            echo "DERIVED_VERSION=${DERIVED_VERSION}"
                             cleanWs(patterns: [[pattern: 'deps/**', type: 'EXCLUDE']])
                             unstash "couchbase-net-client"
                             installSdksForPlatform(PLAT, DOTNET_SDK_VERSIONS)
@@ -58,7 +84,7 @@ pipeline {
                     }
                     stage("build") {
                         steps {
-                            dotNetWithEcho(PLAT, "build couchbase-net-client/couchbase-net-client.sln")
+                            dotNetWithEcho(PLAT, "build couchbase-net-client/couchbase-net-client.sln /p:Version=${DERIVED_VERSION}")
                             stash includes: "couchbase-net-client/", name: "couchbase-net-client-${PLAT}", useDefaultExcludes: false
                         }
                     }
@@ -105,30 +131,29 @@ pipeline {
                 installSdksForPlatform("windows", DOTNET_SDK_VERSIONS)
 
                 script {
-                    // get package version and apply suffix if not release build
-                    def version = env.VERSION
+                    // get package version from latest release tag and apply suffix if not release build
+                    // NOTE: this means the release SHA must be tagged *before* the package is built.
+                    def version = DERIVED_VERSION.trim()
                     if (env.IS_RELEASE.toBoolean() == false) {
-                        version = "${version}-${FLAVOR}-${SUFFIX}"
+                        version = "${version}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
                     }
 
                     // pack with SNK
-                    if (version != "") {
-                        withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
-                            def toPack = [
-                                "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
-                                "couchbase-net-client\\src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj",
-                                "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj",
-                                "couchbase-net-client\\src\\Couchbase.Transactions\\Couchbase.Transactions.csproj"
-                            ]
+                    withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
+                        def toPack = [
+                            "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
+                            "couchbase-net-client\\src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj",
+                            "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj",
+                            "couchbase-net-client\\src\\Couchbase.Transactions\\Couchbase.Transactions.csproj"
+                        ]
 
-                            for (tp in toPack) {
-                                packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
-                            }
+                        for (tp in toPack) {
+                            packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
                         }
-
-                        // create zip file of release files and add it to archived artifacts
-                        zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
                     }
+
+                    // create zip file of release files and add it to archived artifacts
+                    zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
                 }
 
                 archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg, couchbase-net-client\\**\\*.snupkg", fingerprint: true
