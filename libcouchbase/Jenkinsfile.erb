@@ -550,10 +550,10 @@ pipeline {
             }
             parallel {
 <% centos_dists.each do |(name, relno, arch, bits, mock)| %>
-                    stage('<%= name %><%= relno %> <%= arch %>') {
+                stage('<%= name %><%= relno %> <%= arch %>') {
                     agent { label 'mock' }
                     stages {
-                        stage('c<%= bits %>v<%= relno %>') {
+                        stage('<%= name[0] %><%= bits %>v<%= relno %>') {
                             steps {
                                 dir('ws_<%= name %><%= bits %>_v<%= relno %>') {
                                     sh("sudo chown couchbase:couchbase -R .")
@@ -576,57 +576,57 @@ pipeline {
                 }
 <% end %>
 <% ubuntu_dists.each do |(codename, arch, name, bits)| %>
-                    stage('<%= name %> <%= arch %>') {
-                        agent { label 'cowbuilder' }
-                        stages {
-                            stage('<%= name[0] %><%= bits %>v<%= name[/(\d{1,2})/, 1] %>') {
-                                steps {
-                                    dir('ws_<%= name %>_<%= arch %>') {
-                                        sh("sudo chown couchbase:couchbase -R .")
-                                        deleteDir()
-                                        unstash 'libcouchbase'
-                                    }
-                                }
-                            }
-                            stage('cow1') {
-                                when {
-                                    expression {
-                                        !fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
-                                    }
-                                }
-                                steps {
-                                    sh("""
-                                        sudo apt-get install cowbuilder && \
-                                        sudo cowbuilder --create \
-                                        --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow \
-                                        --distribution <%= codename %> \
-                                        --debootstrapopts --arch=<%= arch %> \
-                                        <% if name =~ /ubuntu/ %>--components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg<% else %> --components 'main'<% end %>
-                                    """.stripIndent())
-                                }
-                            }
-                            stage('cow2') {
-                                when {
-                                    expression {
-                                        fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
-                                    }
-                                }
-                                steps {
-                                    sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow')
-                                }
-                            }
-                            stage('src') {
-                                steps {
-                                    package_src("<%= name %>", "<%= arch %>", VERSION)
-                                }
-                            }
-                            stage('deb') {
-                                steps {
-                                    package_deb("<%= name %>", "<%= arch %>", "<%= codename %>", VERSION)
+                stage('<%= name %> <%= arch %>') {
+                    agent { label 'cowbuilder' }
+                    stages {
+                        stage('<%= name[0] %><%= bits %>v<%= name[/(\d{1,2})/, 1] %>') {
+                            steps {
+                                dir('ws_<%= name %>_<%= arch %>') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
                                 }
                             }
                         }
+                        stage('cow1') {
+                            when {
+                                expression {
+                                    !fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh("""
+                                    sudo apt-get install cowbuilder && \
+                                    sudo cowbuilder --create \
+                                    --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow \
+                                    --distribution <%= codename %> \
+                                    --debootstrapopts --arch=<%= arch %> \
+                                    <% if name =~ /ubuntu/ %>--components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg<% else %> --components 'main'<% end %>
+                                """.stripIndent())
+                            }
+                        }
+                        stage('cow2') {
+                            when {
+                                expression {
+                                    fileExists("/var/cache/pbuilder/<%= codename %>-<%= arch %>.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/<%= codename %>-<%= arch %>.cow')
+                            }
+                        }
+                        stage('src') {
+                            steps {
+                                package_src("<%= name %>", "<%= arch %>", VERSION)
+                            }
+                        }
+                        stage('deb') {
+                            steps {
+                                package_deb("<%= name %>", "<%= arch %>", "<%= codename %>", VERSION)
+                            }
+                        }
                     }
+                }
 <% end %>
             }
         }
