@@ -443,7 +443,7 @@ pipeline {
                 }
             }
             parallel {
-                stage('centos7 x86_64') {
+                    stage('centos7 x86_64') {
                     agent { label 'mock' }
                     stages {
                         stage('c64v7') {
@@ -457,12 +457,12 @@ pipeline {
                         }
                         stage('srpm') {
                             steps {
-                                package_srpm(64, 7, "x86_64", VERSION)
+                                package_srpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
                             }
                         }
                         stage('rpm') {
                             steps {
-                                package_rpm(64, 7, "x86_64", VERSION)
+                                package_rpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
                             }
                         }
                     }
@@ -571,38 +571,6 @@ pipeline {
                     }
             }
         }
-        stage('amzn2') {
-            when {
-                expression {
-                    return !IS_GERRIT_TRIGGER.toBoolean()
-                }
-            }
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values 'x86_64', 'aarch64'
-                    }
-                }
-                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
-                stages {
-                    stage('rpm') {
-                        steps {
-                            sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
-                            cleanWs()
-                            unstash('centos7-srpm')
-                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
-                            sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
-                            dir('output') {
-                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }
 def package_src(name, arch, VERSION) {
@@ -637,32 +605,32 @@ def package_deb(name, arch, codename, VERSION) {
     }
 }
 
-def package_srpm(bits, relno, arch, VERSION) {
-    dir("ws_centos${bits}_v${relno}/build") {
+def package_srpm(name, bits, relno, arch, mock, VERSION) {
+    dir("ws_${name}${bits}_v${relno}/build") {
         unstash 'tarball'
         sh("""
             sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
         """.stripIndent())
         sh("""
-            sudo mock --buildsrpm -r epel-${relno}-${arch} --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
-            --resultdir="libcouchbase-${VERSION.tar()}_centos${relno}_srpm"
+            sudo mock --buildsrpm -r ${mock} --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
+            --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_srpm"
         """.stripIndent())
     }
 }
 
-def package_rpm(bits, relno, arch, VERSION) {
-    dir("ws_centos${bits}_v${relno}/build") {
+def package_rpm(bits, relno, arch, mock, VERSION) {
+    dir("ws_${name}${bits}_v${relno}/build") {
         sh("""
-            sudo mock --rebuild -r epel-${relno}-${arch} --resultdir="libcouchbase-${VERSION.tar()}_centos${relno}_${arch}" --old-chroot \
-            --verbose libcouchbase-${VERSION.tar()}_centos${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el${relno}.src.rpm
+            sudo mock --rebuild -r ${mock} --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}" --old-chroot \
+            --verbose libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el${relno}.src.rpm
         """.stripIndent())
-        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_centos${relno}_${arch}")
-        sh("rm -rf libcouchbase-${VERSION.tar()}_centos${relno}_${arch}/*.log")
-        sh("tar cf libcouchbase-${VERSION.tar()}_centos${relno}_${arch}.tar libcouchbase-${VERSION.tar()}_centos${relno}_${arch}")
-        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}.tar", fingerprint: true)
-        if (relno == 7 && arch == 'x86_64') {
-            stash(includes: "libcouchbase-${VERSION.tar()}_centos${relno}_${arch}/*.src.rpm", name: 'centos7-srpm')
+        sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}")
+        sh("rm -rf libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}/*.log")
+        sh("tar cf libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}.tar libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}")
+        archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}.tar", fingerprint: true)
+        if (name == 'centos' && relno == 7 && arch == 'x86_64') {
+            stash(includes: "libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}/*.src.rpm", name: '${name}7-srpm')
         }
     }
 }
