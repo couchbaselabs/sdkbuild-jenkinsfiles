@@ -11,16 +11,6 @@ DERIVED_VERSION = "3.3.4-hardcoded"
 pipeline {
     agent none
     stages {
-        stage("job valid?") {
-            when {
-                expression {
-                    return _INTERNAL_OK_.toBoolean() != true || (IS_RELEASE.toBoolean() == true && (VERSION.contains('changeme') || VERSION == ""))
-                }
-            }
-            steps {
-                error("Exiting early as not valid run")
-            }
-        }
         stage("prepare and validate") {
             agent { label "centos6||centos7||ubuntu16||ubuntu14||ubuntu20" }
             steps {
@@ -34,12 +24,16 @@ pipeline {
                     checkout([$class: "GitSCM", branches: [[name: "$SHA"]], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: "$REPO"]]])
                     script
                     {
-                        // first, look for a PACKAGE_VERSION line in the commit message of the latest checkin.
-                        // NOTE: PACKAGE_VERSION should not be in the final commit message that goes into master.
-                        explicitVersion = sh(
-                            script: "git log -n 1 | grep PACKAGE_VERSION | perl -pe 's/PACKAGE_VERSION\\s*[:=]\\s*(.*)/\$1/g'",
-                            returnStdout: true
-                        ).trim()
+                        if (env.IS_RELEASE.toBoolean() == true || VERSION != "") {
+                            explicitVersion = VERSION
+                        } else {
+                            // first, look for a PACKAGE_VERSION line in the commit message of the latest checkin.
+                            // NOTE: PACKAGE_VERSION should not be in the final commit message that goes into master.
+                            explicitVersion = sh(
+                                script: "git log -n 1 | grep PACKAGE_VERSION | perl -pe 's/PACKAGE_VERSION\\s*[:=]\\s*(.*)/\$1/g'",
+                                returnStdout: true
+                            ).trim()
+                        }
 
                         if (explicitVersion != "")
                         {
@@ -47,13 +41,25 @@ pipeline {
                         }
                         else
                         {
+                            // make sure we have all the tags that have been defined
+                            sh("git fetch --tags origin")
+
                             // git tag -n1  # list the tags with the first line of the message
                             // grep  # only release versions in N.N.N format (no hyphens, extra info, etc)
                             // awk # keep only the first column (the version, not the message)
                             // sort + tail # get the highest version
+                            echo sh(
+                                script: "git tag -n1 | grep -iE '[0-9]+.[0-9]+.[0-9]+\\s+*release' | awk '{print \$1}' | sort --version-sort -s",
+                                returnStdout: true)
                             DERIVED_VERSION=sh(
                                 script: "git tag -n1 | grep -iE '[0-9]+.[0-9]+.[0-9]+\\s+*release' | awk '{print \$1}' | sort --version-sort -s | tail -1",
                                 returnStdout: true)
+
+                            DERIVED_VERSION = "${DERIVED_VERSION}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
+                        }
+
+                        if (env.IS_RELEASE.toBoolean() == true && DERIVED_VERSION.trim() != SHA.trim()) {
+                            error "Releases should be done on a tag, not a raw SHA.  DERIVED_VERSION=${DERIVED_VERSION}, SHA=${SHA}"
                         }
                     }
                 }
@@ -134,9 +140,6 @@ pipeline {
                     // get package version from latest release tag and apply suffix if not release build
                     // NOTE: this means the release SHA must be tagged *before* the package is built.
                     def version = DERIVED_VERSION.trim()
-                    if (env.IS_RELEASE.toBoolean() == false) {
-                        version = "${version}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
-                    }
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
@@ -153,7 +156,7 @@ pipeline {
                     }
 
                     // create zip file of release files and add it to archived artifacts
-                    zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "couchbase-net-client-${version}.zip", archive: true
+                    zip dir: "couchbase-net-client\\src\\Couchbase\\bin\\Release", zipFile: "Couchbase-Net-Client-${version}.zip", archive: true
                 }
 
                 archiveArtifacts artifacts: "couchbase-net-client\\**\\*.nupkg, couchbase-net-client\\**\\*.snupkg", fingerprint: true
