@@ -392,12 +392,12 @@ pipeline {
                         }
                         stage('srpm') {
                             steps {
-                                package_srpm("rhel", 64, 8, "x86_64", "rhel+epel-8-x86_64", VERSION)
+                                package_srpm("rhel", 64, 8, "x86_64", "rhelepel-8-x86_64", VERSION)
                             }
                         }
                         stage('rpm') {
                             steps {
-                                package_rpm("rhel", 64, 8, "x86_64", "rhel+epel-8-x86_64", VERSION)
+                                package_rpm("rhel", 64, 8, "x86_64", "rhelepel-8-x86_64", VERSION)
                             }
                         }
                     }
