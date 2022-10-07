@@ -168,11 +168,15 @@ pipeline {
         booleanParam(name: "USE_TLS", defaultValue: false)
         booleanParam(name: "USE_CERT_AUTH", defaultValue: false)
     }
+    post {
+        always {
+            cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
+        }
+    }
     stages {
         stage('prepare and validate') {
             agent { label 'centos7 || centos6' }
             steps {
-                cleanWs()
                 script {
                     if (IS_GERRIT_TRIGGER.toBoolean()) {
                         currentBuild.displayName = "cv-${BUILD_NUMBER}"

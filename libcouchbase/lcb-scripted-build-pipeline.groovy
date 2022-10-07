@@ -168,11 +168,15 @@ pipeline {
         booleanParam(name: "USE_TLS", defaultValue: false)
         booleanParam(name: "USE_CERT_AUTH", defaultValue: false)
     }
+    post {
+        always {
+            cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
+        }
+    }
     stages {
         stage('prepare and validate') {
             agent { label 'centos7 || centos6' }
             steps {
-                cleanWs()
                 script {
                     if (IS_GERRIT_TRIGGER.toBoolean()) {
                         currentBuild.displayName = "cv-${BUILD_NUMBER}"
@@ -448,7 +452,7 @@ pipeline {
                     stages {
                         stage('c64v7') {
                             steps {
-                                dir('ws_centos64_v7') {
+                                dir('ws_centos7-64') {
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
@@ -606,7 +610,7 @@ def package_deb(name, arch, codename, VERSION) {
 }
 
 def package_srpm(name, bits, relno, arch, mock, VERSION) {
-    dir("ws_${name}${bits}_v${relno}/build") {
+    dir("ws_${name}${relno}-${bits}/build") {
         unstash 'tarball'
         sh("""
             sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
@@ -620,7 +624,7 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
 }
 
 def package_rpm(bits, relno, arch, mock, VERSION) {
-    dir("ws_${name}${bits}_v${relno}/build") {
+    dir("ws_${name}${relno}-${bits}/build") {
         sh("""
             sudo mock --rebuild -r ${mock} --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}" --old-chroot \
             --verbose libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el${relno}.src.rpm
