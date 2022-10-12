@@ -156,7 +156,7 @@ class DynamicCluster {
 }
 
 pipeline {
-    agent none
+    agent any
     parameters {
         string(name: "REPO", defaultValue: "ssh://review.couchbase.org:29418/libcouchbase")
         string(name: "SHA", defaultValue: "master")
@@ -169,7 +169,7 @@ pipeline {
         booleanParam(name: "USE_CERT_AUTH", defaultValue: false)
     }
     post {
-        always {
+        cleanup {
             cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
         }
     }
