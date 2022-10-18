@@ -201,6 +201,9 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
             sudo mock --buildsrpm -r ${mock} --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
             --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_srpm"
         """.stripIndent())
+        if (name == 'centos' && relno == 7 && arch == 'x86_64') {
+            stash(includes: "libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/*.src.rpm", name: "${name}${relno}-srpm")
+        }
     }
 }
 
@@ -631,6 +634,37 @@ pipeline {
                         stage('deb') {
                             steps {
                                 package_deb("debian10", "amd64", "buster", VERSION)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage('amzn2') {
+            when {
+                expression {
+                    return !IS_GERRIT_TRIGGER.toBoolean()
+                }
+            }
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values 'x86_64', 'aarch64'
+                    }
+                }
+                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
+                stages {
+                    stage('rpm') {
+                        steps {
+                            sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
+                            unstash('centos7-srpm')
+                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
+                            sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
+                            dir('output') {
+                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
+                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
+                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
                             }
                         }
                     }
