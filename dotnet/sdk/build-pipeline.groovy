@@ -63,6 +63,7 @@ pipeline {
                     }
                 }
                 echo "DERIVED_VERSION=${DERIVED_VERSION}"
+                echo "full version = ${getVersion(DERIVED_VERSION, BUILD_VARIANT, SUFFIX)}"
                 echo "Using dotnet core ${DOTNET_SDK_VERSION}"
 
                 stash includes: "couchbase-net-client/", name: "couchbase-net-client", useDefaultExcludes: false
@@ -139,7 +140,7 @@ pipeline {
                 script {
                     // get package version from latest release tag and apply suffix if not release build
                     // NOTE: this means the release SHA must be tagged *before* the package is built.
-                    def version = getVersion()
+                    def version = getVersion(DERIVED_VERSION, BUILD_VARIANT, SUFFIX)
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
@@ -174,13 +175,14 @@ void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
 }
 
-def getVersion() {
-    def version = DERIVED_VERSION.trim()
+def getVersion(derivedVersion, buildVariant, suffix) {
+    def version = derivedVersion.trim()
     if (env.IS_RELEASE.toBoolean() == false) {
-        version = "${version}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
+        version = "${version}-${buildVariant.trim()}-${suffix.trim()}"
     }
 
     version = version.replaceAll("[\n\r]", "")
+    return version
 }
 
 def packProject(PROJ_FILE, nugetSignKey, version, DOTNET_SDK_VERSION) {
