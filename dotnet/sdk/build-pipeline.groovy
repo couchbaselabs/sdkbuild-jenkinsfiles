@@ -6,7 +6,7 @@ def DOTNET_SDK_VERSION = "6.0.101"
 def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-DERIVED_VERSION = "3.3.4-hardcoded"
+DERIVED_VERSION = "3.3.6-hardcoded"
 
 pipeline {
     agent none
@@ -44,21 +44,20 @@ pipeline {
                             // make sure we have all the tags that have been defined
                             sh("git fetch --tags origin")
 
-                            // git tag -n1  # list the tags with the first line of the message
-                            // grep  # only release versions in N.N.N format (no hyphens, extra info, etc)
-                            // awk # keep only the first column (the version, not the message)
+                            // git tag # list the tags
+                            // grep  # only versions in N.N.N format (no hyphens, extra info, etc)
                             // sort + tail # get the highest version
                             echo sh(
-                                script: "git tag -n1 | grep -iE '[0-9]+.[0-9]+.[0-9]+\\s+*release' | awk '{print \$1}' | sort --version-sort -s",
+                                script: "git tag | grep -iE '[0-9]+\\.[0-9]+\\.[0-9]+\\s*\$' | sort --version-sort -s",
                                 returnStdout: true)
                             DERIVED_VERSION=sh(
-                                script: "git tag -n1 | grep -iE '[0-9]+.[0-9]+.[0-9]+\\s+*release' | awk '{print \$1}' | sort --version-sort -s | tail -1",
+                                script: "git tag | grep -iE '[0-9]+\\.[0-9]+\\.[0-9]+\\s*\$' | sort --version-sort -s | tail -1",
                                 returnStdout: true)
-
-                            DERIVED_VERSION = "${DERIVED_VERSION}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
                         }
 
-                        if (env.IS_RELEASE.toBoolean() == true && DERIVED_VERSION.trim() != SHA.trim()) {
+                        DERIVED_VERSION = DERIVED_VERSION.replaceAll("[\n\r]", "").trim()
+
+                        if (env.IS_RELEASE.toBoolean() == true && DERIVED_VERSION != SHA.trim()) {
                             error "Releases should be done on a tag, not a raw SHA.  DERIVED_VERSION=${DERIVED_VERSION}, SHA=${SHA}"
                         }
                     }
@@ -90,7 +89,8 @@ pipeline {
                     }
                     stage("build") {
                         steps {
-                            dotNetWithEcho(PLAT, "build couchbase-net-client/couchbase-net-client.sln /p:Version=${DERIVED_VERSION}")
+                            dotNetWithEcho(PLAT, "build couchbase-net-client/couchbase-net-client.sln /p:Version=${DERIVED_VERSION}.${BUILD_NUMBER}")
+                            echo "Build finished"
                             stash includes: "couchbase-net-client/", name: "couchbase-net-client-${PLAT}", useDefaultExcludes: false
                         }
                     }
@@ -139,7 +139,7 @@ pipeline {
                 script {
                     // get package version from latest release tag and apply suffix if not release build
                     // NOTE: this means the release SHA must be tagged *before* the package is built.
-                    def version = DERIVED_VERSION.trim()
+                    def version = getVersion()
 
                     // pack with SNK
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
@@ -172,6 +172,15 @@ void shWithEcho(String command) {
 
 void batWithEcho(String command) {
     echo "[$STAGE_NAME]"+ bat (script: command, returnStdout: true)
+}
+
+def getVersion() {
+    def version = DERIVED_VERSION.trim()
+    if (env.IS_RELEASE.toBoolean() == false) {
+        version = "${version}-${BUILD_VARIANT.trim()}-${SUFFIX.trim()}"
+    }
+
+    version = version.replaceAll("[\n\r]", "")
 }
 
 def packProject(PROJ_FILE, nugetSignKey, version, DOTNET_SDK_VERSION) {
