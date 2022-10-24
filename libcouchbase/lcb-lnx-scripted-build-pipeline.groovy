@@ -221,7 +221,7 @@ def package_rpm(name, bits, relno, arch, mock, VERSION) {
 }
 
 pipeline {
-    agent any
+    agent none
     parameters {
         string(name: "REPO", defaultValue: "ssh://review.couchbase.org:29418/libcouchbase")
         string(name: "SHA", defaultValue: "master")

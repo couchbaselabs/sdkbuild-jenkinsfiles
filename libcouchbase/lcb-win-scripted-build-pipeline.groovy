@@ -157,7 +157,7 @@ class DynamicCluster {
 
 
 pipeline {
-    agent any
+    agent none
     parameters {
         string(name: "REPO", defaultValue: "ssh://review.couchbase.org:29418/libcouchbase")
         string(name: "SHA", defaultValue: "master")
