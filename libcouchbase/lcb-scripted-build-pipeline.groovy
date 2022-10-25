@@ -479,6 +479,7 @@ pipeline {
                         }
                         post {
                             always {
+                                junit(testResults: "ws_centos7/build/*.xml", allowEmptyResults: true)
                                 sh("cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
                             }
                         }
