@@ -464,6 +464,81 @@ pipeline {
                         }
                     }
                 }
+                stage('rhel9 x86_64') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('r64v9') {
+                            steps {
+                                dir('ws_rhel9-64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            steps {
+                                package_srpm("rhel", 64, 9, "x86_64", "rocky+epel-9-x86_64", VERSION)
+                            }
+                        }
+                        stage('rpm') {
+                            steps {
+                                package_rpm("rhel", 64, 9, "x86_64", "rocky+epel-9-x86_64", VERSION)
+                            }
+                        }
+                    }
+                }
+                stage('ubuntu2204 amd64') {
+                    agent { label 'cowbuilder' }
+                    stages {
+                        stage('u64v22') {
+                            steps {
+                                dir('ws_ubuntu2204_amd64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('cow1') {
+                            when {
+                                expression {
+                                    !fileExists("/var/cache/pbuilder/jammy-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh("""
+                                    sudo apt-get install cowbuilder && \
+                                    sudo cowbuilder --create \
+                                    --basepath /var/cache/pbuilder/jammy-amd64.cow \
+                                    --distribution jammy \
+                                    --debootstrapopts --arch=amd64 \
+                                    --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                """.stripIndent())
+                            }
+                        }
+                        stage('cow2') {
+                            when {
+                                expression {
+                                    fileExists("/var/cache/pbuilder/jammy-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/jammy-amd64.cow')
+                            }
+                        }
+                        stage('src') {
+                            steps {
+                                package_src("ubuntu2204", "amd64", VERSION)
+                            }
+                        }
+                        stage('deb') {
+                            steps {
+                                package_deb("ubuntu2204", "amd64", "jammy", VERSION)
+                            }
+                        }
+                    }
+                }
                 stage('ubuntu2004 amd64') {
                     agent { label 'cowbuilder' }
                     stages {

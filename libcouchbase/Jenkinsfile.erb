@@ -47,8 +47,10 @@ elsif ENV['LINUX_ONLY']
     centos_dists = [
         ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
         ['rhel', 8, 'x86_64', 64, 'rocky-8-x86_64'],
+        ['rhel', 9, 'x86_64', 64, 'rocky+epel-9-x86_64'],
     ]
     ubuntu_dists = [
+        ['jammy', 'amd64', 'ubuntu2204', 64],
         ['focal', 'amd64', 'ubuntu2004', 64],
         ['bionic', 'amd64', 'ubuntu1804', 64],
         # ['bionic', 'i386', 'ubuntu1804', 32],
