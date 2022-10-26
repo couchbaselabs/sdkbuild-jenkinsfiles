@@ -169,11 +169,6 @@ pipeline {
         booleanParam(name: "USE_TLS", defaultValue: false)
         booleanParam(name: "USE_CERT_AUTH", defaultValue: false)
     }
-    post {
-        cleanup {
-            cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
-        }
-    }
     stages {
         stage('prepare and validate') {
             agent { label 'centos7 || centos6' }
@@ -185,6 +180,7 @@ pipeline {
                         currentBuild.displayName = "full-${BUILD_NUMBER}"
                     }
                 }
+                cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
 
                 dir('libcouchbase') {
                     checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
