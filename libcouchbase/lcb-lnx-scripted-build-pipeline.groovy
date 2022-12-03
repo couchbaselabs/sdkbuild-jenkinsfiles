@@ -160,6 +160,7 @@ def package_src(name, arch, VERSION) {
         unstash 'tarball'
         sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
         sh("tar -xf ${VERSION.tarName()}.tar.gz")
+        sh("sed -i 's/dh_auto_test /true /g' ../libcouchbase/packaging/deb/rules")
         sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
         dir(VERSION.tarName()) {
             sh("""
@@ -194,7 +195,7 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
             sh("sed -i 's/openssl11-devel/openssl-devel/g' ../libcouchbase/packaging/rpm/libcouchbase.spec.in")
         }
         sh("""
-            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g' \
+            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;s/^make.*test/true/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
         """.stripIndent())
         sh("""
