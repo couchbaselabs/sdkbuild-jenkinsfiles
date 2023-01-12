@@ -103,7 +103,7 @@ stage("build") {
                                     }
                                 }
                             } finally {
-                                junit("php-build/results.xml")
+                                junit(testResults: "php-build/results.xml", allowEmptyResults: true)
                             }
                         }
                         // stage("package") {
@@ -167,7 +167,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                         }
                                     }
                                 } finally {
-                                    junit("php-build/results.xml")
+                                    junit(testResults: "php-build/results.xml", allowEmptyResults: true)
                                 }
                             }
                         }
