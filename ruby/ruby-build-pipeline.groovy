@@ -20,7 +20,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1', '3.2', 'brew'
+                        values /* '2.7', */'3.0', '3.1', '3.2', 'brew'
                     }
                 }
                 excludes {
@@ -113,7 +113,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1', '3.2', 'brew'
+                        values /* '2.7', */'3.0', '3.1', '3.2', 'brew'
                     }
                 }
                 excludes {
@@ -145,7 +145,8 @@ pipeline {
                             timestamps {
                                 cleanWs()
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "scripts-centos7-2.7")
+                                    // unstash(name: "scripts-centos7-2.7")
+                                    unstash(name: "scripts-centos7-3.0")
                                     sh("bin/jenkins/install-dependencies")
                                 }
                             }
@@ -190,7 +191,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1', '3.2'
+                        values /* '2.7', */ '3.0', '3.1', '3.2'
                     }
                 }
                 agent { label PLATFORM }
@@ -254,7 +255,8 @@ pipeline {
                         timestamps {
                             cleanWs()
                             dir("deps-${BUILD_NUMBER}") {
-                                unstash(name: "scripts-centos7-2.7")
+                                // unstash(name: "scripts-centos7-2.7")
+                                unstash(name: "scripts-centos7-3.0")
                                 sh("bin/jenkins/install-dependencies")
                             }
                         }
@@ -264,28 +266,30 @@ pipeline {
                     steps {
                         cleanWs()
                         dir("repo-${BUILD_NUMBER}") {
-                            unstash(name: "scripts-centos7-2.7")
+                            // unstash(name: "scripts-centos7-2.7")
+                            unstash(name: "scripts-centos7-3.0")
                             dir("gem-bin") {
                                 unstash(name: "gem-m1-brew-bin")
-                                unstash(name: "gem-macos-11.0-2.7-bin")
+                                //unstash(name: "gem-macos-11.0-2.7-bin")
                                 unstash(name: "gem-macos-11.0-3.0-bin")
                                 unstash(name: "gem-macos-11.0-3.1-bin")
                                 unstash(name: "gem-macos-11.0-3.2-bin")
-                                unstash(name: "gem-macos-10.15-2.7-bin")
+                                //unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
                                 unstash(name: "gem-macos-10.15-3.2-bin")
-                                unstash(name: "gem-centos7-2.7-bin")
+                                //unstash(name: "gem-centos7-2.7-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
                                 unstash(name: "gem-centos7-3.1-bin")
                                 unstash(name: "gem-centos7-3.2-bin")
-                                unstash(name: "gem-alpine-2.7-bin")
+                                //unstash(name: "gem-alpine-2.7-bin")
                                 unstash(name: "gem-alpine-3.0-bin")
                                 unstash(name: "gem-alpine-3.1-bin")
                                 unstash(name: "gem-alpine-3.2-bin")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                             dir("gem-src") {
-                                unstash(name: "gem-centos7-2.7-src")
+                                //unstash(name: "gem-centos7-2.7-src")
+                                unstash(name: "gem-centos7-3.0-src")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                         }
@@ -340,9 +344,9 @@ pipeline {
                                     cfInvalidate(
                                         distribution: "$AWS_CF_DISTRIBUTION",
                                         paths: [
-                                            "/${prefix}ruby/2.7.0/latest_specs.*",
-                                            "/${prefix}ruby/2.7.0/prerelease_specs.*",
-                                            "/${prefix}ruby/2.7.0/specs.*",
+                                          //"/${prefix}ruby/2.7.0/latest_specs.*",
+                                          //"/${prefix}ruby/2.7.0/prerelease_specs.*",
+                                          //"/${prefix}ruby/2.7.0/specs.*",
                                             "/${prefix}ruby/3.0.0/latest_specs.*",
                                             "/${prefix}ruby/3.0.0/prerelease_specs.*",
                                             "/${prefix}ruby/3.0.0/specs.*",
