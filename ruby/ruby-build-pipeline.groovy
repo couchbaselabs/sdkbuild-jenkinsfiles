@@ -20,7 +20,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1', 'brew'
+                        values '2.7', '3.0', '3.1', '3.2', 'brew'
                     }
                 }
                 excludes {
@@ -113,7 +113,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1', 'brew'
+                        values '2.7', '3.0', '3.1', '3.2', 'brew'
                     }
                 }
                 excludes {
@@ -186,11 +186,11 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.2-stable', '7.1-stable', '7.1-release', '7.0-release', '6.6-release', '6.5-release', '6.0-release'
+                        values '7.2-stable', '7.1-stable', '7.1-release', '7.0-release', '6.6-release'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '2.7', '3.0', '3.1'
+                        values '2.7', '3.0', '3.1', '3.2'
                     }
                 }
                 agent { label PLATFORM }
@@ -270,15 +270,18 @@ pipeline {
                                 unstash(name: "gem-macos-11.0-2.7-bin")
                                 unstash(name: "gem-macos-11.0-3.0-bin")
                                 unstash(name: "gem-macos-11.0-3.1-bin")
+                                unstash(name: "gem-macos-11.0-3.2-bin")
                                 unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
-                                unstash(name: "gem-macos-10.15-3.1-bin")
+                                unstash(name: "gem-macos-10.15-3.2-bin")
                                 unstash(name: "gem-centos7-2.7-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
                                 unstash(name: "gem-centos7-3.1-bin")
+                                unstash(name: "gem-centos7-3.2-bin")
                                 unstash(name: "gem-alpine-2.7-bin")
                                 unstash(name: "gem-alpine-3.0-bin")
                                 unstash(name: "gem-alpine-3.1-bin")
+                                unstash(name: "gem-alpine-3.2-bin")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                             dir("gem-src") {
@@ -346,6 +349,9 @@ pipeline {
                                             "/${prefix}ruby/3.1.0/latest_specs.*",
                                             "/${prefix}ruby/3.1.0/prerelease_specs.*",
                                             "/${prefix}ruby/3.1.0/specs.*",
+                                            "/${prefix}ruby/3.2.0/latest_specs.*",
+                                            "/${prefix}ruby/3.2.0/prerelease_specs.*",
+                                            "/${prefix}ruby/3.2.0/specs.*",
                                         ]
                                         //, waitForCompletion: true
                                     )
