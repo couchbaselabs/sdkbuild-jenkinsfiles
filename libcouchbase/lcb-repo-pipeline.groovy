@@ -182,6 +182,43 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     }
                 }
 
+                stage('ubuntu2204') {
+
+                    agent { label 'debian10-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*jammy*.tar')
+                        sh('mkdir -p repo/ubuntu2204/conf')
+                        writeFile(file: "repo/ubuntu2204/conf/distributions", text: """
+Origin: couchbase
+SignWith: ${GPG_NAME}
+Suite: jammy
+Codename: jammy
+Version: ubuntu2204
+Components: jammy/main
+Architectures: amd64
+Description: libcouchbase package repository for jammy ubuntu2204
+""")
+                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-ubuntu2204.list', text: """
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2204 jammy jammy/main
+""")
+                        }
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/ubuntu2204 include jammy \$p; done")
+                        sh("tar cf repo-${BUILD_NUMBER}-ubuntu2204.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-ubuntu2204.tar", fingerprint: true)
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
+                    }
+                }
                 stage('debian11') {
 
                     agent { label 'debian10-signing' }
