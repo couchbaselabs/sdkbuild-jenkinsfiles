@@ -323,8 +323,8 @@ pipeline {
                                     )
                                 }
                             }
-                            sh("tar cf docs-${BUILD_NUMBER}.tar gem-doc")
-                            archiveArtifacts(artifacts: "docs-${BUILD_NUMBER}.tar", fingerprint: true)
+                            //sh("tar cf docs-${BUILD_NUMBER}.tar gem-doc")
+                            //archiveArtifacts(artifacts: "docs-${BUILD_NUMBER}.tar", fingerprint: true)
                             script {
                                 def pkg_bucket = "sdk-snapshots.couchbase.com"
                                 def pkg_region = "us-east-1"
@@ -362,8 +362,8 @@ pipeline {
                                     )
                                 }
                             }
-                            sh("tar cf repos-${BUILD_NUMBER}.tar repos")
-                            archiveArtifacts(artifacts: "repos-${BUILD_NUMBER}.tar", fingerprint: true)
+                            //sh("tar cf repos-${BUILD_NUMBER}.tar repos")
+                            //archiveArtifacts(artifacts: "repos-${BUILD_NUMBER}.tar", fingerprint: true)
                             script {
                                 def description = sh(script: "cat description.txt", returnStdout: true).trim()
                                 buildDescription(description)
