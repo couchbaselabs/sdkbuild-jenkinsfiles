@@ -276,6 +276,7 @@ pipeline {
                                 unstash(name: "gem-macos-11.0-3.2-bin")
                                 //unstash(name: "gem-macos-10.15-2.7-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
+                                unstash(name: "gem-macos-10.15-3.1-bin")
                                 unstash(name: "gem-macos-10.15-3.2-bin")
                                 //unstash(name: "gem-centos7-2.7-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
