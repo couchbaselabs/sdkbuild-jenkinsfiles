@@ -722,7 +722,7 @@ pipeline {
                             sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
                             unstash('centos7-srpm')
                             sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
-                            sh('rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
+                            sh('sudo rm -rf output; rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
                             dir('output') {
                                 sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
                                 sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
