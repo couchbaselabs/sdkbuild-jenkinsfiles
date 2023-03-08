@@ -235,6 +235,7 @@ def package_src(name, arch, codename, VERSION) {
         sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
         dir(VERSION.tarName()) {
             sh("""
+                DEBEMAIL=support@couchbase.com \
                 dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 --distribution ${codename} \
                 --create "Release package for libcouchbase ${VERSION.deb()}-1"
             """.stripIndent())
