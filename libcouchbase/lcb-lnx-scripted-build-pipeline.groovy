@@ -155,7 +155,7 @@ class DynamicCluster {
     }
 }
 
-def package_src(name, arch, VERSION) {
+def package_src(name, arch, codename, VERSION) {
     dir("ws_${name}_${arch}/build") {
         unstash 'tarball'
         sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
@@ -164,7 +164,7 @@ def package_src(name, arch, VERSION) {
         sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
         dir(VERSION.tarName()) {
             sh("""
-                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 \
+                dch --no-auto-nmu --package libcouchbase --newversion ${VERSION.deb()}-1 --distribution ${codename} \
                 --create "Release package for libcouchbase ${VERSION.deb()}-1"
             """.stripIndent())
             sh("dpkg-buildpackage -rfakeroot -d -S -sa")
@@ -530,7 +530,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("ubuntu2204", "amd64", VERSION)
+                                package_src("ubuntu2204", "amd64", "jammy", VERSION)
                             }
                         }
                         stage('deb') {
@@ -581,7 +581,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("ubuntu2004", "amd64", VERSION)
+                                package_src("ubuntu2004", "amd64", "focal", VERSION)
                             }
                         }
                         stage('deb') {
@@ -632,7 +632,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("ubuntu1804", "amd64", VERSION)
+                                package_src("ubuntu1804", "amd64", "bionic", VERSION)
                             }
                         }
                         stage('deb') {
@@ -683,7 +683,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("ubuntu1604", "amd64", VERSION)
+                                package_src("ubuntu1604", "amd64", "xenial", VERSION)
                             }
                         }
                         stage('deb') {
@@ -734,7 +734,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("debian9", "amd64", VERSION)
+                                package_src("debian9", "amd64", "stretch", VERSION)
                             }
                         }
                         stage('deb') {
@@ -785,7 +785,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("debian10", "amd64", VERSION)
+                                package_src("debian10", "amd64", "buster", VERSION)
                             }
                         }
                         stage('deb') {
@@ -836,7 +836,7 @@ pipeline {
                         }
                         stage('src') {
                             steps {
-                                package_src("debian11", "amd64", VERSION)
+                                package_src("debian11", "amd64", "bullseye", VERSION)
                             }
                         }
                         stage('deb') {
