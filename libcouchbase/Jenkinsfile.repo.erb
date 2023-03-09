@@ -87,7 +87,7 @@ key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*<%= distro %>*.tar')
-                        sh('mkdir -p <%= repo_dir %>/conf')
+                        sh('which reprepro; reprepro --version; mkdir -p <%= repo_dir %>/conf')
                         writeFile(file: "<%= repo_dir %>/conf/distributions", text: """
 Origin: couchbase
 SignWith: ${GPG_NAME}
