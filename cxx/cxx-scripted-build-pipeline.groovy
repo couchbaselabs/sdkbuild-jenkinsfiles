@@ -66,6 +66,7 @@ stage("build") {
                     } else if (platform == "m1") {
                         envs.push("OPENSSL_ROOT_DIR=/opt/homebrew/opt/openssl")
                     } else if (platform == "qe-grav2-amzn2") {
+                        envs.push("OPENSSL_ROOT_DIR=/usr/local/openssl")
                         envs.push("CB_CC=/usr/bin/gcc10-cc")
                         envs.push("CB_CXX=/usr/bin/gcc10-c++")
                     } else if (platform == "amzn2") {
