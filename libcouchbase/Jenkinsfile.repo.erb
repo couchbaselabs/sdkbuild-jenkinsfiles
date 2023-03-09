@@ -2,11 +2,6 @@
 %>
 // DO NOT EDIT: this file was generated from Jenkinsfile.repo.erb
 
-<%
-selector = "specific('199')"
-selector = 'upstream()'
-%>
-
 pipeline {
     agent none
     stages {
@@ -31,7 +26,7 @@ key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: <%= selector %>, filter: 'libcouchbase-*<%= distro %>*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*<%= distro %>*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -91,7 +86,7 @@ key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: <%= selector %>, filter: 'libcouchbase-*<%= distro %>*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*<%= distro %>*.tar')
                         sh('mkdir -p <%= repo_dir %>/conf')
                         writeFile(file: "<%= repo_dir %>/conf/distributions", text: """
 Origin: couchbase

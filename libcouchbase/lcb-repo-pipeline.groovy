@@ -1,8 +1,6 @@
 
 // DO NOT EDIT: this file was generated from Jenkinsfile.repo.erb
 
-
-
 pipeline {
     agent none
     stages {
@@ -14,7 +12,7 @@ pipeline {
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*centos7*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*centos7*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -57,7 +55,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*rhel8*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*rhel8*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -100,7 +98,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*rhel9*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*rhel9*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -143,7 +141,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*amzn2*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*amzn2*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -186,7 +184,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*amzn2*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*amzn2*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName
@@ -230,7 +228,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*jammy*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*jammy*.tar')
                         sh('mkdir -p repo/ubuntu2204/conf')
                         writeFile(file: "repo/ubuntu2204/conf/distributions", text: """
 Origin: couchbase
@@ -267,7 +265,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2204 jammy jammy/main
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*bullseye*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*bullseye*.tar')
                         sh('mkdir -p repo/debian11/conf')
                         writeFile(file: "repo/debian11/conf/distributions", text: """
 Origin: couchbase
@@ -304,7 +302,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/debian11 bullseye bullseye/
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*focal*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*focal*.tar')
                         sh('mkdir -p repo/ubuntu2004/conf')
                         writeFile(file: "repo/ubuntu2004/conf/distributions", text: """
 Origin: couchbase
@@ -341,7 +339,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2004 focal focal/main
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*buster*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*buster*.tar')
                         sh('mkdir -p repo/debian10/conf')
                         writeFile(file: "repo/debian10/conf/distributions", text: """
 Origin: couchbase
@@ -378,7 +376,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/debian10 buster buster/main
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*bionic*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*bionic*.tar')
                         sh('mkdir -p repo/ubuntu1804/conf')
                         writeFile(file: "repo/ubuntu1804/conf/distributions", text: """
 Origin: couchbase
@@ -415,7 +413,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1804 bionic bionic/ma
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*stretch*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*stretch*.tar')
                         sh('mkdir -p repo/debian9/conf')
                         writeFile(file: "repo/debian9/conf/distributions", text: """
 Origin: couchbase
@@ -452,7 +450,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/debian9 stretch stretch/mai
                     agent { label 'debian10-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: upstream(), filter: 'libcouchbase-*xenial*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*xenial*.tar')
                         sh('mkdir -p repo/ubuntu1604/conf')
                         writeFile(file: "repo/ubuntu1604/conf/distributions", text: """
 Origin: couchbase
