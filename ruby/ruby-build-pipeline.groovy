@@ -82,7 +82,7 @@ pipeline {
                     }
                     stage("gem") {
                         options {
-                            timeout(time: 30, unit: 'MINUTES')
+                            timeout(time: 50, unit: 'MINUTES')
                         }
                         steps {
                             timestamps {
