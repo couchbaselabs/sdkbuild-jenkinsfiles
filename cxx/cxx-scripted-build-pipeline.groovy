@@ -36,6 +36,15 @@ def checkout() {
 
 stage("prepare and validate") {
     node("sdkqe-$COMBINATION_PLATFORM") {
+        script {
+            buildName([
+                    BUILD_NUMBER,
+                    PR_ID == "" ? null : "pr${PR_ID}",
+                    // STORAGE_BACKEND,
+                    USE_TLS ? "tls" : null,
+                    USE_CERT_AUTH ? "cert" : null,
+            ].findAll { it != null }.join("-"))
+        }
         cleanWs()
         checkout()
 
