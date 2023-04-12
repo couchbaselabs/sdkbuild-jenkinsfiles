@@ -303,7 +303,7 @@ def install_system_deps(platform) {
         sh("sudo /sbin/apk add ruby autoconf")
     }
     if (platform == "ubuntu20" || platform == "qe-ubuntu20-arm64") {
-        sh("sudo apt-get install -y ruby libxml2-dev pkg-config libonig-dev autoconf")
+        sh("sudo apt-get update -y && sudo apt-get install -y ruby libxml2-dev pkg-config libonig-dev autoconf")
     }
     if (platform == "qe-grav2-amzn2") {
         sh("sudo yum install -y ruby")
