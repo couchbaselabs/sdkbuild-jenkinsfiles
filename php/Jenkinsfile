@@ -92,18 +92,20 @@ stage("build") {
                             stash(includes: "php-build/", name: "stash-${PLATFORM}-${CB_PHP_VERSION}-${THREAD_SAFETY}-${BUILD_NUMBER}", useDefaultExcludes: false)
                         }
                         stage("test") {
-                            try {
-                                timeout(time: 5, unit: 'MINUTES') {
-                                    withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
-                                        dir("php-build") {
-                                            withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
-                                                execute("ruby bin/test")
+                            if (!SKIP_TESTS.toBoolean()) {
+                                try {
+                                    timeout(time: 5, unit: 'MINUTES') {
+                                        withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
+                                            dir("php-build") {
+                                                withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
+                                                    execute("ruby bin/test")
+                                                }
                                             }
                                         }
                                     }
+                                } finally {
+                                    junit(testResults: "php-build/results.xml", allowEmptyResults: true)
                                 }
-                            } finally {
-                                junit(testResults: "php-build/results.xml", allowEmptyResults: true)
                             }
                         }
                         // stage("package") {
