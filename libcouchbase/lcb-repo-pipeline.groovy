@@ -408,43 +408,6 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu1804 bionic bionic/ma
                         }
                     }
                 }
-                stage('debian9') {
-
-                    agent { label 'debian10-signing' }
-                    steps {
-                        cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*stretch*.tar')
-                        sh('which reprepro; reprepro --version; mkdir -p repo/debian9/conf')
-                        writeFile(file: "repo/debian9/conf/distributions", text: """
-Origin: couchbase
-SignWith: ${GPG_NAME}
-Suite: stretch
-Codename: stretch
-Version: debian9
-Components: stretch/main
-Architectures: amd64
-Description: libcouchbase package repository for stretch debian9
-""")
-                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
-                        dir('repo') {
-                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
-                            writeFile(file: 'libcouchbase-debian9.list', text: """
-# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
-deb https://sdk-snapshots.couchbase.com/libcouchbase/debian9 stretch stretch/main
-""")
-                        }
-                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian9 include stretch \$p; done")
-                        sh("tar cf repo-${BUILD_NUMBER}-debian9.tar repo")
-                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian9.tar", fingerprint: true)
-                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
-                            s3Upload(
-                                bucket: 'sdk-snapshots.couchbase.com',
-                                file: 'repo/',
-                                path: 'libcouchbase/'
-                            )
-                        }
-                    }
-                }
                 stage('ubuntu1604') {
 
                     agent { label 'debian10-signing' }

@@ -694,57 +694,6 @@ pipeline {
                         }
                     }
                 }
-                stage('debian9 amd64') {
-                    agent { label 'cowbuilder' }
-                    stages {
-                        stage('d64v9') {
-                            steps {
-                                dir('ws_debian9_amd64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('cow1') {
-                            when {
-                                expression {
-                                    !fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh("""
-                                    sudo apt-get install cowbuilder && \
-                                    sudo cowbuilder --create \
-                                    --basepath /var/cache/pbuilder/stretch-amd64.cow \
-                                    --distribution stretch \
-                                    --debootstrapopts --arch=amd64 \
-                                     --components 'main'
-                                """.stripIndent())
-                            }
-                        }
-                        stage('cow2') {
-                            when {
-                                expression {
-                                    fileExists("/var/cache/pbuilder/stretch-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/stretch-amd64.cow')
-                            }
-                        }
-                        stage('src') {
-                            steps {
-                                package_src("debian9", "amd64", "stretch", VERSION)
-                            }
-                        }
-                        stage('deb') {
-                            steps {
-                                package_deb("debian9", "amd64", "stretch", VERSION)
-                            }
-                        }
-                    }
-                }
                 stage('debian10 amd64') {
                     agent { label 'cowbuilder' }
                     stages {
