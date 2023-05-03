@@ -252,7 +252,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 sh("curl -sS -uAdministrator:password http://${CLUSTER.firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
                             }
                         }
-                        timeout(unit: 'MINUTES', time: 30) {
+                        timeout(unit: 'MINUTES', time: 40) {
                             stage("test") {
                                 unstash("${COMBINATION_PLATFORM}_build")
                                 withEnv([
@@ -264,6 +264,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                     "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                                 ]) {
                                     dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
+                                        sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${CLUSTER.useTLS} Administrator password; fi")
                                         try {
                                             sh("./bin/run-unit-tests")
                                         } catch(e) {
@@ -308,7 +309,7 @@ if (!SKIP_TESTS.toBoolean()) {
                             CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.clusterId()} --ssl", returnStdout: true).trim()
                         }
                     }
-                    timeout(unit: 'MINUTES', time: 30) {
+                    timeout(unit: 'MINUTES', time: 40) {
                         stage("test") {
                             unstash("${COMBINATION_PLATFORM}_build")
                             withEnv([
@@ -319,6 +320,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "TEST_DEPLOYMENT_TYPE=capella"
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
+                                    sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${CLUSTER.useTLS} Administrator P@ssword1; fi")
                                     try {
                                         sh("./bin/run-unit-tests")
                                     } finally {
