@@ -28,6 +28,7 @@ def check_dependencies(tool) {
     } else {
         check_clang()
     }
+    sh("ccache -M 10G")
 }
 
 pipeline {
@@ -66,12 +67,20 @@ pipeline {
             }
         }
         stage('check') {
+            environment {
+                CB_CLANG = 'clang-16'
+                CB_CLANGXX = 'clang++-16'
+                CB_NUMBER_OF_JOBS = '4'
+            }
             matrix {
                 axes {
                     axis {
                         name 'TOOL'
-                        values 'drd', 'memcheck', 'tsan', 'ubsan', 'asan', 'lsan', 'msan'
+                        values 'drd', 'memcheck', 'tsan', 'ubsan', 'asan', 'lsan'
                     }
+                }
+                environment {
+                    CB_SANITIZER = "${TOOL}"
                 }
                 agent { label 'ubuntu20' }
                 stages {
@@ -93,8 +102,8 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("build-${TOOL}-${BUILD_NUMBER}/couchbase-cxx-client") {
-                                    sh("echo build ${TOOL}")
-                                    sh("ls")
+                                    sh("ccache -s")
+                                    sh("./bin/build-tests")
                                 }
                             }
                         }
