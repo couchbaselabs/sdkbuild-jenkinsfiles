@@ -264,7 +264,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                     "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                                 ]) {
                                     dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                        sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${CLUSTER.useTLS} Administrator password; fi")
+                                        sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator password; fi")
                                         try {
                                             sh("./bin/run-unit-tests")
                                         } catch(e) {
@@ -320,7 +320,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "TEST_DEPLOYMENT_TYPE=capella"
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                    sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${CLUSTER.useTLS} Administrator P@ssword1; fi")
+                                    sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator P@ssword1; fi")
                                     try {
                                         sh("./bin/run-unit-tests")
                                     } finally {
