@@ -1,4 +1,4 @@
-def PLATFORMS = [ "ubuntu20", "centos7", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64" ]
+def PLATFORMS = [ "windows" ]
 def CB_VERSIONS = [
     "66release": [tag: "6.6-release"],
     "71release": [tag: "7.1-release"],
@@ -194,106 +194,8 @@ class DynamicCluster {
 if (!SKIP_TESTS.toBoolean()) {
     stage("tls=${USE_TLS}, cert_auth=${USE_CERT_AUTH}") {
         def cbverStages = [:]
-        CB_VERSIONS.each{cb_version ->
-            def v = cb_version.value
-            def version = v["tag"]
-            def label = version
-            def serverless = false
-            if (v["label"] != null) {
-                label = v["label"]
-            }
-            if (v["serverless"] != null) {
-                serverless = v["serverless"].toBoolean()
-            }
-            cbverStages["${COMBINATION_PLATFORM}-${label}"] = {
-                node("sdkqe-$COMBINATION_PLATFORM") {
-                    def CLUSTER = new DynamicCluster(version)
-                    try {
-                        stage(label) {
-                            withEnv([
-                                "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
-                            ]){
-                                deleteDir()
-                                def allocate_cmd = "cbdyncluster allocate --num-nodes=3 --server-version=${version} --platform ec2"
-                                if (USE_CE.toBoolean()) {
-                                    allocate_cmd += " --use-ce"
-                                }
-                                if (serverless) {
-                                    allocate_cmd += " --serverless-mode"
-                                }
-                                CLUSTER.id_ = sh(script: allocate_cmd, returnStdout: true).trim()
-                                CLUSTER.ips_ = sh(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
-                                def secondNodeServices = "kv"
-                                if (USE_CE.toBoolean()) {
-                                    sh("cbdyncluster setup ${CLUSTER.clusterId()} --node=kv,index,n1ql,fts --node ${secondNodeServices} --node=kv --storage-mode=forestdb --ram-quota 2048")
-                                } else {
-                                    // all indexes in serverless mode must be created with 2 replicas
-                                    if (serverless) {
-                                        secondNodeServices = "kv,index,fts"
-                                    }
-                                    sh("cbdyncluster setup ${CLUSTER.clusterId()} --node=kv,index,n1ql --node ${secondNodeServices} --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 2048")
-                                }
-                                if (USE_TLS.toBoolean()) {
-                                    CLUSTER.useTLS = true
-                                    CLUSTER.certsDir = WORKSPACE
-                                    sh("cbdyncluster setup-cert-auth ${CLUSTER.clusterId()} --user Administrator --num-roots ${CLUSTER.numRootCAs()}")
-                                }
-                                CLUSTER.useCertAuth = USE_CERT_AUTH.toBoolean()
-                                def add_bucket_cmd = "cbdyncluster add-bucket ${CLUSTER.clusterId()} --name default --ram-quota 256"
-                                if (serverless) {
-                                    // FIXME: Just add more kv nodes
-                                    // because we don't create server groups the bucket only gets placed on 1 node so we can't do durable operations if we have replicas
-                                    add_bucket_cmd += " --width 1 --replica-count 0 --storage-backend magma"
-                                } else if (CLUSTER.supportsStorageBackend()) {
-                                    add_bucket_cmd += " --storage-backend ${STORAGE_BACKEND}"
-                                }
-                                sh(add_bucket_cmd)
-                                sh("cbdyncluster add-sample-bucket ${CLUSTER.clusterId()} --name travel-sample")
-                                sh("curl -sS -uAdministrator:password http://${CLUSTER.firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
-                            }
-                        }
-                        timeout(unit: 'MINUTES', time: 40) {
-                            stage("test") {
-                                unstash("${COMBINATION_PLATFORM}_build")
-                                withEnv([
-                                    "TEST_CONNECTION_STRING=${CLUSTER.connectionString()}",
-                                    "CTEST_OUTPUT_ON_FAILURE=1",
-                                    "TEST_LOG_LEVEL=trace",
-                                    "TEST_CERTIFICATE_PATH=${CLUSTER.certPath()}",
-                                    "TEST_KEY_PATH=${CLUSTER.keyPath()}",
-                                    "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
-                                ]) {
-                                    dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                        sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator password; fi")
-                                        try {
-                                            sh("./bin/run-unit-tests")
-                                        } catch(e) {
-                                            dir("server_logs_${label}") {
-                                                sh("cbdyncluster cbcollect ${CLUSTER.clusterId()}")
-                                            }
-                                            archiveArtifacts(artifacts: "server_logs_${label}/*.zip", allowEmptyArchive: true)
-                                            throw e
-                                        } finally {
-                                            junit("cmake-build-tests/results.xml")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } finally {
-                        stage("cleanup") {
-                            withEnv([
-                                "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
-                            ]) {
-                                sh("cbdyncluster rm ${CLUSTER.clusterId()}")
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        cbverStages["${COMBINATION_PLATFORM}-capella"] = {
-            node("sdkqe-$COMBINATION_PLATFORM") {
+        cbverStages["windows-capella"] = {
+            node("windows") {
                 def CLUSTER = new DynamicCluster("capella")
                 try {
                     stage("capella") {
@@ -301,12 +203,12 @@ if (!SKIP_TESTS.toBoolean()) {
                             "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                         ]){
                             deleteDir()
-                            CLUSTER.id_ = sh(script: "cbdyncluster create-cloud --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas", returnStdout: true).trim()
-                            CLUSTER.ips_ = sh(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
-                            sh("cbdyncluster add-bucket ${CLUSTER.clusterId()} --name default --ram-quota 256")
-                            sh("cbdyncluster add-sample-bucket ${CLUSTER.clusterId()} --name travel-sample")
-                            sh("curl -k -sS -uAdministrator:P@ssword1 https://${CLUSTER.firstIP()}:18093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
-                            CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.clusterId()} --ssl", returnStdout: true).trim()
+                            CLUSTER.id_ = bat(script: "cbdyncluster create-cloud --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas", returnStdout: true).trim()
+                            CLUSTER.ips_ = bat(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
+                            bat("cbdyncluster add-bucket ${CLUSTER.clusterId()} --name default --ram-quota 256")
+                            bat("cbdyncluster add-sample-bucket ${CLUSTER.clusterId()} --name travel-sample")
+                            bat("curl -k -sS -uAdministrator:P@ssword1 https://${CLUSTER.firstIP()}:18093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
+                            CLUSTER.connstr = bat(script: "cbdyncluster connstr ${CLUSTER.clusterId()} --ssl", returnStdout: true).trim()
                         }
                     }
                     timeout(unit: 'MINUTES', time: 40) {
@@ -320,9 +222,9 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "TEST_DEPLOYMENT_TYPE=capella"
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                    sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator P@ssword1; fi")
+                                    bat("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator P@ssword1; fi")
                                     try {
-                                        sh("./bin/run-unit-tests")
+                                        bat("./bin/run-unit-tests")
                                     } finally {
                                         junit("cmake-build-tests/results.xml")
                                     }
@@ -335,7 +237,7 @@ if (!SKIP_TESTS.toBoolean()) {
                         withEnv([
                             "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                         ]) {
-                            sh("cbdyncluster rm ${CLUSTER.clusterId()}")
+                            bat("cbdyncluster rm ${CLUSTER.clusterId()}")
                         }
                     }
                 }
