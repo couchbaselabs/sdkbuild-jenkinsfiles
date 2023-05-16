@@ -192,7 +192,7 @@ class DynamicCluster {
 }
 
 if (!SKIP_TESTS.toBoolean()) {
-    stage("combination-test") {
+    stage("combination: tls=${USE_TLS}, cert_auth=${USE_CERT_AUTH}") {
         def cbverStages = [:]
         CB_VERSIONS.each{cb_version ->
             def v = cb_version.value
@@ -205,11 +205,11 @@ if (!SKIP_TESTS.toBoolean()) {
             if (v["serverless"] != null) {
                 serverless = v["serverless"].toBoolean()
             }
-            cbverStages[label] = {
+            cbverStages["${COMBINATION_PLATFORM}-${label}"] = {
                 node("sdkqe-$COMBINATION_PLATFORM") {
                     def CLUSTER = new DynamicCluster(version)
                     try {
-                        stage("env") {
+                        stage(label) {
                             withEnv([
                                 "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                             ]){
@@ -292,11 +292,11 @@ if (!SKIP_TESTS.toBoolean()) {
                 }
             }
         }
-        cbverStages["capella"] = {
+        cbverStages["${COMBINATION_PLATFORM}-capella"] = {
             node("sdkqe-$COMBINATION_PLATFORM") {
                 def CLUSTER = new DynamicCluster("capella")
                 try {
-                    stage("env") {
+                    stage("capella") {
                         withEnv([
                             "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                         ]){
