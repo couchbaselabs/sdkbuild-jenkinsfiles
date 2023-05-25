@@ -103,7 +103,7 @@ stage("build") {
                             }
                         }
                     }
-                    if (platform == COMBINATION_PLATFORM || platform == "windows") {
+                    if (platform == COMBINATION_PLATFORM) {
                         stash(includes: "ws_${platform}/", name: "${platform}_build", useDefaultExcludes: false)
                     }
                 }
