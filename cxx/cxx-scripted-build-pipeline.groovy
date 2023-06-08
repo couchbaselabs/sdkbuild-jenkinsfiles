@@ -304,8 +304,6 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "TEST_DEPLOYMENT_TYPE=capella"
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                    sh("if [ -f ./bin/load-sample-buckets ] ; then ./bin/load-sample-buckets ${CLUSTER.firstIP()} true Administrator P@ssword1 travel-sample; fi")
-                                    sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} true Administrator P@ssword1; fi")
                                     try {
                                         sh("./bin/run-unit-tests")
                                     } finally {
