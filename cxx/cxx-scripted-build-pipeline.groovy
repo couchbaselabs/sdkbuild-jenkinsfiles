@@ -82,6 +82,7 @@ stage("build") {
                         envs.push("CB_CC=/opt/gcc-10.2.0/bin/cc")
                         envs.push("CB_CXX=/opt/gcc-10.2.0/bin/c++")
                     } else if (platform == "centos7") {
+                        envs.push("OPENSSL_ROOT_DIR=/usr/local/openssl")
                         envs.push("CB_CC=/opt/rh/devtoolset-9/root/usr/bin/cc")
                         envs.push("CB_CXX=/opt/rh/devtoolset-9/root/usr/bin/c++")
                     }
