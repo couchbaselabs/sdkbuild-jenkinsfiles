@@ -249,7 +249,6 @@ if (!SKIP_TESTS.toBoolean()) {
                                     add_bucket_cmd += " --storage-backend ${STORAGE_BACKEND}"
                                 }
                                 sh(add_bucket_cmd)
-                                sh("cbdyncluster add-sample-bucket ${CLUSTER.clusterId()} --name travel-sample")
                                 sh("curl -sS -uAdministrator:password http://${CLUSTER.firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
                             }
                         }
@@ -265,6 +264,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                     "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                                 ]) {
                                     dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
+                                        sh("if [ -f ./bin/load-sample-buckets ] ; then ./bin/load-sample-buckets ${CLUSTER.firstIP()} ${USE_TLS} Administrator password travel-sample; fi")
                                         sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator password; fi")
                                         try {
                                             sh("./bin/run-unit-tests")
@@ -305,7 +305,6 @@ if (!SKIP_TESTS.toBoolean()) {
                             CLUSTER.id_ = sh(script: "cbdyncluster create-cloud --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas", returnStdout: true).trim()
                             CLUSTER.ips_ = sh(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
                             sh("cbdyncluster add-bucket ${CLUSTER.clusterId()} --name default --ram-quota 256")
-                            sh("cbdyncluster add-sample-bucket ${CLUSTER.clusterId()} --name travel-sample")
                             sh("curl -k -sS -uAdministrator:P@ssword1 https://${CLUSTER.firstIP()}:18093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
                             CLUSTER.connstr = sh(script: "cbdyncluster connstr ${CLUSTER.clusterId()} --ssl", returnStdout: true).trim()
                         }
@@ -321,6 +320,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "TEST_DEPLOYMENT_TYPE=capella"
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
+                                    sh("if [ -f ./bin/load-sample-buckets ] ; then ./bin/load-sample-buckets ${CLUSTER.firstIP()} ${USE_TLS} Administrator P@ssword1 travel-sample; fi")
                                     sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator P@ssword1; fi")
                                     try {
                                         sh("./bin/run-unit-tests")
