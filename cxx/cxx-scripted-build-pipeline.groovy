@@ -12,7 +12,6 @@ if (USE_CE.toBoolean()) {
     CB_VERSIONS["70release"] = [tag: "7.0-release"]
     // 7.5 only supported on EE
     CB_VERSIONS["75stable"] = [tag: "7.5-stable"]
-    CB_VERSIONS["75serverless"] = [tag: "7.5-stable", serverless: true, label: "7.5-serverless"]
 }
 def COMBINATION_PLATFORM = "centos7"
 
@@ -199,12 +198,8 @@ if (!SKIP_TESTS.toBoolean()) {
             def v = cb_version.value
             def version = v["tag"]
             def label = version
-            def serverless = false
             if (v["label"] != null) {
                 label = v["label"]
-            }
-            if (v["serverless"] != null) {
-                serverless = v["serverless"].toBoolean()
             }
             cbverStages["${COMBINATION_PLATFORM}-${label}"] = {
                 node("sdkqe-$COMBINATION_PLATFORM") {
@@ -219,19 +214,12 @@ if (!SKIP_TESTS.toBoolean()) {
                                 if (USE_CE.toBoolean()) {
                                     allocate_cmd += " --use-ce"
                                 }
-                                if (serverless) {
-                                    allocate_cmd += " --serverless-mode"
-                                }
                                 CLUSTER.id_ = sh(script: allocate_cmd, returnStdout: true).trim()
                                 CLUSTER.ips_ = sh(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
                                 def secondNodeServices = "kv"
                                 if (USE_CE.toBoolean()) {
                                     sh("cbdyncluster setup ${CLUSTER.clusterId()} --node=kv,index,n1ql,fts --node ${secondNodeServices} --node=kv --storage-mode=forestdb --ram-quota 2048")
                                 } else {
-                                    // all indexes in serverless mode must be created with 2 replicas
-                                    if (serverless) {
-                                        secondNodeServices = "kv,index,fts"
-                                    }
                                     sh("cbdyncluster setup ${CLUSTER.clusterId()} --node=kv,index,n1ql --node ${secondNodeServices} --node=fts,cbas,eventing --storage-mode=plasma --ram-quota 2048")
                                 }
                                 if (USE_TLS.toBoolean()) {
@@ -241,11 +229,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 }
                                 CLUSTER.useCertAuth = USE_CERT_AUTH.toBoolean()
                                 def add_bucket_cmd = "cbdyncluster add-bucket ${CLUSTER.clusterId()} --name default --ram-quota 256"
-                                if (serverless) {
-                                    // FIXME: Just add more kv nodes
-                                    // because we don't create server groups the bucket only gets placed on 1 node so we can't do durable operations if we have replicas
-                                    add_bucket_cmd += " --width 1 --replica-count 0 --storage-backend magma"
-                                } else if (CLUSTER.supportsStorageBackend()) {
+                                if (CLUSTER.supportsStorageBackend()) {
                                     add_bucket_cmd += " --storage-backend ${STORAGE_BACKEND}"
                                 }
                                 sh(add_bucket_cmd)
