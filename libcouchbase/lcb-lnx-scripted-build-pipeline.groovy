@@ -203,9 +203,7 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
             sudo mock --buildsrpm -r ${mock} --spec libcouchbase.spec --sources ${pwd()} --old-chroot \
             --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_srpm"
         """.stripIndent())
-        if (name == 'centos' && relno == 7 && arch == 'x86_64') {
-            stash(includes: "libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/*.src.rpm", name: "${name}${relno}-srpm")
-        }
+        stash(includes: "libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/*.src.rpm", name: "${name}${relno}-srpm")
     }
 }
 
