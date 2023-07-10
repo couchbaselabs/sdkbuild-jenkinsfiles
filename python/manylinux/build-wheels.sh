@@ -5,7 +5,7 @@ set -e -u
 # export AUDITWHEEL=/tmp/auditwheel-pycbc
 # export PLATFORM=manylinux2014_x86_64
 
-#allowed_python_versions=("cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310")
+#allowed_python_versions=("cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310", "cp311-cp311")
 #allowed_python_versions=("cp38-cp38")
 IFS=' ' read -r -a allowed_python_versions <<< $CPYTHON_VERSIONS
 
@@ -30,6 +30,9 @@ function get_python_version {
             ;;
         "cp310-cp310")
             python_version="3.10"
+            ;;
+        "cp311-cp311")
+            python_version="3.11"
             ;;
     esac
 
