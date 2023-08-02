@@ -1,8 +1,8 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def DOTNET_SDK_VERSIONS = ["2.1.816", "3.1.410", "5.0.404", "6.0.101"]
-def DOTNET_SDK_VERSION = "6.0.101"
+def DOTNET_SDK_VERSIONS = ["6.0.412"]
+def DOTNET_SDK_VERSION = "6.0.412"
 def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
@@ -292,54 +292,4 @@ def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
             }
         }
     }
-}
-
-def selectSDK(BRANCH, DOTNET_SDK_VERSIONS){
-    if(BRANCH == "master"){
-        return DOTNET_SDK_VERSIONS.last()
-    }else{
-        return DOTNET_SDK_VERSIONS[0]
-    }
-}
-
-void waitUntilRebalanceComplete(String ip) {
-    def cmd = "curl -u Administrator:password http://${ip}:8091/pools/default/rebalanceProgress"
-    progress = true
-    iterations = 0
-    while(progress && iterations < 20) {
-        def ret = sh(returnStdout: true, script: cmd).trim()
-        echo("got '${ret}'")
-        iterations += 1
-        progress = !ret.contains("""{"status":"none"}""")
-        if(progress) {
-            echo("got '${ret}', sleeping for 20 sec")
-            sleep(20)
-        }
-    }
-
-}
-
-void curl_with_retry(String url, String method, String data) {
-    def command = """curl -u Administrator:password -X ${method} -s -o /dev/null -w "%{http_code}" -d '${data}' ${url} """
-    echo(command)
-    def return_code = 500
-    retval = 1
-    iterations =  0
-    while(retval > 0 && iterations < 10) {
-        def ret = sh(returnStdout: true, script: command).trim()
-        iterations += 1
-        echo "returned ${ret}"
-        return_code = ret as int
-        // 2XX is success, but sometimes the bucket is already there
-        // (in the case of installing the sample buckets), so lets ignore
-        // that and just make this "not 500"
-        if (return_code > 199 && return_code < 500) {
-            echo("success = ${return_code}")
-            retval = 0
-        } else {
-            echo("got #{return_code}, sleeping for 20 sec to try again...")
-            sleep(20)
-        }
-    }
-    return retval
 }
