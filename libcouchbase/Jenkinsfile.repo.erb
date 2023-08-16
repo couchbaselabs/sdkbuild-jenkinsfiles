@@ -14,6 +14,7 @@ yum_distros = [
     ['rhel9', 'el9', 'x86_64'],
     ['amzn2', 'amzn2', 'x86_64'],
     ['amzn2', 'amzn2', 'aarch64'],
+    ['amzn2023', 'amzn2023', 'x86_64'],
 ]
 %>
 <% yum_distros.each do |(distro, distro_id, arch)| %>
@@ -26,7 +27,7 @@ key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
                     agent { label 'centos7-signing' }
                     steps {
                         cleanWs()
-                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*<%= distro %>*.tar')
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*_<%= distro %>_*.tar')
                         writeFile(file: "rpmsign-wrapper.expect", text: """
 set pkgName [lrange \$argv 0 0]
 spawn rpm --addsign -D "_signature gpg" -D "_gpg_name ${GPG_NAME}" \$pkgName

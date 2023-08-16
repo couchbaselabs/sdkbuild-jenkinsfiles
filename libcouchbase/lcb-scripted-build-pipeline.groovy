@@ -195,6 +195,9 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
         if (!(relno == 7 && name == 'centos')) {
             sh("sed -i 's/openssl11-devel/openssl-devel/g' ../libcouchbase/packaging/rpm/libcouchbase.spec.in")
         }
+        if (relno == 2023 && name == 'amzn') {
+            sh("sed -i '1i %undefine _package_note_file\\nBuildRequires: redhat-rpm-config' ../libcouchbase/packaging/rpm/libcouchbase.spec.in")
+        }
         sh("""
             sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;s/^make.*test/true/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
@@ -212,7 +215,7 @@ def package_rpm(name, bits, relno, arch, mock, VERSION) {
     dir("ws_${name}${relno}-${bits}/build") {
         sh("""
             sudo mock --rebuild -r ${mock} --resultdir="libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}" --old-chroot \
-            --verbose libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.el${relno}.src.rpm
+            --verbose libcouchbase-${VERSION.tar()}_${name}${relno}_srpm/libcouchbase-${VERSION.version()}-${VERSION.rpmRel()}.*${relno}.src.rpm
         """.stripIndent())
         sh("sudo chown couchbase:couchbase -R libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}")
         sh("rm -rf libcouchbase-${VERSION.tar()}_${name}${relno}_${arch}/*.log")
