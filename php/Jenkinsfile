@@ -1,9 +1,9 @@
 // vim: ft=groovy
 
 PLATFORMS = ['centos7', 'macos', 'm1', 'alpine', 'qe-grav2-amzn2', 'amzn2', 'ubuntu20', 'qe-ubuntu20-arm64'] //, 'windows'
-PHP_VERSIONS = ['8.1.4', '8.0.17', '7.4.28']
+PHP_VERSIONS = ['8.2.9', '8.1.22', '8.0.30']
 THREAD_SAFETY_OPTIONS = ['nts', 'zts']
-CB_VERSIONS = ['7.2-stable', '7.1-stable', '7.0-release', '6.6-release', '6.5-release', '6.0-release']
+CB_VERSIONS = ['7.2-stable', '7.1-stable', '7.0-release', '6.6-release']
 
 stage('prep') {
     node("centos7") {
