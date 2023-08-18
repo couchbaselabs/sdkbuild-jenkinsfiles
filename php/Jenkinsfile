@@ -216,7 +216,7 @@ x-php-variant: &php-variant
       - run: |
           rm -rf ${HOME}/.phps_build/${PACKAGE}-${VERSION}-cb1
           rm -rf ${HOME}/.build-tools
-          git clone https://github.com/couchbase/build-tools ${HOME}/.build-tools
+          git clone https://github.com/avsej/build-tools ${HOME}/.build-tools
           ${HOME}/.build-tools/cbdeps/php/php_unix.sh ${HOME}/.phps_build ${VERSION} 1
           mkdir -p ${HOME}/.phps/
           ln -s -f ${HOME}/.phps_build/${PACKAGE}-${VERSION}-cb1 ${FIXED_DIR}
