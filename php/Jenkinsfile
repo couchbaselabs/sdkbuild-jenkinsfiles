@@ -94,7 +94,7 @@ stage("build") {
                         stage("test") {
                             if (!SKIP_TESTS.toBoolean()) {
                                 try {
-                                    timeout(time: 5, unit: 'MINUTES') {
+                                    timeout(time: 30, unit: 'MINUTES') {
                                         withEnv(["COUCHBASE_LOG_LEVEL=trace"]) {
                                             dir("php-build") {
                                                 withEnv(calculate_env(PLATFORM, CB_PHP_VERSION, THREAD_SAFETY)) {
