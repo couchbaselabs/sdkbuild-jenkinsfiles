@@ -12,7 +12,7 @@ pipeline {
     agent none
     stages {
         stage("prepare and validate") {
-            agent { label "centos6||centos7||ubuntu16||ubuntu14||ubuntu20" }
+            agent { label "centos6||centos7||ubuntu20" }
             steps {
 
 				echo "Branch: ${GERRIT_BRANCH}"
@@ -74,7 +74,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLAT'
-                        values "windows","ubuntu16","centos7","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1", "qe-ubuntu20-arm64"
+                        values "windows","centos7","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1", "qe-ubuntu20-arm64"
                     }
                 }
                 agent { label PLAT }
