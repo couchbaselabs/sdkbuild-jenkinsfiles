@@ -44,6 +44,16 @@ pipeline {
                             notValues 'brew'
                         }
                     }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'alpine'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values '3.0'
+                        }
+                    }
                 }
                 agent { label PLATFORM }
                 stages {
@@ -137,6 +147,16 @@ pipeline {
                             notValues 'brew'
                         }
                     }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'alpine'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values '3.0'
+                        }
+                    }
                 }
                 agent { label PLATFORM }
                 stages {
@@ -192,6 +212,18 @@ pipeline {
                     axis {
                         name 'CB_RUBY_VERSION'
                         values /* '2.7', */ '3.0', '3.1', '3.2'
+                    }
+                }
+                excludes {
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'alpine'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values '3.0'
+                        }
                     }
                 }
                 agent { label PLATFORM }
@@ -283,7 +315,7 @@ pipeline {
                                 unstash(name: "gem-centos7-3.1-bin")
                                 unstash(name: "gem-centos7-3.2-bin")
                                 //unstash(name: "gem-alpine-2.7-bin")
-                                unstash(name: "gem-alpine-3.0-bin")
+                                //unstash(name: "gem-alpine-3.0-bin")
                                 unstash(name: "gem-alpine-3.1-bin")
                                 unstash(name: "gem-alpine-3.2-bin")
                                 archiveArtifacts(artifacts: "*.gem")
