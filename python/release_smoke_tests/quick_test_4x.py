@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import certifi
+import functools
 import json
 import os
 import pathlib
@@ -12,13 +13,18 @@ import time
 from subprocess import (STDOUT,
                         Popen,
                         call)
-from typing import Optional
+from typing import (Callable,
+                    Optional,
+                    Tuple)
 from urllib.request import urlopen
 from uuid import uuid4
 
 from couchbase.auth import PasswordAuthenticator
 from couchbase.cluster import Cluster
-from couchbase.exceptions import DocumentExistsException, DocumentNotFoundException
+from couchbase.exceptions import (AmbiguousTimeoutException,
+                                  DocumentExistsException,
+                                  DocumentNotFoundException,
+                                  UnAmbiguousTimeoutException)
 from couchbase.options import ClusterOptions
 
 
@@ -189,6 +195,43 @@ class CavesMockServer:
         return result
 
 
+def allow_retries(retry_limit=3,                # type: int
+                  backoff=1.0,                  # type: float
+                  exponential_backoff=False,    # type: bool
+                  linear_backoff=False,         # type: bool
+                  allowed_exceptions=None       # type: Optional[Tuple]
+                  ) -> Callable:
+    def handle_retries(func):
+        @functools.wraps(func)
+        def func_wrapper(*args, **kwargs):
+            delay = backoff
+            for retry_num in range(retry_limit):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as ex:
+                    if allowed_exceptions is None or not isinstance(ex, allowed_exceptions):
+                        raise
+
+                    if retry_num == (retry_limit-1):
+                        raise
+
+                    time.sleep(delay)
+                    if exponential_backoff is True:
+                        delay = backoff*(2**(retry_num+1))
+                    elif linear_backoff is True:
+                        delay = backoff*(retry_num+1)
+
+                    print(f"Retries left: {retry_limit - (retry_num+1)}")
+                    print(f"Backing Off: {delay} seconds")
+                    print(f"{retry_num=}")
+
+        return func_wrapper
+    return handle_retries
+
+
+@allow_retries(retry_limit=3,
+               backoff=0.5,
+               allowed_exceptions=(Exception,))
 def create_mock_server(mock_path,  # type: str
                        mock_download_url,  # type: Optional[str]
                        mock_version,  # type: Optional[str]
@@ -210,10 +253,17 @@ def create_mock_server(mock_path,  # type: str
     return mock
 
 
+mock_server = create_mock_server(None,
+                                 mock_download_url='https://github.com/couchbaselabs/gocaves/releases/download',
+                                 mock_version='v0.0.1-78')
+
+
+@allow_retries(retry_limit=10,
+               backoff=0.5,
+               linear_backoff=True,
+               allowed_exceptions=(AmbiguousTimeoutException, UnAmbiguousTimeoutException))
 def run_quick_test():
-    mock_server = create_mock_server(None,
-                                     mock_download_url='https://github.com/couchbaselabs/gocaves/releases/download',
-                                     mock_version='v0.0.1-74')
+
     bucket_name = 'default'
     username = 'Administrator'
     pw = 'password'

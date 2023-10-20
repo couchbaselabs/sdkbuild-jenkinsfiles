@@ -1,13 +1,24 @@
+import os
 import sys
 
 from auditwheel.main import main
 from auditwheel.policy import _POLICIES as POLICIES
 
-# we want to dynamically link against OpenSSL libraries
-# libcrypto.so.1.1, libssl.so.1.1
-openssl_libs = ['libssl.so.1.1', 'libcrypto.so.1.1']
-for p in POLICIES:
-    p['lib_whitelist'].extend(openssl_libs)
+pycbc_use_openssl = os.getenv('PYCBC_USE_OPENSSL', '')
+if pycbc_use_openssl.lower() in ['true', '1', 'y', 'yes']:
+    # we want to dynamically link against OpenSSL libraries
+    pycbc_openssl_version = os.getenv('PYCBC_OPENSSL_VERSION')
+    if '1.1' in pycbc_openssl_version:
+        openssl_libs = ['libssl.so.1.1', 'libcrypto.so.1.1']
+    elif '3.1' in pycbc_openssl_version:
+        openssl_libs = ['libssl.so.3.1', 'libcrypto.so.3.1']
+    elif '3' in pycbc_openssl_version:
+        openssl_libs = ['libssl.so.3', 'libcrypto.so.3']
+    else:
+        openssl_libs = ['libssl.so.1.1', 'libcrypto.so.1.1']
+
+    for p in POLICIES:
+        p['lib_whitelist'].extend(openssl_libs)
 
 if __name__ == "__main__":
     sys.exit(main())
