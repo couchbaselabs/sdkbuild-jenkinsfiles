@@ -74,6 +74,9 @@ if [[ -n "${PYCBC_USE_OPENSSL-}" && "$PYCBC_USE_OPENSSL" = true && -n "${PYCBC_O
 
     if [[ ! -f "${LIB_CRYPTO}" || ! -f "${LIB_SSL}" ]]; then
         echo "Installing OpenSSL=${PYCBC_OPENSSL_VERSION}"
+        if [ ! -d "/usr/src" ]; then
+            mkdir /usr/src
+        fi
         cd /usr/src && \
             curl -L -o openssl-$PYCBC_OPENSSL_VERSION.tar.gz $OPENSSL_BASE_URL/openssl-$PYCBC_OPENSSL_VERSION.tar.gz && \
             tar -xvf openssl-$PYCBC_OPENSSL_VERSION.tar.gz && \
