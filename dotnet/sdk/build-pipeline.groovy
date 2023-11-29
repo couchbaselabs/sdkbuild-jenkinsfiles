@@ -1,18 +1,18 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def DOTNET_SDK_VERSIONS = ["6.0.412"]
-def DOTNET_SDK_VERSION = "6.0.412"
+def DOTNET_SDK_VERSIONS = ["6.0.417", "8.0.100"]
+def DOTNET_SDK_VERSION = "8.0.100"
 def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-DERIVED_VERSION = "3.3.6-hardcoded"
+DERIVED_VERSION = "3.4.14-hardcoded"
 
 pipeline {
     agent none
     stages {
         stage("prepare and validate") {
-            agent { label "centos6||centos7||ubuntu20" }
+            agent { label "centos7||centos8||ubuntu20" }
             steps {
 
 				echo "Branch: ${GERRIT_BRANCH}"
@@ -74,7 +74,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLAT'
-                        values "windows","centos7","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1", "qe-ubuntu20-arm64"
+                        values "windows","centos8","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1", "qe-ubuntu20-arm64"
                     }
                 }
                 agent { label PLAT }
@@ -154,6 +154,13 @@ pipeline {
                         ]
 
                         for (tp in toPack) {
+                            packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
+                        }
+
+                        def cbStellarProj = "couchbase-net-client\\src\\Couchbase\\Couchbase.Stellar.csproj"
+                        def cbNetClientProj = "couchbase-net-client\\src\\Couchbase\\Couchbase.NetClient.csproj"
+                        if (fileExists(cbStellarProj)) {
+                            packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
                             packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
                         }
                     }
@@ -263,11 +270,7 @@ def installSDK(PLATFORM, DOTNET_SDK_VERSION) {
 def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
     def depsDir = getDepsDir(PLATFORM)
     for (dnv in DOTNET_SDK_VERSIONS) {
-        if (PLATFORM != "m1" || dnv.startsWith("6.0")) {
-            installSDK(PLATFORM, dnv)
-        } else {
-            echo "Skipping ${dnv} on ${PLATFORM}"
-        }
+        installSDK(PLATFORM, dnv)
     }
 
     echo "Combining installed dotnet SDKs into dotnet-core-sdk-all"
@@ -284,12 +287,8 @@ def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
                     }
                     unzip zipFile: zipFile, dir: "."
                 } else {
-                    if (PLATFORM != "m1" || dnv.startsWith("6.0")) {
-                        // For UNIX, we use cp to preserve file permissions
-                        shWithEcho("cp -r ../dotnet-core-sdk-${dnv}/* .")
-                    } else {
-                        // We only support .NET 6 on M1
-                    }
+                    // For UNIX, we use cp to preserve file permissions
+                    shWithEcho("cp -r ../dotnet-core-sdk-${dnv}/* .")
                 }
             }
         }
