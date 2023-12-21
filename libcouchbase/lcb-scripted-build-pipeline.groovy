@@ -445,7 +445,6 @@ pipeline {
                 stages {
                     stage("env") {
                         steps {
-                            sh("cbdyncluster ps -a")
                             script {
                                 def cluster = new DynamicCluster(CB_VERSION)
                                 cluster.id_ = sh(script: "cbdyncluster allocate --num-nodes=3 --server-version=${cluster.version()}", returnStdout: true).trim()
@@ -480,7 +479,7 @@ pipeline {
                         post {
                             always {
                                 junit(testResults: "ws_centos7/build/*.xml", allowEmptyResults: true)
-                                sh("cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
+                                sh("cbdyncluster ps -a; cbdyncluster rm ${CLUSTER[CB_VERSION].clusterId()}")
                             }
                         }
                         environment {
@@ -498,6 +497,7 @@ pipeline {
                             dir('ws_centos7/build') {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
+                                sh("cbdyncluster ps -a")
                                 sh("ctest --label-exclude contaminating --exclude-regex BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                                 sh("ctest --label-exclude normal --exclude-regex BUILD ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
                             }
