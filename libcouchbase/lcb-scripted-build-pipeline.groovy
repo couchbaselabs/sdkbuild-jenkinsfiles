@@ -160,7 +160,7 @@ def package_src(name, arch, codename, VERSION) {
         unstash 'tarball'
         sh("ln -s ${VERSION.tarName()}.tar.gz libcouchbase_${VERSION.deb()}.orig.tar.gz")
         sh("tar -xf ${VERSION.tarName()}.tar.gz")
-        sh("sed -i 's/dh_auto_test /true /g' ../libcouchbase/packaging/deb/rules")
+        sh("sed -i 's/dh_auto_test /true /g;s/LCB_NO_MOCK=1/LCB_NO_MOCK=1 -DLCB_BUILD_DTRACE=0/g' ../libcouchbase/packaging/deb/rules")
         sh("cp -a ../libcouchbase/packaging/deb ${VERSION.tarName()}/debian")
         dir(VERSION.tarName()) {
             sh("""
@@ -199,7 +199,7 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
             sh("sed -i '1i %undefine _package_note_file\\nBuildRequires: redhat-rpm-config' ../libcouchbase/packaging/rpm/libcouchbase.spec.in")
         }
         sh("""
-            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;s/^make.*test/true/g' \
+            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;/systemtap/d;s/^make.*test/true/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
         """.stripIndent())
         sh("""
@@ -557,7 +557,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/bionic-amd64.cow \
                                     --distribution bionic \
@@ -608,7 +608,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/buster-amd64.cow \
                                     --distribution buster \
