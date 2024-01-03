@@ -178,7 +178,7 @@ def packProject(PROJ_FILE, nugetSignKey, version, DOTNET_SDK_VERSION) {
     }
 
     dotNetWithEcho("windows", "build ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
-    dotNetWithEcho("windows", "pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true")
+    dotNetWithEcho("windows", "pack ${PROJ_FILE} -c Release /p:SignAssembly=true /p:AssemblyOriginatorKeyFile=%NUGET_SIGN_KEY% ${versionParam} /p:IncludeSymbols=true /p:IncludeSource=true /p:SourceLinkCreate=true /p:SymbolPackageFormat=snupkg")
 }
 
 def getDepsDir(PLATFORM) {
