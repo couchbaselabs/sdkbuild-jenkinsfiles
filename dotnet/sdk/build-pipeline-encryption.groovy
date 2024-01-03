@@ -107,7 +107,7 @@ pipeline {
                                         }
                                     }
                                     // create zip file of release files and add it to archived artifacts
-                                    zip dir: "dotnet-couchbase-encryption/src/Couchbase.Encryption/bin/Release", zipFile: "Couchbase-Encryptio-${version}.zip", archive: true
+                                    zip dir: "dotnet-couchbase-encryption/src/Couchbase.Encryption/bin/Release", zipFile: "Couchbase-Encryption-${version}.zip", archive: true
 
                                     archiveArtifacts artifacts: "dotnet-couchbase-encryption/**/*.nupkg, dotnet-couchbase-encryption/**/*.snupkg", fingerprint: true
                                     stash includes: "dotnet-couchbase-encryption/**/Release/*.nupkg, dotnet-couchbase-encryption/**/Release/*.snupkg", name: "dotnet-couchbase-encryption-package", useDefaultExcludes: false

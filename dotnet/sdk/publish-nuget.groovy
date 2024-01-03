@@ -28,7 +28,9 @@ pipeline {
                     def toPublish = [ ]
                     for (pkg in nugets) {
                         echo "pkg = ${pkg}"
-                        if (pkg =~ pattern) {
+                        if (pkg =~ ".*.symbols.nupkg") {
+                            echo "Skipping ${pkg} in favor of snupkg (build with /p:SymbolPackageFormat=snupkg or update your project files accordingly)"
+                        } else if (pkg =~ pattern) {
                             echo "${pkg} matches ${pattern}"
                             toPublish.add(pkg.path)
                         }
