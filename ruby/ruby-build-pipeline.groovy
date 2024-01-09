@@ -16,53 +16,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15', 'm1', 'alpine', 'qe-grav2-amzn2'
-                    }
-                    axis {
-                        name 'CB_RUBY_VERSION'
-                        values '3.0', '3.1', '3.2', '3.3', 'brew'
-                    }
-                }
-                excludes {
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            notValues 'macos-11.0', 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values 'brew'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'macos-11.0', 'macos-10.15', 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values '3.3'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            notValues 'brew'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'alpine'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values '3.0'
-                        }
+                        values 'macos-11.0', 'm1', 'windows', 'centos7', 'alpine', 'qe-grav2-amzn2'
                     }
                 }
                 agent { label PLATFORM }
@@ -71,7 +25,7 @@ pipeline {
                         steps {
                             timestamps {
                                 cleanWs()
-                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                dir("build-${PLATFORM}-${BUILD_NUMBER}") {
                                     deleteDir()
                                     checkout([
                                         $class: "GitSCM",
@@ -94,28 +48,46 @@ pipeline {
                     stage("deps") {
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    sh("bin/jenkins/install-dependencies")
+                                dir("build-${PLATFORM}-${BUILD_NUMBER}") {
+                                    script {
+                                        if (PLATFORM == "windows") {
+                                            powershell("bin/jenkins/install-dependencies.ps1")
+                                        } else {
+                                            sh("bin/jenkins/install-dependencies.sh")
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                     stage("gem") {
                         options {
-                            timeout(time: 50, unit: 'MINUTES')
+                            timeout(time: 2, unit: 'HOURS')
                         }
                         steps {
                             timestamps {
-                                dir("build-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    sh("bin/jenkins/build-extension")
-                                    dir("pkg") {
-                                        stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-src", includes: "*.gem")
-                                        dir("binary") {
-                                            stash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin", includes: "*.gem")
+                                dir("build-${PLATFORM}-${BUILD_NUMBER}") {
+                                    script {
+                                        if (PLATFORM == "windows") {
+                                            powershell("bin/jenkins/build-gem.ps1")
+                                        } else {
+                                            sh("bin/jenkins/build-gem.sh")
                                         }
                                     }
-                                    stash(name: "scripts-${PLATFORM}-${CB_RUBY_VERSION}", includes: "bin/jenkins/*")
-                                    stash(name: "tests-${PLATFORM}-${CB_RUBY_VERSION}", includes: "Gemfile,test/**/*,test_data/**/*")
+                                    dir("pkg") {
+                                        stash(name: "gem-${PLATFORM}-src", includes: "*.gem")
+                                        script {
+                                            if (PLATFORM == "centos7") {
+                                                archiveArtifacts(artifacts: "*.gem")
+                                            }
+                                        }
+                                        dir("fat") {
+                                            archiveArtifacts(artifacts: "*.gem")
+                                            stash(name: "gem-${PLATFORM}-bin", includes: "*.gem")
+                                        }
+                                    }
+                                    stash(name: "scripts-${PLATFORM}", includes: "bin/jenkins/*")
+                                    stash(name: "tests-${PLATFORM}", includes: "Gemfile,test/**/*,test_data/**/*")
                                 }
                             }
                         }
@@ -129,53 +101,11 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'macos-11.0', 'macos-10.15', 'ubuntu20', 'm1', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64'
+                        values 'centos7', 'ubuntu20', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64', 'macos-11.0', 'm1'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '3.0', '3.1', '3.2', '3.3', 'brew'
-                    }
-                }
-                excludes {
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            notValues 'macos-11.0', 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values 'brew'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'macos-11.0', 'macos-10.15', 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values '3.3'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'm1'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            notValues 'brew'
-                        }
-                    }
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'alpine'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values '3.0'
-                        }
+                        values '3.1', '3.2', '3.3'
                     }
                 }
                 agent { label PLATFORM }
@@ -185,9 +115,8 @@ pipeline {
                             timestamps {
                                 cleanWs()
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    // unstash(name: "scripts-centos7-2.7")
-                                    unstash(name: "scripts-centos7-3.0")
-                                    sh("bin/jenkins/install-dependencies")
+                                    unstash(name: "scripts-centos7")
+                                    sh("bin/jenkins/install-dependencies.sh")
                                 }
                             }
                         }
@@ -198,11 +127,11 @@ pipeline {
                                 dir("inst-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
                                     script {
                                         if (PLATFORM =~ /macos|m1|alpine|grav2/) {
-                                            unstash(name: "gem-${PLATFORM}-${CB_RUBY_VERSION}-bin")
+                                            unstash(name: "gem-${PLATFORM}-bin")
                                         } else if (PLATFORM =~ /arm64/) {
-                                            unstash(name: "gem-qe-grav2-amzn2-${CB_RUBY_VERSION}-bin")
+                                            unstash(name: "gem-qe-grav2-amzn2-bin")
                                         } else {
-                                            unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
+                                            unstash(name: "gem-centos7-bin")
                                         }
                                     }
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
@@ -214,7 +143,7 @@ pipeline {
             }
         }
 
-        stage('test') {
+        stage("test") {
             when {
                 expression {
                     return SKIP_TESTS.toBoolean() == false
@@ -231,19 +160,7 @@ pipeline {
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '3.0', '3.1', '3.2', '3.3'
-                    }
-                }
-                excludes {
-                    exclude {
-                        axis {
-                            name 'PLATFORM'
-                            values 'alpine'
-                        }
-                        axis {
-                            name 'CB_RUBY_VERSION'
-                            values '3.0'
-                        }
+                        values '3.1', '3.2', '3.3'
                     }
                 }
                 agent { label PLATFORM }
@@ -254,8 +171,8 @@ pipeline {
                                 sh("sudo dnf config-manager --set-disabled 'bintray-*' || true")
                                 cleanWs()
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "scripts-centos7-${CB_RUBY_VERSION}")
-                                    sh("bin/jenkins/install-dependencies")
+                                    unstash(name: "scripts-centos7")
+                                    sh("bin/jenkins/install-dependencies.sh")
                                 }
                             }
                         }
@@ -264,7 +181,7 @@ pipeline {
                         steps {
                             timestamps {
                                 dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
+                                    unstash(name: "gem-centos7-bin")
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
                                 }
                             }
@@ -289,8 +206,8 @@ pipeline {
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                unstash(name: "gem-centos7-${CB_RUBY_VERSION}-bin")
-                                unstash(name: "tests-centos7-${CB_RUBY_VERSION}")
+                                unstash(name: "gem-centos7-bin")
+                                unstash(name: "tests-centos7")
                                 sh("bin/jenkins/test-with-cbdyncluster ./couchbase-*.gem")
                             }
                         }
@@ -298,7 +215,7 @@ pipeline {
                 }
             }
         }
-
+/* TODO: revisit this section after recent changes in packaging
         stage('pub') {
             agent { label 'centos8' }
             stages {
@@ -307,9 +224,8 @@ pipeline {
                         timestamps {
                             cleanWs()
                             dir("deps-${BUILD_NUMBER}") {
-                                // unstash(name: "scripts-centos7-2.7")
-                                unstash(name: "scripts-centos7-3.0")
-                                sh("bin/jenkins/install-dependencies")
+                                unstash(name: "scripts-centos7")
+                                sh("bin/jenkins/install-dependencies.sh")
                             }
                         }
                     }
@@ -318,29 +234,16 @@ pipeline {
                     steps {
                         cleanWs()
                         dir("repo-${BUILD_NUMBER}") {
-                            // unstash(name: "scripts-centos7-2.7")
-                            unstash(name: "scripts-centos7-3.0")
+                            unstash(name: "scripts-centos7")
                             dir("gem-bin") {
-                                unstash(name: "gem-m1-brew-bin")
-                                unstash(name: "gem-macos-11.0-3.0-bin")
-                                unstash(name: "gem-macos-11.0-3.1-bin")
-                                unstash(name: "gem-macos-11.0-3.2-bin")
-                                //unstash(name: "gem-macos-11.0-3.3-bin")
-                                unstash(name: "gem-macos-10.15-3.0-bin")
-                                unstash(name: "gem-macos-10.15-3.1-bin")
-                                unstash(name: "gem-macos-10.15-3.2-bin")
-                                // unstash(name: "gem-macos-10.15-3.3-bin")
-                                unstash(name: "gem-centos7-3.0-bin")
-                                unstash(name: "gem-centos7-3.1-bin")
-                                unstash(name: "gem-centos7-3.2-bin")
-                                unstash(name: "gem-centos7-3.3-bin")
-                                unstash(name: "gem-alpine-3.1-bin")
-                                unstash(name: "gem-alpine-3.2-bin")
-                                unstash(name: "gem-alpine-3.3-bin")
-                                archiveArtifacts(artifacts: "*.gem")
+                                //unstash(name: "gem-m1-bin")
+                                //unstash(name: "gem-macos-11.0-bin")
+                                //unstash(name: "gem-macos-10.15-bin")
+                                unstash(name: "gem-centos7-bin")
+                                unstash(name: "gem-alpine-bin")
                             }
                             dir("gem-src") {
-                                unstash(name: "gem-centos7-3.0-src")
+                                unstash(name: "gem-centos7-src")
                                 archiveArtifacts(artifacts: "*.gem")
                             }
                         }
@@ -395,12 +298,6 @@ pipeline {
                                     cfInvalidate(
                                         distribution: "$AWS_CF_DISTRIBUTION",
                                         paths: [
-                                          //"/${prefix}ruby/2.7.0/latest_specs.*",
-                                          //"/${prefix}ruby/2.7.0/prerelease_specs.*",
-                                          //"/${prefix}ruby/2.7.0/specs.*",
-                                            "/${prefix}ruby/3.0.0/latest_specs.*",
-                                            "/${prefix}ruby/3.0.0/prerelease_specs.*",
-                                            "/${prefix}ruby/3.0.0/specs.*",
                                             "/${prefix}ruby/3.1.0/latest_specs.*",
                                             "/${prefix}ruby/3.1.0/prerelease_specs.*",
                                             "/${prefix}ruby/3.1.0/specs.*",
@@ -426,5 +323,6 @@ pipeline {
                 }
             }
         }
+    */
     }
 }
