@@ -146,8 +146,6 @@ pipeline {
                     withCredentials([file(credentialsId: 'netsdk-signkey', variable: 'SDKSIGNKEY')]) {
                         def toPack = [
                            "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
-			   "couchbase-net-client\\src\\Couchbase.Stellar\\Couchbase.Stellar.csproj",
-			    "couchbase-net-client\\src\\Couchbase.NetClient\\Couchbase.NetClient.csproj",
                             "couchbase-net-client\\src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj",
                             "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj",
                             "couchbase-net-client\\src\\Couchbase.Transactions\\Couchbase.Transactions.csproj"
@@ -156,13 +154,6 @@ pipeline {
                         for (tp in toPack) {
                             packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
                         }
-
-                        //def cbStellarProj = "couchbase-net-client\\src\\Couchbase\\Couchbase.Stellar.csproj"
-                        //def cbNetClientProj = "couchbase-net-client\\src\\Couchbase\\Couchbase.NetClient.csproj"
-                        //if (fileExists(cbStellarProj)) {
-                         //   packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
-                         //   packProject(tp, SDKSIGNKEY, version, DOTNET_SDK_VERSION)
-                        //}
                     }
 
                     // create zip file of release files and add it to archived artifacts
