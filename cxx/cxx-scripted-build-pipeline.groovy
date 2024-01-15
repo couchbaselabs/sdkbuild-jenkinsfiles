@@ -1,4 +1,4 @@
-def PLATFORMS = [ "ubuntu20", "centos7", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64" ]
+def PLATFORMS = [ "ubuntu20", "centos7", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
 def CB_VERSIONS = [
     "66release": [tag: "6.6-release"],
     "71release": [tag: "7.1-release"],
