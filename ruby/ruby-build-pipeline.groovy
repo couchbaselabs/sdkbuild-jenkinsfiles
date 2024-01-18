@@ -31,7 +31,7 @@ pipeline {
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
-                            values 'brew'
+                            values 'brew', '3.3'
                         }
                     }
                     exclude {
@@ -134,7 +134,7 @@ pipeline {
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
-                            values 'brew'
+                            values 'brew', '3.3'
                         }
                     }
                     exclude {
@@ -305,11 +305,11 @@ pipeline {
                                 unstash(name: "gem-macos-11.0-3.0-bin")
                                 unstash(name: "gem-macos-11.0-3.1-bin")
                                 unstash(name: "gem-macos-11.0-3.2-bin")
-                                unstash(name: "gem-macos-11.0-3.3-bin")
+                                //unstash(name: "gem-macos-11.0-3.3-bin")
                                 unstash(name: "gem-macos-10.15-3.0-bin")
                                 unstash(name: "gem-macos-10.15-3.1-bin")
                                 unstash(name: "gem-macos-10.15-3.2-bin")
-                                unstash(name: "gem-macos-10.15-3.3-bin")
+                                // unstash(name: "gem-macos-10.15-3.3-bin")
                                 unstash(name: "gem-centos7-3.0-bin")
                                 unstash(name: "gem-centos7-3.1-bin")
                                 unstash(name: "gem-centos7-3.2-bin")
