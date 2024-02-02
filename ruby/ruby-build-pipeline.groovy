@@ -27,11 +27,21 @@ pipeline {
                     exclude {
                         axis {
                             name 'PLATFORM'
-                            notValues 'macos-11.0', 'macos-10.15', 'm1'
+                            notValues 'macos-11.0', 'm1'
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
-                            values 'brew', '3.3'
+                            values 'brew'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'macos-11.0', 'macos-10.15', 'm1'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values '3.3'
                         }
                     }
                     exclude {
@@ -130,11 +140,21 @@ pipeline {
                     exclude {
                         axis {
                             name 'PLATFORM'
-                            notValues 'macos-11.0', 'macos-10.15', 'm1'
+                            notValues 'macos-11.0', 'm1'
                         }
                         axis {
                             name 'CB_RUBY_VERSION'
-                            values 'brew', '3.3'
+                            values 'brew'
+                        }
+                    }
+                    exclude {
+                        axis {
+                            name 'PLATFORM'
+                            values 'macos-11.0', 'macos-10.15', 'm1'
+                        }
+                        axis {
+                            name 'CB_RUBY_VERSION'
+                            values '3.3'
                         }
                     }
                     exclude {
