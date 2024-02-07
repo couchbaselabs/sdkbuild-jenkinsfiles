@@ -30,7 +30,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.2-stable', '7.1-release', '7.0-release', '6.6-release'
+                        values '7.6-stable', '7.2-release', '7.1-release', '7.0-release', '6.6-release'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
