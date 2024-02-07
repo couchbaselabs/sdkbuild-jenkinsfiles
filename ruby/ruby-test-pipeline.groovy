@@ -35,7 +35,7 @@ pipeline {
                 stages {
                     stage("test") {
                         options {
-                            timeout(time: 3, unit: 'HOURS')
+                            timeout(time: 1, unit: 'HOURS')
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
