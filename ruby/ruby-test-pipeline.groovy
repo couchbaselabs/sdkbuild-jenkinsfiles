@@ -21,14 +21,20 @@ pipeline {
                 PLATFORM = 'sdkqe-centos7'
             }
             matrix {
+                when {
+                    allOf {
+                        expression { CB_VERSION_FILTER == 'all' || CB_VERSION_FILTER == CB_VERSION }
+                        expression { CB_RUBY_VERSION_FILTER == 'all' || CB_RUBY_VERSION_FILTER == CB_RUBY_VERSION }
+                    }
+                }
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values CB_VERSION.isEmpty() ? ['7.2-stable', '7.1-release', '7.0-release', '6.6-release'] : CB_VERSION.split(',')
+                        values '7.2-stable', '7.1-release', '7.0-release', '6.6-release'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values CB_RUBY_VERSION.isEmpty() ? ['3.1', '3.2', '3.3'] : CB_RUBY_VERSION.split(',')
+                        values '3.1', '3.2', '3.3'
                     }
                 }
                 agent { label PLATFORM }
