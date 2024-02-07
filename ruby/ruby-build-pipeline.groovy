@@ -7,7 +7,11 @@ pipeline {
             agent any
             steps {
                 script {
-                    buildName(IS_PULL_REQUEST.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}")
+                    def name = IS_PULL_REQUEST.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}"
+                    if (SKIP_TESTS) {
+                        name += "-notest"
+                    }
+                    buildName(name)
                 }
             }
         }
