@@ -158,7 +158,7 @@ pipeline {
             }
             agent none
             steps {
-                build(job: 'ruby-test-pipeline')
+                build(job: 'ruby-test-pipeline', wait: false)
             }
         }
     }
