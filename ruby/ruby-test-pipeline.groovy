@@ -24,11 +24,11 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.2-stable', '7.1-release', '7.0-release', '6.6-release'
+                        values CB_VERSION.isEmpty() ? ['7.2-stable', '7.1-release', '7.0-release', '6.6-release'] : CB_VERSION.split(',')
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
-                        values '3.1', '3.2', '3.3'
+                        values CB_RUBY_VERSION.isEmpty() ? ['3.1', '3.2', '3.3'] : CB_RUBY_VERSION.split(',')
                     }
                 }
                 agent { label PLATFORM }
@@ -36,19 +36,6 @@ pipeline {
                     stage("test") {
                         options {
                             timeout(time: 3, unit: 'HOURS')
-                        }
-                        post {
-                            always {
-                                junit("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}/test/reports/*.xml")
-                                publishCoverage(adapters: [
-                                    coberturaAdapter(path: "test-centos7-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
-                                ])
-                            }
-                            failure {
-                                dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
-                                    archiveArtifacts(artifacts: "server_logs.tar.gz", allowEmptyArchive: true)
-                                }
-                            }
                         }
                         steps {
                             dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
