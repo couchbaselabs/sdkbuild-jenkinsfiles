@@ -1,0 +1,69 @@
+// vim:et ts=4 sts=4 sw=4
+
+pipeline {
+    agent none
+    stages {
+        stage('prep') {
+            agent any
+            steps {
+                script {
+                    buildName(
+                        UPSTREAM_BUILD.isEmpty() ?
+                            "upstream-${BUILD_NUMBER}" :
+                            "build-${UPSTREAM_BUILD}-${BUILD_NUMBER}"
+                    )
+                }
+            }
+        }
+
+        stage("test") {
+            environment {
+                PLATFORM = 'sdkqe-centos7'
+            }
+            matrix {
+                axes {
+                    axis {
+                        name 'CB_VERSION'
+                        values '7.2-stable', '7.1-release', '7.0-release', '6.6-release'
+                    }
+                    axis {
+                        name 'CB_RUBY_VERSION'
+                        values '3.1', '3.2', '3.3'
+                    }
+                }
+                agent { label PLATFORM }
+                stages {
+                    stage("test") {
+                        options {
+                            timeout(time: 3, unit: 'HOURS')
+                        }
+                        post {
+                            always {
+                                junit("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}/test/reports/*.xml")
+                                publishCoverage(adapters: [
+                                    coberturaAdapter(path: "test-centos7-${CB_RUBY_VERSION}-${BUILD_NUMBER}/coverage/coverage.xml")
+                                ])
+                            }
+                            failure {
+                                dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                    archiveArtifacts(artifacts: "server_logs.tar.gz", allowEmptyArchive: true)
+                                }
+                            }
+                        }
+                        steps {
+                            dir("test-${PLATFORM}-${CB_RUBY_VERSION}-${BUILD_NUMBER}") {
+                                copyArtifacts(
+                                    projectName: 'ruby-build-pipeline',
+                                    selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD),
+                                    filter: 'couchbase-*-x86_64-linux.gem,scripts-and-tests.tar.xz'
+                                )
+                                sh("tar xvf scripts-and-tests.tar.xz")
+                                sh("bin/jenkins/test-with-cbdyncluster ./couchbase-*.gem")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
