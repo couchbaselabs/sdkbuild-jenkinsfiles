@@ -8,7 +8,7 @@ pipeline {
             steps {
                 script {
                     def name = IS_PULL_REQUEST.toBoolean() ? "cv-${BUILD_NUMBER}" : "full-${BUILD_NUMBER}"
-                    if (SKIP_TESTS) {
+                    if (SKIP_TESTS.toBoolean()) {
                         name += "-notest"
                     }
                     buildName(name)
