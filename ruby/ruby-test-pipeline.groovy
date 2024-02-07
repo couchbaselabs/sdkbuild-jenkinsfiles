@@ -45,6 +45,7 @@ pipeline {
                                     filter: 'couchbase-*-x86_64-linux.gem,scripts-and-tests.tar.xz'
                                 )
                                 sh("tar xvf scripts-and-tests.tar.xz")
+                                sh("bin/jenkins/install-dependencies.sh")
                                 sh("bin/jenkins/test-with-cbdyncluster ./couchbase-*.gem")
                             }
                         }
