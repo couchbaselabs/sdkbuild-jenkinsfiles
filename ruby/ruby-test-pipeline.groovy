@@ -9,8 +9,8 @@ pipeline {
                 script {
                     buildName(
                         UPSTREAM_BUILD.isEmpty() ?
-                            "upstream-${BUILD_NUMBER}" :
-                            "build-${UPSTREAM_BUILD}-${BUILD_NUMBER}"
+                            "${BUILD_NUMBER}-upstream" :
+                            "${BUILD_NUMBER}-build-${UPSTREAM_BUILD}"
                     )
                 }
             }
