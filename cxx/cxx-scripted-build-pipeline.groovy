@@ -3,15 +3,14 @@ def CB_VERSIONS = [
     "66release": [tag: "6.6-release"],
     "71release": [tag: "7.1-release"],
     "71stable": [tag: "7.1-stable"],
-    "72stable": [tag: "7.2-stable"]
+    "72stable": [tag: "7.2-stable"],
+    "76stable": [tag: "7.6-stable"]
 ]
 // no 7.0.4 release for community
 if (USE_CE.toBoolean()) {
     CB_VERSIONS["70release"] = [tag: "7.0.2", label: "7.0-release"]
 } else {
     CB_VERSIONS["70release"] = [tag: "7.0-release"]
-    // 7.5 only supported on EE
-    CB_VERSIONS["75stable"] = [tag: "7.5-stable"]
 }
 def COMBINATION_PLATFORM = "centos7"
 
