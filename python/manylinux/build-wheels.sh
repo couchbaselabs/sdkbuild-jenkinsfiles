@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e -u
 
-/opt/python/cp38-cp38/bin/python -m pip install auditwheel
+# TODO:  update to 6.0.0 for Python 3.12 support
+/opt/python/cp38-cp38/bin/python -m pip install auditwheel==5.4.0
 
 #allowed_python_versions="cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310", "cp311-cp311", "cp312-cp312")
 # 3.7 EOL 2023.06.30, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
