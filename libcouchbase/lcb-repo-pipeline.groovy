@@ -303,6 +303,43 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2204 jammy jammy/main
                         }
                     }
                 }
+                stage('debian12') {
+
+                    agent { label 'debian10-signing' }
+                    steps {
+                        cleanWs()
+                        copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*bookworm*.tar')
+                        sh('which reprepro; reprepro --version; mkdir -p repo/debian12/conf')
+                        writeFile(file: "repo/debian12/conf/distributions", text: """
+Origin: couchbase
+SignWith: ${GPG_NAME}
+Suite: bookworm
+Codename: bookworm
+Version: debian12
+Components: bookworm/main
+Architectures: amd64
+Description: libcouchbase package repository for bookworm debian12
+""")
+                        sh("for p in libcouchbase-*.tar; do tar xf \$p; done")
+                        dir('repo') {
+                            sh("gpg --export --armor ${GPG_NAME} > couchbase.key")
+                            writeFile(file: 'libcouchbase-debian12.list', text: """
+# curl https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key | sudo apt-key add -
+deb https://sdk-snapshots.couchbase.com/libcouchbase/debian12 bookworm bookworm/main
+""")
+                        }
+                        sh("for p in \$(find . -name '*amd64.changes'); do reprepro -T deb --ignore=wrongdistribution -b repo/debian12 include bookworm \$p; done")
+                        sh("tar cf repo-${BUILD_NUMBER}-debian12.tar repo")
+                        archiveArtifacts(artifacts: "repo-${BUILD_NUMBER}-debian12.tar", fingerprint: true)
+                        withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
+                            s3Upload(
+                                bucket: 'sdk-snapshots.couchbase.com',
+                                file: 'repo/',
+                                path: 'libcouchbase/'
+                            )
+                        }
+                    }
+                }
                 stage('debian11') {
 
                     agent { label 'debian10-signing' }

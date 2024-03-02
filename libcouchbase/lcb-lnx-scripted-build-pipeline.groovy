@@ -822,6 +822,57 @@ pipeline {
                         }
                     }
                 }
+                stage('debian12 amd64') {
+                    agent { label 'cowbuilder' }
+                    stages {
+                        stage('d64v12') {
+                            steps {
+                                dir('ws_debian12_amd64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('cow1') {
+                            when {
+                                expression {
+                                    !fileExists("/var/cache/pbuilder/bookworm-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh("""
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo cowbuilder --create \
+                                    --basepath /var/cache/pbuilder/bookworm-amd64.cow \
+                                    --distribution bookworm \
+                                    --debootstrapopts --arch=amd64 \
+                                     --components 'main'
+                                """.stripIndent())
+                            }
+                        }
+                        stage('cow2') {
+                            when {
+                                expression {
+                                    fileExists("/var/cache/pbuilder/bookworm-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/bookworm-amd64.cow')
+                            }
+                        }
+                        stage('src') {
+                            steps {
+                                package_src("debian12", "amd64", "bookworm", VERSION)
+                            }
+                        }
+                        stage('deb') {
+                            steps {
+                                package_deb("debian12", "amd64", "bookworm", VERSION)
+                            }
+                        }
+                    }
+                }
             }
         }
         stage('amzn2') {
