@@ -199,7 +199,7 @@ def package_srpm(name, bits, relno, arch, mock, VERSION) {
             sh("sed -i '1i %undefine _package_note_file\\nBuildRequires: redhat-rpm-config' ../libcouchbase/packaging/rpm/libcouchbase.spec.in")
         }
         sh("""
-            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;/systemtap/d;s/^make.*test/true/g' \
+            sed 's/@VERSION@/${VERSION.rpmVer()}/g;s/@RELEASE@/${VERSION.rpmRel()}/g;s/@TARREDAS@/${VERSION.tarName()}/g;s/NO_MOCK=1/NO_MOCK=1 -DLCB_BUILD_DTRACE=0/g;/systemtap/d;s/^make.*test/true/g' \
             < ../libcouchbase/packaging/rpm/libcouchbase.spec.in > libcouchbase.spec
         """.stripIndent())
         sh("""
