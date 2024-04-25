@@ -27,7 +27,7 @@ def checkout() {
                 recursiveSubmodules: true,
                 reference: "",
                 trackingSubmodules: false
-            ]] 
+            ]]
         ])
     }
 }
@@ -168,7 +168,7 @@ class DynamicCluster {
             return 1
         }
     }
-    
+
     String certPath() {
         if (useCertAuth) {
             return "$certsDir/client.pem"
@@ -176,7 +176,7 @@ class DynamicCluster {
             return ""
         }
     }
-    
+
     String keyPath() {
         if (useCertAuth) {
             return "$certsDir/client.key"
@@ -242,6 +242,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                     "TEST_CONNECTION_STRING=${CLUSTER.connectionString()}",
                                     "CTEST_OUTPUT_ON_FAILURE=1",
                                     "TEST_LOG_LEVEL=trace",
+                                    "TEST_USE_WAN_DEVELOPMENT_PROFILE=yes",
                                     "TEST_CERTIFICATE_PATH=${CLUSTER.certPath()}",
                                     "TEST_KEY_PATH=${CLUSTER.keyPath()}",
                                     "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
