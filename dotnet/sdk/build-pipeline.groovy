@@ -6,7 +6,7 @@ def DOTNET_SDK_VERSION = "8.0.100"
 def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
-DERIVED_VERSION = "3.4.14-hardcoded"
+DERIVED_VERSION = "3.5.2-hardcoded"
 
 pipeline {
     agent none
@@ -59,6 +59,10 @@ pipeline {
 
                         if (env.IS_RELEASE.toBoolean() == true && DERIVED_VERSION != SHA.trim()) {
                             error "Releases should be done on a tag, not a raw SHA.  DERIVED_VERSION=${DERIVED_VERSION}, SHA=${SHA}"
+                        }
+
+                        if (env.IS_RELEASE.toBoolean() == true) {
+                            generateReleaseEmail(DERIVED_VERSION)
                         }
                     }
                 }
@@ -284,4 +288,37 @@ def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
             }
         }
     }
+}
+
+void generateReleaseEmail(sdkVersion)
+{
+    def toEmail = "sdk_distribution@couchbase.com"
+    def fileName = "release_${sdkVersion}.html"
+    def content = """
+<html>
+<body>
+<dl>
+<dt>To:</dt>
+<dd><a href="mailto:$toEmail?subject=Couchbase%20.NET%20SDK%20$sdkVersion%20now%20available!">$toEmail</a></dd>
+<dt>Subject:</dt>
+<dd>Couchbase .NET SDK $sdkVersion now available!</dd>
+</dl>
+<p>Hello,</p>
+<p>The .NET SDK Team has released version $sdkVersion of the Couchbase .NET SDK</p>
+<ul>
+<li>Read the <a href="https://docs.couchbase.com/dotnet-sdk/current/project-docs/sdk-release-notes.html">Release Notes</a></li>
+<li>Look over the <a href="https://docs.couchbase.com/sdk-api/couchbase-net-client-$sdkVersion/">API Reference</a></li>
+<li>Install the <a href="https://www.nuget.org/packages/CouchbaseNetClient/$sdkVersion">NuGet Package</a></li>
+<li>Or <a href="https://packages.couchbase.com/clients/net/3.5/Couchbase-Net-Client-${sdkVersion}.zip">Download directly</a></li>
+</ul>
+<p>The following packages were also deployed:
+<ul>
+<li>Open Telemetry: <a href="https://www.nuget.org/packages/Couchbase.Extensions.OpenTelemetry/$sdkVersion">Couchbase.Extensions.OpenTelemetry</a></li>
+<li>Dependency Injection: <a href="https://www.nuget.org/packages/Couchbase.Extensions.DependencyInjection/$sdkVersion">Couchbase.Extensions.DependencyInjection</a></li>
+</ul>
+</body>
+</html>
+"""
+    writeFile file: fileName, text: content, encoding: "UTF-8"
+    archiveArtifacts artifacts: fileName, fingerprint: false
 }
