@@ -9,7 +9,7 @@ pipeline {
             parallel {
 <%
 yum_distros = [
-    ['centos7', 'el7', 'x86_64'],
+    # ['centos7', 'el7', 'x86_64'],
     ['rhel8', 'el8', 'x86_64'],
     ['rhel9', 'el9', 'x86_64'],
     ['amzn2', 'amzn2', 'x86_64'],
@@ -68,14 +68,15 @@ gpgkey = <%= key_url %>
 <% end %>
 <%
 apt_distros = [
+    ['noble', 'ubuntu2404'],
     ['jammy', 'ubuntu2204'],
     ['bookworm', 'debian12'],
     ['bullseye', 'debian11'],
     ['focal', 'ubuntu2004'],
-    ['buster', 'debian10'],
-    ['bionic', 'ubuntu1804'],
-    #['stretch', 'debian9'],
-    ['xenial', 'ubuntu1604'],
+    # ['buster', 'debian10'],
+    # ['bionic', 'ubuntu1804'],
+    # ['stretch', 'debian9'],
+    # ['xenial', 'ubuntu1604'],
 ]
 %>
 <% apt_distros.each do |(distro, distro_id)| %>

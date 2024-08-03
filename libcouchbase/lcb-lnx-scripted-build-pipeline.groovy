@@ -420,30 +420,6 @@ pipeline {
                 }
             }
             parallel {
-                stage('centos7 x86_64') {
-                    agent { label 'mock' }
-                    stages {
-                        stage('c64v7') {
-                            steps {
-                                dir('ws_centos7-64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('srpm') {
-                            steps {
-                                package_srpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
-                            }
-                        }
-                        stage('rpm') {
-                            steps {
-                                package_rpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
-                            }
-                        }
-                    }
-                }
                 stage('rhel8 x86_64') {
                     agent { label 'mock' }
                     stages {
@@ -516,6 +492,57 @@ pipeline {
                         }
                     }
                 }
+                stage('ubuntu2404 amd64') {
+                    agent { label 'cowbuilder' }
+                    stages {
+                        stage('u64v24') {
+                            steps {
+                                dir('ws_ubuntu2404_amd64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('cow1') {
+                            when {
+                                expression {
+                                    !fileExists("/var/cache/pbuilder/noble-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh("""
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo cowbuilder --create \
+                                    --basepath /var/cache/pbuilder/noble-amd64.cow \
+                                    --distribution noble \
+                                    --debootstrapopts --arch=amd64 \
+                                    --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
+                                """.stripIndent())
+                            }
+                        }
+                        stage('cow2') {
+                            when {
+                                expression {
+                                    fileExists("/var/cache/pbuilder/noble-amd64.cow/etc/os-release")
+                                }
+                            }
+                            steps {
+                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/noble-amd64.cow')
+                            }
+                        }
+                        stage('src') {
+                            steps {
+                                package_src("ubuntu2404", "amd64", "noble", VERSION)
+                            }
+                        }
+                        stage('deb') {
+                            steps {
+                                package_deb("ubuntu2404", "amd64", "noble", VERSION)
+                            }
+                        }
+                    }
+                }
                 stage('ubuntu2204 amd64') {
                     agent { label 'cowbuilder' }
                     stages {
@@ -563,210 +590,6 @@ pipeline {
                         stage('deb') {
                             steps {
                                 package_deb("ubuntu2204", "amd64", "jammy", VERSION)
-                            }
-                        }
-                    }
-                }
-                stage('ubuntu2004 amd64') {
-                    agent { label 'cowbuilder' }
-                    stages {
-                        stage('u64v20') {
-                            steps {
-                                dir('ws_ubuntu2004_amd64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('cow1') {
-                            when {
-                                expression {
-                                    !fileExists("/var/cache/pbuilder/focal-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
-                                    sudo cowbuilder --create \
-                                    --basepath /var/cache/pbuilder/focal-amd64.cow \
-                                    --distribution focal \
-                                    --debootstrapopts --arch=amd64 \
-                                    --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-                                """.stripIndent())
-                            }
-                        }
-                        stage('cow2') {
-                            when {
-                                expression {
-                                    fileExists("/var/cache/pbuilder/focal-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/focal-amd64.cow')
-                            }
-                        }
-                        stage('src') {
-                            steps {
-                                package_src("ubuntu2004", "amd64", "focal", VERSION)
-                            }
-                        }
-                        stage('deb') {
-                            steps {
-                                package_deb("ubuntu2004", "amd64", "focal", VERSION)
-                            }
-                        }
-                    }
-                }
-                stage('ubuntu1804 amd64') {
-                    agent { label 'cowbuilder' }
-                    stages {
-                        stage('u64v18') {
-                            steps {
-                                dir('ws_ubuntu1804_amd64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('cow1') {
-                            when {
-                                expression {
-                                    !fileExists("/var/cache/pbuilder/bionic-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
-                                    sudo cowbuilder --create \
-                                    --basepath /var/cache/pbuilder/bionic-amd64.cow \
-                                    --distribution bionic \
-                                    --debootstrapopts --arch=amd64 \
-                                    --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-                                """.stripIndent())
-                            }
-                        }
-                        stage('cow2') {
-                            when {
-                                expression {
-                                    fileExists("/var/cache/pbuilder/bionic-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/bionic-amd64.cow')
-                            }
-                        }
-                        stage('src') {
-                            steps {
-                                package_src("ubuntu1804", "amd64", "bionic", VERSION)
-                            }
-                        }
-                        stage('deb') {
-                            steps {
-                                package_deb("ubuntu1804", "amd64", "bionic", VERSION)
-                            }
-                        }
-                    }
-                }
-                stage('ubuntu1604 amd64') {
-                    agent { label 'cowbuilder' }
-                    stages {
-                        stage('u64v16') {
-                            steps {
-                                dir('ws_ubuntu1604_amd64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('cow1') {
-                            when {
-                                expression {
-                                    !fileExists("/var/cache/pbuilder/xenial-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
-                                    sudo cowbuilder --create \
-                                    --basepath /var/cache/pbuilder/xenial-amd64.cow \
-                                    --distribution xenial \
-                                    --debootstrapopts --arch=amd64 \
-                                    --components 'main universe' --mirror http://ftp.ubuntu.com/ubuntu --debootstrapopts --keyring=/usr/share/keyrings/ubuntu-archive-keyring.gpg
-                                """.stripIndent())
-                            }
-                        }
-                        stage('cow2') {
-                            when {
-                                expression {
-                                    fileExists("/var/cache/pbuilder/xenial-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/xenial-amd64.cow')
-                            }
-                        }
-                        stage('src') {
-                            steps {
-                                package_src("ubuntu1604", "amd64", "xenial", VERSION)
-                            }
-                        }
-                        stage('deb') {
-                            steps {
-                                package_deb("ubuntu1604", "amd64", "xenial", VERSION)
-                            }
-                        }
-                    }
-                }
-                stage('debian10 amd64') {
-                    agent { label 'cowbuilder' }
-                    stages {
-                        stage('d64v10') {
-                            steps {
-                                dir('ws_debian10_amd64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('cow1') {
-                            when {
-                                expression {
-                                    !fileExists("/var/cache/pbuilder/buster-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
-                                    sudo cowbuilder --create \
-                                    --basepath /var/cache/pbuilder/buster-amd64.cow \
-                                    --distribution buster \
-                                    --debootstrapopts --arch=amd64 \
-                                     --components 'main'
-                                """.stripIndent())
-                            }
-                        }
-                        stage('cow2') {
-                            when {
-                                expression {
-                                    fileExists("/var/cache/pbuilder/buster-amd64.cow/etc/os-release")
-                                }
-                            }
-                            steps {
-                                sh('sudo cowbuilder --update --basepath /var/cache/pbuilder/buster-amd64.cow')
-                            }
-                        }
-                        stage('src') {
-                            steps {
-                                package_src("debian10", "amd64", "buster", VERSION)
-                            }
-                        }
-                        stage('deb') {
-                            steps {
-                                package_deb("debian10", "amd64", "buster", VERSION)
                             }
                         }
                     }
@@ -869,37 +692,6 @@ pipeline {
                         stage('deb') {
                             steps {
                                 package_deb("debian12", "amd64", "bookworm", VERSION)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        stage('amzn2') {
-            when {
-                expression {
-                    return !IS_GERRIT_TRIGGER.toBoolean()
-                }
-            }
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values 'x86_64', 'aarch64'
-                    }
-                }
-                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
-                stages {
-                    stage('rpm') {
-                        steps {
-                            sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
-                            unstash('centos7-srpm')
-                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
-                            sh('sudo rm -rf output; rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
-                            dir('output') {
-                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
                             }
                         }
                     }
