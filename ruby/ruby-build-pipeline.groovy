@@ -20,7 +20,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'macos-11.0', 'm1', 'windows', 'centos7', 'alpine', 'qe-grav2-amzn2'
+                        values 'macos-11.0', 'm1', 'windows', 'rockylinux9', 'alpine', 'qe-grav2-amzn2'
                     }
                 }
                 agent { label PLATFORM }
@@ -46,7 +46,7 @@ pipeline {
                                             poll: false
                                     ]]])
                                     script {
-                                        if (PLATFORM == "centos7") {
+                                        if (PLATFORM == "rockylinux9") {
                                             stash(name: "scripts", includes: "bin/jenkins/*")
                                             sh("tar Jcvf scripts-and-tests.tar.xz Gemfile bin/jenkins test test_data")
                                             archiveArtifacts(artifacts: "scripts-and-tests.tar.xz")
@@ -87,7 +87,7 @@ pipeline {
                                     }
                                     dir("pkg") {
                                         script {
-                                            if (PLATFORM == "centos7") {
+                                            if (PLATFORM == "rockylinux9") {
                                                 archiveArtifacts(artifacts: "*.gem")
                                             }
                                         }
@@ -109,7 +109,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'centos7', 'ubuntu20', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64', 'macos-11.0', 'm1'
+                        values 'rockylinux9', 'ubuntu20', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64', 'macos-11.0', 'm1'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
@@ -139,7 +139,7 @@ pipeline {
                                         } else if (PLATFORM =~ /arm64/) {
                                             unstash(name: "gem-qe-grav2-amzn2-bin")
                                         } else {
-                                            unstash(name: "gem-centos7-bin")
+                                            unstash(name: "gem-rockylinux9-bin")
                                         }
                                     }
                                     sh("bin/jenkins/install-gem ./couchbase-*.gem")
