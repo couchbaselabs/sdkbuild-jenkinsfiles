@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+set -eu
+wheel=$1
+check_abi3audit=$2
+project=$3
+echo "Auditing $wheel for abi3 compliance..."
+report="abi3audit_report.json"
+# we expect abi3audit to have a non-zero exit code, so catch it in an if-statement
+if abi3audit --strict --report $wheel > $report ; then
+    echo 'Finished parsing wheel.'
+else
+    echo 'Finished parsing wheel.'
+fi
+
+if [ -s $report ]; then
+    echo 'Parsing audit report...'
+    python $check_abi3audit $report $project
+    #cleanup
+    rm "$report"
+else
+    echo 'Audit report not created.'
+    exit 1
+fi

@@ -4,8 +4,9 @@ set -e -u
 DEFAULT_BIN=/opt/python/cp38-cp38/bin
 DEFAULT_PYTHON=$DEFAULT_BIN/python
 DEFAULT_PIP=$DEFAULT_BIN/pip
+# TODO:  update to 6.0.0 for Python 3.12 support
 $DEFAULT_PYTHON -m pip install auditwheel==6.1.0
-if [[ -n "${PYCBC_LIMITED_API-}" ]]; then
+if [[ -n "${PYCBCC_LIMITED_API-}" ]]; then
     $DEFAULT_PYTHON -m pip install abi3audit
 fi
 
@@ -68,7 +69,7 @@ function audit_abi3_wheel {
     
     if [ -s $report ]; then
         echo 'Parsing audit report...'
-        $DEFAULT_PYTHON $CHECK_ABI3AUDIT $report "pycbc"
+        $DEFAULT_PYTHON $CHECK_ABI3AUDIT $report "pycbcc"
         #cleanup
         rm "$report"
     else
@@ -83,21 +84,21 @@ function reduce_wheel_size {
         echo "found wheel=$f"
         if [[ $f == *"manylinux"* || $f == *"musllinux"* ]]; then
             echo "Reducing wheel size of $f"
-            WHEEL_ROOT=$($DEFAULT_PYTHON $PARSE_WHEEL_NAME $f "couchbase")
+            WHEEL_ROOT=$($DEFAULT_PYTHON $PARSE_WHEEL_NAME $f "couchbase_columnar")
             $DEFAULT_PYTHON -m wheel unpack $f
             mv $f $PYTHON_SDK_DEBUG_WHEELHOUSE
             echo "checking dir..."
             ls -alh
-            cd $WHEEL_ROOT/couchbase
-            cp pycbc_core.so pycbc_core.orig.so
-            objcopy --only-keep-debug pycbc_core.so pycbc_core.debug.so
-            objcopy --strip-debug --strip-unneeded pycbc_core.so
-            objcopy --add-gnu-debuglink=pycbc_core.debug.so pycbc_core.so
-            echo "grep pycbc.so sizes"
-            ls -alh | grep pycbc
-            rm pycbc_core.orig.so pycbc_core.debug.so
-            echo "grep pycbc.so sizes (should only have reduced size)"
-            ls -alh | grep pycbc
+            cd $WHEEL_ROOT/couchbase_columnar/protocol
+            cp pycbcc_core.so pycbcc_core.orig.so
+            objcopy --only-keep-debug pycbcc_core.so pycbcc_core.debug.so
+            objcopy --strip-debug --strip-unneeded pycbcc_core.so
+            objcopy --add-gnu-debuglink=pycbcc_core.debug.so pycbcc_core.so
+            echo "grep pycbcc.so sizes"
+            ls -alh | grep pycbcc
+            rm pycbcc_core.orig.so pycbcc_core.debug.so
+            echo "grep pycbcc.so sizes (should only have reduced size)"
+            ls -alh | grep pycbcc
             cd ../../..
             $DEFAULT_PYTHON -m wheel pack $WHEEL_ROOT
         else
@@ -107,47 +108,47 @@ function reduce_wheel_size {
     done
 }
 
-if [[ -n "${PYCBC_USE_OPENSSL-}" && "$PYCBC_USE_OPENSSL" = true && -n "${PYCBC_OPENSSL_VERSION-}" ]]; then
+if [[ -n "${PYCBCC_USE_OPENSSL-}" && "$PYCBCC_USE_OPENSSL" = true && -n "${PYCBCC_OPENSSL_VERSION-}" ]]; then
     OPENSSL_DIR=/usr/local/openssl
     LIB_CRYPTO=
     LIB_SSL=
     
     OPENSSL_BASE_URL=https://www.openssl.org/source/old
-    if [[ "$PYCBC_OPENSSL_VERSION" == *"1.1.1"* ]]; then
+    if [[ "$PYCBCC_OPENSSL_VERSION" == *"1.1.1"* ]]; then
         OPENSSL_BASE_URL="${OPENSSL_BASE_URL}/1.1.1"
         LIB_CRYPTO="${OPENSSL_DIR}/lib/libcrypto.so.1.1"
         LIB_SSL="${OPENSSL_DIR}/lib/libssl.so.1.1"
-    elif [[ "$PYCBC_OPENSSL_VERSION" == *"3.0"* ]]; then
+    elif [[ "$PYCBCC_OPENSSL_VERSION" == *"3.0"* ]]; then
         OPENSSL_BASE_URL="${OPENSSL_BASE_URL}/3.0"
         LIB_CRYPTO="${OPENSSL_DIR}/lib/libcrypto.so.3"
         LIB_SSL="${OPENSSL_DIR}/lib/libssl.so.3"
-    elif [[ "$PYCBC_OPENSSL_VERSION" == *"3.1"* ]]; then
+    elif [[ "$PYCBCC_OPENSSL_VERSION" == *"3.1"* ]]; then
         OPENSSL_BASE_URL="${OPENSSL_BASE_URL}/3.1"
         LIB_CRYPTO="${OPENSSL_DIR}/lib/libcrypto.so.3.1"
         LIB_SSL="${OPENSSL_DIR}/lib/libssl.so.3.1"
     else
-        echo "Cannot install OpenSSL=${PYCBC_OPENSSL_VERSION}"
+        echo "Cannot install OpenSSL=${PYCBCC_OPENSSL_VERSION}"
         exit 1
     fi
 
     if [[ ! -f "${LIB_CRYPTO}" || ! -f "${LIB_SSL}" ]]; then
-        echo "Installing OpenSSL=${PYCBC_OPENSSL_VERSION}"
+        echo "Installing OpenSSL=${PYCBCC_OPENSSL_VERSION}"
         if [ ! -d "/usr/src" ]; then
             mkdir /usr/src
         fi
         cd /usr/src && \
-            curl -L -o openssl-$PYCBC_OPENSSL_VERSION.tar.gz $OPENSSL_BASE_URL/openssl-$PYCBC_OPENSSL_VERSION.tar.gz && \
-            tar -xvf openssl-$PYCBC_OPENSSL_VERSION.tar.gz && \
-            mv openssl-$PYCBC_OPENSSL_VERSION openssl && \
+            curl -L -o openssl-$PYCBCC_OPENSSL_VERSION.tar.gz $OPENSSL_BASE_URL/openssl-$PYCBCC_OPENSSL_VERSION.tar.gz && \
+            tar -xvf openssl-$PYCBCC_OPENSSL_VERSION.tar.gz && \
+            mv openssl-$PYCBCC_OPENSSL_VERSION openssl && \
             cd openssl && \
             ./config --prefix=$OPENSSL_DIR --openssldir=$OPENSSL_DIR shared zlib && \
             make -j4 && \
             make install_sw
     else
-        echo "Found OpenSSL=${PYCBC_OPENSSL_VERSION}; libcrypto=${LIB_CRYPTO}, libssl=${LIB_SSL}"
+        echo "Found OpenSSL=${PYCBCC_OPENSSL_VERSION}; libcrypto=${LIB_CRYPTO}, libssl=${LIB_SSL}"
     fi
 
-    export PYCBC_OPENSSL_DIR=$OPENSSL_DIR
+    export PYCBCC_OPENSSL_DIR=$OPENSSL_DIR
 fi
 
 # Compile wheels
@@ -155,14 +156,14 @@ for PYBIN in /opt/python/*; do
     python_bin="${PYBIN##*/}"
     if in_allowed_python_versions "${python_bin}" "${allowed_python_versions[@]}" ; then
         python_version=$(get_python_version "${python_bin}")
-        export PYCBC_PYTHON3_EXECUTABLE="/opt/python/${python_bin}/bin/python${python_version}"
+        export PYCBCC_PYTHON3_EXECUTABLE="/opt/python/${python_bin}/bin/python${python_version}"
         if [ $python_version == '3.7' ]
         then
-            export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}m"
+            export PYCBCC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}m"
         else
-            export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}"
+            export PYCBCC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}"
         fi
-        if [[ -n "${PYCBC_VERBOSE_MAKEFILE-}" ]]; then
+        if [[ -n "${PYCBCC_VERBOSE_MAKEFILE-}" ]]; then
             "/opt/python/${python_bin}/bin/pip" wheel $PYTHON_SDK_WORKDIR --no-deps -w $PYTHON_SDK_WHEELHOUSE -v -v -v
         else
             "/opt/python/${python_bin}/bin/pip" wheel $PYTHON_SDK_WORKDIR --no-deps -w $PYTHON_SDK_WHEELHOUSE
@@ -174,8 +175,9 @@ done
 # we use a monkey patched version of auditwheel in order to not bundle
 # OpenSSL libraries (see auditwheel-update)
 for whl in $PYTHON_SDK_WHEELHOUSE/*.whl; do
-    if [[ -n "${PYCBC_LIMITED_API-}" ]]; then
+    if [[ -n "${PYCBCC_LIMITED_API-}" ]]; then
         audit_abi3_wheel "$whl"
     fi
     repair_wheel "$whl"
+    reduce_wheel_size
 done
