@@ -14,7 +14,7 @@ if (USE_CE.toBoolean()) {
     CB_VERSIONS["75stable"] = [tag: "7.5-stable"]
     CB_VERSIONS["75serverless"] = [tag: "7.5-stable", serverless: true, label: "7.5-serverless"]
 }
-def COMBINATION_PLATFORM = "centos7"
+def COMBINATION_PLATFORM = "rockylinux9"
 
 def checkout() {
     dir("couchbase-cxx-client") {
@@ -29,7 +29,7 @@ def checkout() {
                 recursiveSubmodules: true,
                 reference: "",
                 trackingSubmodules: false
-            ]] 
+            ]]
         ])
     }
 }
@@ -81,9 +81,9 @@ stage("build") {
                     } else if (platform == "amzn2") {
                         envs.push("CB_CC=/opt/gcc-10.2.0/bin/cc")
                         envs.push("CB_CXX=/opt/gcc-10.2.0/bin/c++")
-                    } else if (platform == "centos7") {
-                        envs.push("CB_CC=/opt/rh/devtoolset-9/root/usr/bin/cc")
-                        envs.push("CB_CXX=/opt/rh/devtoolset-9/root/usr/bin/c++")
+                    } else if (platform == "rockylinux9") {
+                        envs.push("CB_CC=gcc")
+                        envs.push("CB_CXX=g++")
                     }
                     if (platform == "windows") {
                         bat("cbdep install -d deps openssl 1.1.1g-sdk2")
@@ -169,7 +169,7 @@ class DynamicCluster {
             return 1
         }
     }
-    
+
     String certPath() {
         if (useCertAuth) {
             return "$certsDir/client.pem"
@@ -177,7 +177,7 @@ class DynamicCluster {
             return ""
         }
     }
-    
+
     String keyPath() {
         if (useCertAuth) {
             return "$certsDir/client.key"

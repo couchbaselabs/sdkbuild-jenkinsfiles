@@ -1,4 +1,4 @@
-def PLATFORMS = [ "ubuntu20", "centos7", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
+def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
 def CB_VERSIONS = [
     "66release": [tag: "6.6-release"],
     "71release": [tag: "7.1-release"],
@@ -12,7 +12,7 @@ if (USE_CE.toBoolean()) {
 } else {
     CB_VERSIONS["70release"] = [tag: "7.0-release"]
 }
-def COMBINATION_PLATFORM = "centos7"
+def COMBINATION_PLATFORM = "rockylinux9"
 
 def checkout() {
     dir("couchbase-cxx-client") {
@@ -79,10 +79,9 @@ stage("build") {
                     } else if (platform == "amzn2") {
                         envs.push("CB_CC=/opt/gcc-10.2.0/bin/cc")
                         envs.push("CB_CXX=/opt/gcc-10.2.0/bin/c++")
-                    } else if (platform == "centos7") {
-                        envs.push("OPENSSL_ROOT_DIR=/usr/local/openssl")
-                        envs.push("CB_CC=/opt/rh/devtoolset-9/root/usr/bin/cc")
-                        envs.push("CB_CXX=/opt/rh/devtoolset-9/root/usr/bin/c++")
+                    } else if (platform == "rockylinux9") {
+                        envs.push("CB_CC=gcc")
+                        envs.push("CB_CXX=g++")
                     }
                     if (platform == "windows") {
                         bat("cbdep install -d deps openssl 1.1.1g-sdk2")
