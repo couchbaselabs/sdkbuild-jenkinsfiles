@@ -171,7 +171,7 @@ pipeline {
     }
     stages {
         stage('prepare and validate') {
-            agent { label 'centos7 || centos6' }
+            agent { label 'rockylinux9' }
             steps {
                 script {
                     if (IS_GERRIT_TRIGGER.toBoolean()) {

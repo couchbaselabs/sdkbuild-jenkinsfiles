@@ -239,7 +239,7 @@ pipeline {
     }
     stages {
         stage('prepare and validate') {
-            agent { label 'centos7 || centos6' }
+            agent { label 'rockylinux9' }
             steps {
                 script {
                     if (IS_GERRIT_TRIGGER.toBoolean()) {
@@ -441,7 +441,7 @@ pipeline {
                         values '7.2-stable', '7.1-stable', '7.1-release', '7.0-release', '6.6-release', '6.5-release', '6.0-release'
                     }
                 }
-                agent { label 'sdkqe-centos7' }
+                agent { label 'sdkqe-rockylinux9' }
                 stages {
                     stage("env") {
                         steps {
