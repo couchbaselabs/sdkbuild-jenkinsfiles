@@ -94,6 +94,7 @@ def validate_wheels(wheel_dir: Path, expected_wheels: List[WheelMetadata]) -> bo
     if len(missing_wheels) > 0:
         wheels = '\n    '.join(map(lambda w: f"{w.platform}-{w.arch}-{w.cpython_version}", missing_wheels))
         print(f'Missing {len(missing_wheels)} wheels!\nExpected wheels that are missing:\n    {wheels}')
+        raise SystemExit('Failed due to missing wheels')
 
 
 def get_expected_wheels(python_versions: List[str],
