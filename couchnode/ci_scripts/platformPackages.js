@@ -1,6 +1,5 @@
 const fs = require('fs')
 const path = require('path')
-const { buildBinary } = require('./scripts/prebuilds')
 
 let dirPath = ''
 let createPlatPackageJson = false
