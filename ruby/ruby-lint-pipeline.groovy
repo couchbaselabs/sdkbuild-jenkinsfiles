@@ -4,7 +4,7 @@ pipeline {
     agent none
     stages {
         stage("src") {
-            agent { label "centos7" }
+            agent { label "rockylinux9" }
             steps {
                 timestamps {
                     cleanWs()
@@ -33,7 +33,7 @@ pipeline {
         stage("lint") {
             parallel {
                 stage("rbocop") {
-                    agent { label "centos7" }
+                    agent { label "rockylinux9" }
                     steps {
                         dir("rubocop-${BUILD_NUMBER}") {
                             unstash("src")

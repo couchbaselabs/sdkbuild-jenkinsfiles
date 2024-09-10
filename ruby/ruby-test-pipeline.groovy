@@ -18,7 +18,7 @@ pipeline {
 
         stage("test") {
             environment {
-                PLATFORM = 'sdkqe-centos7'
+                PLATFORM = 'sdkqe-rockylinux9'
             }
             matrix {
                 when {
