@@ -57,6 +57,7 @@ def cpython_version_from_python_version(version: str) -> str:
     elif version.startswith('3.12'):
         return 'cp312'
 
+    raise SystemExit(f'Unsupported Python version: {version}.')
 
 def parse_python_versions(versions: str) -> List[str]:
 
@@ -83,7 +84,7 @@ def parse_platforms(arch: str, platforms: str) -> List[str]:
     return platform_list
 
 
-def validate_wheels(wheel_dir: Path, expected_wheels: List[WheelMetadata]) -> bool:
+def validate_wheels(wheel_dir: Path, expected_wheels: List[WheelMetadata]) -> None:
     for child in wheel_dir.iterdir():
         if child.is_file() and child.suffix == '.whl':
             match = next((whl for whl in expected_wheels if whl.wheel_match(child.name)), None)
