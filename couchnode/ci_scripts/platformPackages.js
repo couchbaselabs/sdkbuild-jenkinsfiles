@@ -116,5 +116,10 @@ if (buildPlatPackages) {
     )
     optionalDependencies.push(platformPkgName)
   }
-  console.log('Optional dependencies = ', optionalDependencies)
+
+  let pkgJson = JSON.parse(fs.readFileSync('package.json'))
+  let tmpObj = {}
+  optionalDependencies.forEach((opt) => { tmpObj[opt] = pkgJson.version })
+  pkgJson.optionalDependencies = tmpObj
+  fs.writeFileSync('package.json', JSON.stringify(pkgJson, null, 2))
 }
