@@ -276,7 +276,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian9", "centos7", "m1", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
+                        values "ubuntu20", "debian9", "centos7", "rockylinux9", "m1", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
                     }
                 }
 
@@ -400,8 +400,8 @@ pipeline {
                             timeout(time: 60, unit: 'MINUTES')
                         }
                         steps {
-                            unstash('centos7_build')
-                            dir('ws_centos7/build') {
+                            unstash('rockylinux9_build')
+                            dir('ws_rockylinux9/build') {
                                 sh("sed -i s:/home/couchbase/jenkins/workspace/lcb/lcb-scripted-build-pipeline/ws_centos7/build:\$(realpath .):g tests/CTestTestfile.cmake")
                                 sleep(20)
                                 sh("cbdyncluster ps -a")
