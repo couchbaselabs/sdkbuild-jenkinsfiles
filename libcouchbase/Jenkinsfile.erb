@@ -48,7 +48,7 @@ if ENV['WINDOWS_ONLY']
 elsif ENV['LINUX_ONLY']
     windows_dists = []
     centos_dists = [
-        # ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
+        ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
         ['rhel', 8, 'x86_64', 64, 'rocky-8-x86_64'],
         ['rhel', 9, 'x86_64', 64, 'rocky+epel-9-x86_64'],
         ['amzn', 2, 'x86_64', 64, 'amazonlinux-2-x86_64'],
@@ -722,7 +722,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'x86_64', 'aarch64'
+                        values 'aarch64'
                     }
                 }
                 agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }

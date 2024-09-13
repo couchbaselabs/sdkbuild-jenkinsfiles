@@ -651,7 +651,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'x86_64', 'aarch64'
+                        values 'aarch64'
                     }
                 }
                 agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
