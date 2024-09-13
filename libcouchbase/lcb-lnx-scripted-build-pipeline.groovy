@@ -468,6 +468,30 @@ pipeline {
                         }
                     }
                 }
+                stage('amzn2 x86_64') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('a64v2') {
+                            steps {
+                                dir('ws_amzn2-64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            steps {
+                                package_srpm("amzn", 64, 2, "x86_64", "amazonlinux-2-x86_64", VERSION)
+                            }
+                        }
+                        stage('rpm') {
+                            steps {
+                                package_rpm("amzn", 64, 2, "x86_64", "amazonlinux-2-x86_64", VERSION)
+                            }
+                        }
+                    }
+                }
                 stage('amzn2023 x86_64') {
                     agent { label 'mock' }
                     stages {
