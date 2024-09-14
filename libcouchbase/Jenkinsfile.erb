@@ -5,7 +5,7 @@ windows_dists = [
     [2017, 15],
 ]
 centos_dists = [
-    ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
+    # ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
 ]
 
 ubuntu_dists = [
@@ -24,7 +24,7 @@ nix_test_builds = [
     ['debian9', 'debian', 9, 'x64'],
     # Error: Failed to download metadata for repo 'baseos': Cannot prepare internal mirrorlist: No URLs in mirrorlist
     # ['centos8', 'centos', 8, 'x64'],
-    ['centos7', 'centos', 7, 'x64'],
+
     ['rockylinux9', 'rockylinux', 9, 'x64'],
     ['m1', 'macos', 11, 'm1'],
     # ['macos-11.0', 'macos', 11, 'x64'],
@@ -48,9 +48,10 @@ if ENV['WINDOWS_ONLY']
 elsif ENV['LINUX_ONLY']
     windows_dists = []
     centos_dists = [
-        ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
+        # ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
         ['rhel', 8, 'x86_64', 64, 'rocky-8-x86_64'],
         ['rhel', 9, 'x86_64', 64, 'rocky+epel-9-x86_64'],
+        ['amzn', 2, 'aarch64', 64, 'amazonlinux-2-aarch64'],
         ['amzn', 2, 'x86_64', 64, 'amazonlinux-2-x86_64'],
         ['amzn', 2023, 'x86_64', 64, 'amazonlinux-2023-x86_64'],
     ]

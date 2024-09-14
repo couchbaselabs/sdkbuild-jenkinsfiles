@@ -276,7 +276,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian9", "centos7", "rockylinux9", "m1", "qe-grav2-amzn2", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
+                        values "ubuntu20", "debian9", "rockylinux9", "m1", "qe-grav2-amzn2", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
                     }
                 }
 
@@ -513,30 +513,6 @@ pipeline {
                 }
             }
             parallel {
-                stage('centos7 x86_64') {
-                    agent { label 'mock' }
-                    stages {
-                        stage('c64v7') {
-                            steps {
-                                dir('ws_centos7-64') {
-                                    sh("sudo chown couchbase:couchbase -R .")
-                                    deleteDir()
-                                    unstash 'libcouchbase'
-                                }
-                            }
-                        }
-                        stage('srpm') {
-                            steps {
-                                package_srpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
-                            }
-                        }
-                        stage('rpm') {
-                            steps {
-                                package_rpm("centos", 64, 7, "x86_64", "epel-7-x86_64", VERSION)
-                            }
-                        }
-                    }
-                }
                 stage('ubuntu1804 amd64') {
                     agent { label 'cowbuilder' }
                     stages {
@@ -635,37 +611,6 @@ pipeline {
                         stage('deb') {
                             steps {
                                 package_deb("debian10", "amd64", "buster", VERSION)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        stage('amzn2') {
-            when {
-                expression {
-                    return !IS_GERRIT_TRIGGER.toBoolean()
-                }
-            }
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values 'aarch64'
-                    }
-                }
-                agent { label PLATFORM == 'x86_64' ? 'amzn2' : 'qe-grav2-amzn2' }
-                stages {
-                    stage('rpm') {
-                        steps {
-                            sh('sudo yum erase -y openssl-devel; sudo yum install -y openssl11-devel rpm-build yum-utils; cat /etc/os-release')
-                            unstash('centos7-srpm')
-                            sh('sudo yum-builddep -y libcouchbase-*/*.src.rpm')
-                            sh('sudo rm -rf output; rpmbuild --rebuild libcouchbase-*/*.src.rpm -D "_rpmdir output"')
-                            dir('output') {
-                                sh("mv ${PLATFORM} libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                sh("tar cf libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}")
-                                archiveArtifacts(artifacts: "libcouchbase-${VERSION.tar()}_amzn2_${PLATFORM}.tar", fingerprint: true)
                             }
                         }
                     }
