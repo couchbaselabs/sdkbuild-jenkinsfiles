@@ -426,7 +426,6 @@ pipeline {
                         stage('r64v8') {
                             steps {
                                 dir('ws_rhel8-64') {
-                                    sh("sudo dnf install -y qemu")
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
@@ -451,7 +450,6 @@ pipeline {
                         stage('r64v9') {
                             steps {
                                 dir('ws_rhel9-64') {
-                                    sh("sudo dnf install -y qemu")
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
@@ -476,7 +474,6 @@ pipeline {
                         stage('a64v2') {
                             steps {
                                 dir('ws_amzn2-64') {
-                                    sh("sudo dnf install -y qemu")
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
@@ -501,7 +498,6 @@ pipeline {
                         stage('a64v2') {
                             steps {
                                 dir('ws_amzn2-64') {
-                                    sh("sudo dnf install -y qemu")
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
@@ -526,7 +522,6 @@ pipeline {
                         stage('a64v2023') {
                             steps {
                                 dir('ws_amzn2023-64') {
-                                    sh("sudo dnf install -y qemu")
                                     sh("sudo chown couchbase:couchbase -R .")
                                     deleteDir()
                                     unstash 'libcouchbase'
