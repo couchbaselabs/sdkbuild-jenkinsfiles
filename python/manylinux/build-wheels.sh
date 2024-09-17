@@ -98,7 +98,7 @@ function reduce_wheel_size {
             rm pycbc_core.orig.so pycbc_core.debug.so
             echo "grep pycbc.so sizes (should only have reduced size)"
             ls -alh | grep pycbc
-            cd ../../..
+            cd ../..
             $DEFAULT_PYTHON -m wheel pack $WHEEL_ROOT
         else
           echo "Wheel $f is not tagged as manylinux or musllinux, removing."
