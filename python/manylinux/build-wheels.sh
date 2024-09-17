@@ -178,4 +178,5 @@ for whl in $PYTHON_SDK_WHEELHOUSE/*.whl; do
         audit_abi3_wheel "$whl"
     fi
     repair_wheel "$whl"
+    reduce_wheel_size
 done
