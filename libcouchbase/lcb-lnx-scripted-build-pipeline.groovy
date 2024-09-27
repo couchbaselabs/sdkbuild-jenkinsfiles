@@ -345,7 +345,7 @@ pipeline {
                 axes {
                     axis {
                         name 'CB_VERSION'
-                        values '7.2-stable', '7.1-stable', '7.1-release', '7.0-release', '6.6-release', '6.5-release', '6.0-release'
+                        values '7.6-release', '7.2-release', '7.1-release', '7.0-release', '6.6-release', '6.5-release', '6.0-release'
                     }
                 }
                 agent { label 'sdkqe-rockylinux9' }
