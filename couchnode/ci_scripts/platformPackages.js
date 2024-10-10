@@ -85,8 +85,8 @@ if (buildPlatPackages) {
     const osPlatform = platform.includes('musl') ? 'linux' : platform
     const arch = prebuildTokens[prebuildTokens.length - 2]
     const runtime = prebuildTokens[prebuildTokens.length - 5]
-    const platformPkgDir = `couchbase-${platform}-${arch}-${runtime}`
-    const platformPkgName = `@couchbase/${platformPkgDir}`
+    const platformPkgDir = `couchbase-columnar${platform}-${arch}-${runtime}`
+    const platformPkgName = `@couchbase-columnar/${platformPkgDir}`
     const descList = [
       'Capella Columnar Node.js SDK platform specific binary for',
       `${runtime} runtime on ${platform} OS`,
