@@ -12,17 +12,15 @@ function npm_publish {
         ls -alh
         cat package.json
         if [[ -n "${NPM_TAG-}" ]]; then
-            echo ""
-            echo "npm publish --access public --tag $NPM_TAG --dry-run"
+            npm publish --access public --tag $NPM_TAG --dry-run
         else
-            echo ""
-            echo "npm publish --access public --dry-run"
+            npm publish --access public --dry-run
         fi
     else
         if [[ -n "${NPM_TAG-}" ]]; then
-            echo "npm publish --access public --tag $NPM_TAG"
+            npm publish --access public --tag $NPM_TAG
         else
-            echo "npm publish --access public"
+            npm publish --access public
         fi
     fi
     popd > /dev/null
