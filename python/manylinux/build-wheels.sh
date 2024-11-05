@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e -u
 
-DEFAULT_BIN=/opt/python/cp38-cp38/bin
+DEFAULT_BIN=/opt/python/cp39-cp39/bin
 DEFAULT_PYTHON=$DEFAULT_BIN/python
 DEFAULT_PIP=$DEFAULT_BIN/pip
 $DEFAULT_PYTHON -m pip install auditwheel==6.1.0
@@ -9,8 +9,15 @@ if [[ -n "${PYCBC_LIMITED_API-}" ]]; then
     $DEFAULT_PYTHON -m pip install abi3audit
 fi
 
-#allowed_python_versions="cp37-cp37m", "cp38-cp38", "cp39-cp39", "cp310-cp310", "cp311-cp311", "cp312-cp312")
+# allowed_python_versions=["cp37-cp37m",
+#                          "cp38-cp38",
+#                          "cp39-cp39",
+#                          "cp310-cp310",
+#                          "cp311-cp311",
+#                          "cp312-cp312",
+#                          "cp313-cp313"]
 # 3.7 EOL 2023.06.30, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
+# 3.8 EOL 2024.10.07, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
 IFS=' ' read -r -a allowed_python_versions <<< $CPYTHON_VERSIONS
 
 function in_allowed_python_versions {
@@ -40,6 +47,9 @@ function get_python_version {
             ;;
         "cp312-cp312")
             python_version="3.12"
+            ;;
+        "cp313-cp313")
+            python_version="3.13"
             ;;
     esac
 

@@ -21,8 +21,8 @@ from os import path
 from pathlib import Path
 from typing import List, Tuple
 
-
-SUPPORTED_PYTHON_VERSIONS = ['3.8', '3.9', '3.10', '3.11', '3.12']
+# 3.8 EOL 2024.10.07
+SUPPORTED_PYTHON_VERSIONS = ['3.9', '3.10', '3.11', '3.12', '3.13']
 SUPPORTED_PLATFORMS = {
     'manylinux2014': ['x86_64', 'arm64'],
     'musllinux_1_1': ['x86_64'],
@@ -46,9 +46,7 @@ class WheelMetadata:
 
 
 def cpython_version_from_python_version(version: str) -> str:
-    if version.startswith('3.8'):
-        return 'cp38'
-    elif version.startswith('3.9'):
+    if version.startswith('3.9'):
         return 'cp39'
     elif version.startswith('3.10'):
         return 'cp310'
@@ -56,6 +54,8 @@ def cpython_version_from_python_version(version: str) -> str:
         return 'cp311'
     elif version.startswith('3.12'):
         return 'cp312'
+    elif version.startswith('3.13'):
+        return 'cp313'
 
     raise SystemExit(f'Unsupported Python version: {version}.')
 
