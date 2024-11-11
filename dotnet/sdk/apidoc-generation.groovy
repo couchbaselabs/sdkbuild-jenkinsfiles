@@ -85,7 +85,9 @@ pipeline {
                                 def copyright = "&copy; ${year + 1900} Couchbase, Inc."
                                 def overrides = ["_appTitle": VERSION, "_appFooter": copyright ]
                                 dir("couchbase-apidocs-docfx") {
-                                    writeJSON file:"overrides.json", json: overrides
+                                    dir("${API_REPO_NAME}") {
+                                        writeJSON file:"overrides.json", json: overrides
+                                    }
                                     batWithEcho("dotnet run --project DocFxRun\\DocFxRun.csproj ${API_REPO_NAME}\\docfx.json")
                                     dir("${API_REPO_NAME}") {
                                         def htmlFiles = findFiles(glob: "_site/api/*.html")

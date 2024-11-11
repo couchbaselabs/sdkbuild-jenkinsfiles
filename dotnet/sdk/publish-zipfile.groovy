@@ -58,7 +58,7 @@ pipeline {
                             withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                 s3Upload(
                                     bucket: 'packages.couchbase.com',
-                                    path: "clients/net/3.3/",
+                                    path: "clients/net/3.6/",
                                     acl: 'PublicRead',
                                     file: "${pkg}",
                                 )
