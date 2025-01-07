@@ -20,7 +20,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'macos-11.0', 'm1', 'windows', 'rockylinux9', 'alpine', 'qe-grav2-amzn2'
+                        values 'macos', 'm1', 'windows', 'rockylinux9', 'alpine', 'qe-grav2-amzn2'
                     }
                 }
                 agent { label PLATFORM }
@@ -109,7 +109,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values 'rockylinux9', 'ubuntu20', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64', 'macos-11.0', 'm1'
+                        values 'rockylinux9', 'ubuntu20', 'alpine', 'amzn2', 'qe-grav2-amzn2', 'qe-ubuntu20-arm64', 'macos', 'm1'
                     }
                     axis {
                         name 'CB_RUBY_VERSION'
