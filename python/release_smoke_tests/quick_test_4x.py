@@ -73,7 +73,7 @@ class CavesMockServer:
             if sys.platform.startswith('linux'):
                 caves_path = 'gocaves-linux-arm64' if platform.machine() == 'aarch64' else 'gocaves-linux-amd64'
             elif sys.platform.startswith('darwin'):
-                caves_path = 'gocaves-macos'
+                caves_path = 'gocaves-macos-arm64' if platform.machine() == 'arm64' else 'gocaves-macos'
             elif sys.platform.startswith('win32'):
                 caves_path = 'gocaves-windows.exe'
 
