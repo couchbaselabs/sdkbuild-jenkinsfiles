@@ -454,11 +454,35 @@ pipeline {
                         steps {
                         dir("ws_win_${MSVS.replaceAll(' ', '_')}_${ARCH}") {
                                 deleteDir()
+
+/*
                                 script {
                                     if (TLS.toBoolean()) {
-                                        bat("cbdep --debug --platform windows_msvc2017 install ${ARCH == 'x64' ? '' : '--x32'} openssl <%= openssl_ver %>")
+bat("""
+    set INSTALLER_URL=https://slproweb.com/download/${ARCH == 'x64' ? 'Win64' : 'Win32'}OpenSSL-3_4_1.exe
+    set DOWNLOAD_DIR=%TEMP%\\openssl_installer_${ARCH}
+    mkdir "%DOWNLOAD_DIR%"
+    powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri %INSTALLER_URL% -OutFile %DOWNLOAD_DIR%\\openssl_installer.exe"
+    "%DOWNLOAD_DIR%\\openssl_installer.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-
+    rd /s /q "%DOWNLOAD_DIR%"
+""")
                                     }
                                 }
+*/
+bat("""
+set TARGET_DIR=%USERPROFILE%\\cmake
+set CMAKE_ZIP_URL=https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip
+set CMAKE_ZIP_FILE=%USERPROFILE%\\cmake.zip
+
+if exist "%TARGET_DIR%" goto :end
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%CMAKE_ZIP_URL%' -OutFile '%CMAKE_ZIP_FILE%'"
+if not exist "%CMAKE_ZIP_FILE%" exit /b 1
+powershell -Command "Expand-Archive -Path '%CMAKE_ZIP_FILE%' -DestinationPath '%TEMP%\\cmake'"
+move "%TEMP%\\cmake\\cmake-*" "%TARGET_DIR%"
+del "%CMAKE_ZIP_FILE%"
+:end
+""")
+
                                 unstash 'libcouchbase'
                             }
                         }
@@ -466,9 +490,9 @@ pipeline {
                     stage('build') {
                         steps {
                             dir("ws_win_${MSVS.replaceAll(' ', '_')}_${ARCH}/build") {
-                                bat('cmake --help --version')
-                                bat("cmake -G\"Visual Studio ${MSVS}\" -A ${ARCH} ${TLS.toBoolean() ? '-DOPENSSL_ROOT_DIR=..\\install\\openssl-<%= openssl_ver %>' : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
-                                bat('cmake --build .')
+                                bat('%USERPROFILE%\\cmake\\bin\\cmake.exe --help --version')
+                                bat("%USERPROFILE%\\cmake\\bin\\cmake.exe -G\"Visual Studio ${MSVS}\" -A ${ARCH} ${TLS.toBoolean() ? (ARCH == "x64" ? '-DOPENSSL_ROOT_DIR="%ProgramFiles%\\OpenSSL-Win64"' : '-DOPENSSL_ROOT_DIR="%ProgramFiles(x86)%\\OpenSSL-Win32"') : '-DLCB_NO_SSL=1'} ..\\libcouchbase")
+                                bat('%USERPROFILE%\\cmake\\bin\\cmake.exe --build .')
                             }
                         }
                     }
@@ -517,15 +541,15 @@ pipeline {
                                 bat('cmake --build . --target package')
                                 script {
                                     if (TLS.toBoolean()) {
-                                        bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}_openssl.zip")
+                                        bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}_openssl3.zip")
                                     }
                                 }
-                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip", fingerprint: true)
+                                archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl3' : ''}.zip", fingerprint: true)
 <% if false && ENV['WINDOWS_ONLY'] %>
                                 withAWS(credentials: 'aws-sdk', region: 'us-east-1') {
                                     s3Upload(
                                         bucket: 'sdk-snapshots.couchbase.com',
-                                        file: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl' : ''}.zip",
+                                        file: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl3' : ''}.zip",
                                         path: 'libcouchbase/'
                                     )
                                 }
