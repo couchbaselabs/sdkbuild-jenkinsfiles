@@ -536,7 +536,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/noble-amd64.cow \
                                     --distribution noble \
@@ -587,7 +587,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/jammy-amd64.cow \
                                     --distribution jammy \
@@ -638,7 +638,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/bullseye-amd64.cow \
                                     --distribution bullseye \
@@ -689,7 +689,7 @@ pipeline {
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/bookworm-amd64.cow \
                                     --distribution bookworm \
