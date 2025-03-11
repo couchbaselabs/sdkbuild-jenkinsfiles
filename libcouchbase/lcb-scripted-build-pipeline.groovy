@@ -422,7 +422,7 @@ del "%CMAKE_ZIP_FILE%"
                                 bat('cmake --build . --target alltests')
                                 script {
                                     if (TLS.toBoolean()) {
-                                        bat('copy ..\\install\\openssl-1.1.1g-sdk2\\bin\\*.dll bin\\Debug\\')
+                                        bat("copy ${ARCH == "x64" ? '"%ProgramFiles%\\OpenSSL-Win64"' : '"%ProgramFiles(x86)%\\OpenSSL-Win32"'}\\*.dll bin\\Debug\\")
                                     }
                                 }
                                 bat("ctest --label-exclude contaminating --build-config debug ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
