@@ -339,7 +339,7 @@ pipeline {
                 axes {
                     axis {
                         name 'MSVS'
-                        values "14 2015", "15 2017"
+                        values "16 2019", "17 2022"
                     }
                     axis {
                         name 'TLS'

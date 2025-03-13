@@ -1,8 +1,8 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
 openssl_ver = '1.1.1g-sdk2'
 windows_dists = [
-    [2015, 14],
-    [2017, 15],
+    [2019, 16],
+    [2022, 17],
 ]
 centos_dists = [
     # ['centos', 7, 'x86_64', 64, 'epel-7-x86_64'],
@@ -42,6 +42,7 @@ if ENV['WINDOWS_ONLY']
         [2015, 14],
         [2017, 15],
         [2019, 16],
+        [2022, 17],
     ]
     centos_dists = ubuntu_dists = nix_test_builds = []
     integration_enabled = false
