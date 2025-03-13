@@ -440,6 +440,7 @@ del "%CMAKE_ZIP_FILE%"
                             dir("ws_win_${MSVS.replaceAll(' ', '_')}_${ARCH}/build") {
                                 bat('cmake --build . --target package')
                                 script {
+                                    bat("if exist ${VERSION.tarName()}__${ARCH == 'x64' ? 'amd64' : 'x86'}.zip move ${VERSION.tarName()}__${ARCH == 'x64' ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc17_${ARCH == 'x64' ? 'amd64' : 'x86'}.zip ")
                                     if (TLS.toBoolean()) {
                                         bat("move ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}.zip ${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}_openssl3.zip")
                                     }
