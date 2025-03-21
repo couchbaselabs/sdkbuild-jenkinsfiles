@@ -93,7 +93,7 @@ stage("build") {
                         dir("ws_${platform}/couchbase-cxx-client") {
                             if (platform == "windows") {
                                 dir("build") {
-                                    bat("cmake ..")
+                                    bat("cmake -S .. -B . -DCOUCHBASE_CXX_CLIENT_STATIC_BORINGSSL=ON -DCMAKE_SYSTEM_VERSION=10.0.20348.0")
                                     bat("cmake --build . --parallel $CB_NUMBER_OF_JOBS")
                                 }
                             } else {
