@@ -247,8 +247,13 @@ if (!SKIP_TESTS.toBoolean()) {
                                     "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                                 ]) {
                                     dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
-                                        sh("if [ -f ./bin/load-sample-buckets ] ; then ./bin/load-sample-buckets ${CLUSTER.firstIP()} ${USE_TLS} Administrator password travel-sample; fi")
-                                        sh("if [ -f ./bin/create-search-index ] ; then ./bin/create-search-index ${CLUSTER.firstIP()} ${USE_TLS} Administrator password; fi")
+                                        withEnv([
+                                            "CB_STRICT_ENCRYPTION=${USE_TLS}",
+                                            "CB_HOST=${CLUSTER.firstIP()}",
+                                            "CB_TRAVEL_SAMPLE=true"
+                                        ]) {
+                                            sh("if [ -f ./bin/init-cluster ] ; then ./bin/init-cluster ; fi")
+                                        }
                                         try {
                                             sh("./bin/run-unit-tests")
                                         } catch(e) {
