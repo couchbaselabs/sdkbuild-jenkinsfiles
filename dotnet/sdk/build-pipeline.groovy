@@ -124,7 +124,17 @@ pipeline {
                                 echo "${pairs}"
                                 testResultsGenerated = findFiles(glob:"**/TestResults/*.trx")
                                 echo "All Test Results = ${testResultsGenerated}"
-                                mstest testResultsFile:"**/*.trx", keepLongStdio: true
+                                // Add size information for each .trx file in MB and run mstest individually
+                                testResultsGenerated.each { file ->
+                                    def sizeInMB = file.length / (1024 * 1024)
+                                    echo "Test result file: ${file.path}, Size: ${String.format("%.2f", sizeInMB)} MB"
+                                    try {
+                                        mstest testResultsFile:"${file.path}", keepLongStdio: true
+                                        echo "MSTest succeeded for ${file.path}"
+                                    } catch (Exception e) {
+                                        echo "MSTest failed for ${file.path}: ${e.message}"
+                                    }
+                                }
                                 if (failures > 0) {
                                     error "${pairs}"
                                 }
