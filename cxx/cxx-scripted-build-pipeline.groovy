@@ -4,7 +4,8 @@ def CB_VERSIONS = [
     "71release": [tag: "7.1-release"],
     "71stable": [tag: "7.1-stable"],
     "72stable": [tag: "7.2-stable"],
-    "76stable": [tag: "7.6-stable"]
+    "76stable": [tag: "7.6-stable"],
+    "80stable": [tag: "8.0-stable"]
 ]
 // no 7.0.4 release for community
 if (USE_CE.toBoolean()) {
