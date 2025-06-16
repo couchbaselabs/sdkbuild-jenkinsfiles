@@ -1,8 +1,6 @@
 def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
 def CB_VERSIONS = [
-    "66release": [tag: "6.6-release"],
     "71release": [tag: "7.1-release"],
-    "71stable": [tag: "7.1-stable"],
     "72stable": [tag: "7.2-stable"],
     "76stable": [tag: "7.6-stable"],
     "80stable": [tag: "8.0-stable"]
