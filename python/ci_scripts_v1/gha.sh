@@ -774,7 +774,7 @@ function build_test_setup {
     fi
 
     exit_code=0
-    output_msg=$(python "$CI_SCRIPTS_PATH/pygha.py" "build_test_ini" "$test_path") || exit_code=$?
+    output_msg=$(python "$CI_SCRIPTS_PATH/pygha.py" "build_test_ini" "$test_path/tests") || exit_code=$?
     if [ $exit_code -ne 0 ]; then
         echo "output_msg=$output_msg"
         echo "Failed to build test_config.ini."
