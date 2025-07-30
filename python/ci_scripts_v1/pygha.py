@@ -59,9 +59,10 @@ class SdkProject(Enum):
             return CbdinoConfig(
                 num_nodes=3,
                 version='2.0.0-1061',
+                # if using >= v0.0.80 should not need the image portion of the config
                 # image='ghcr.io/cb-vanilla/columnar:2.0.0-1061',
-                use_load_balancer=False,
-                use_dns=True,
+                use_load_balancer=True,
+                use_dns=False,
                 use_dino_certs=True,
             )
         elif sdk_project == SdkProject.Columnar:
