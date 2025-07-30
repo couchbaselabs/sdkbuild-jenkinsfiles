@@ -8,6 +8,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Tuple, TypedDict, Union, cast, overload
+from urllib.parse import urlparse
 
 
 class ConfigStage(Enum):
@@ -951,9 +952,19 @@ class StageMatrixConfigHandler:
 class TestConfigHandler:
     @staticmethod
     def _get_analytics_test_ini_output(test_config: TestConfig) -> str:
-        scheme = os.environ.get('PYCBAC_SCHEME', test_config.scheme or 'https')
-        host = os.environ.get('PYCBAC_HOST', test_config.host or '127.0.0.1')
-        port = os.environ.get('PYCBAC_PORT', test_config.port or '18095')
+        cbdino_connstr = get_env_variable('CBDC_CONNSTR', quiet=True)
+        if cbdino_connstr is not None:
+            parsed_endpoint = urlparse(cbdino_connstr)
+            scheme = parsed_endpoint.scheme
+            env_host = os.environ.get('PYCBAC_HOST', test_config.host or '127.0.0.1')
+            host = parsed_endpoint.hostname if parsed_endpoint.hostname is not None else env_host
+            env_port = os.environ.get('PYCBAC_PORT', test_config.port or '18095')
+            port = str(parsed_endpoint.port) if parsed_endpoint.port is not None else env_port
+        else:
+            scheme = os.environ.get('PYCBAC_SCHEME', test_config.scheme or 'https')
+            host = os.environ.get('PYCBAC_HOST', test_config.host or '127.0.0.1')
+            port = os.environ.get('PYCBAC_PORT', test_config.port or '18095')
+
         username = os.environ.get('PYCBAC_USERNAME', test_config.username or 'Administrator')
         password = os.environ.get('PYCBAC_PASSWORD', test_config.password or 'password')
         fqdn = os.environ.get('PYCBAC_FQDN', test_config.fqdn)

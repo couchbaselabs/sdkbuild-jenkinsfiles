@@ -708,6 +708,20 @@ function save_shared_obj {
     ls -alh $full_output_path
 }
 
+function build_test_config_ini {
+    echo "PROJECT_ROOT=$PROJECT_ROOT"
+    set_project_prefix
+    test_path="$PROJECT_ROOT/$1"
+
+    exit_code=0
+    output_msg=$(python "$CI_SCRIPTS_PATH/pygha.py" "build_test_ini" "$test_path") || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo "output_msg=$output_msg"
+        echo "Failed to build test_config.ini."
+        exit 1
+    fi
+}
+
 function build_test_setup {
     arch="${1:-}"
     echo "PROJECT_ROOT=$PROJECT_ROOT"
@@ -812,6 +826,8 @@ elif [ "$cmd" == "save_shared_obj" ]; then
     save_shared_obj "${@:2}"
 elif [ "$cmd" == "build_test_setup" ]; then
     build_test_setup
+elif [ "$cmd" == "build_test_config_ini" ]; then
+    build_test_config_ini "${@:2}"
 else
     echo "Invalid command: $cmd"
 fi
