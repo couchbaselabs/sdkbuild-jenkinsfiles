@@ -154,6 +154,207 @@ class CbdinoConfig:
 
 
 @dataclass
+class PublishConfig:
+    publish_pypi: bool
+    publish_test_pypi: bool
+    publish_api_docs: bool
+    publish_dry_run: bool
+    set_git_tag: Optional[str] = None
+    tests_run_id: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Union[bool, str]]:
+        output: Dict[str, Union[bool, str]] = {
+            'publish_pypi': self.publish_pypi,
+            'publish_test_pypi': self.publish_test_pypi,
+            'publish_api_docs': self.publish_api_docs,
+            'publish_dry_run': self.publish_dry_run,
+        }
+        if self.set_git_tag is not None:
+            output['set_git_tag'] = self.set_git_tag
+        else:
+            output['set_git_tag'] = ''
+        if self.tests_run_id is not None:
+            output['tests_run_id'] = self.tests_run_id
+        else:
+            output['tests_run_id'] = ''
+        return output
+
+    @classmethod
+    def get_default_publish_config(cls) -> PublishConfig:
+        return PublishConfig(
+            publish_pypi=True,
+            publish_test_pypi=True,
+            publish_api_docs=True,
+            publish_dry_run=False,
+        )
+
+
+@dataclass
+class PytestConfig:
+    integration_config: PytestIntegrationConfig
+    unit_config: PytestUnitConfig
+
+    def to_dict(self, is_unit: bool) -> Dict[str, Union[bool, str]]:
+        if is_unit:
+            if self.unit_config.debug_logging is True:
+                if '--log-cli-level' not in self.unit_config.acouchbase_opts:
+                    self.unit_config.acouchbase_opts += ' --log-cli-level=DEBUG'
+                if '--log-cli-level' not in self.unit_config.couchbase_opts:
+                    self.unit_config.couchbase_opts += ' --log-cli-level=DEBUG'
+            return {
+                'acouchbase_cmd': self.unit_config.acouchbase_cmd,
+                'acouchbase_opts': self.unit_config.acouchbase_opts,
+                'couchbase_cmd': self.unit_config.couchbase_cmd,
+                'couchbase_opts': self.unit_config.couchbase_opts,
+            }
+        else:
+            if self.integration_config.debug_logging is True:
+                if '--log-cli-level' not in self.integration_config.acouchbase_opts:
+                    self.integration_config.acouchbase_opts += ' --log-cli-level=DEBUG'
+                if '--log-cli-level' not in self.integration_config.couchbase_opts:
+                    self.integration_config.couchbase_opts += ' --log-cli-level=DEBUG'
+            return {
+                'acouchbase_cmd': self.integration_config.acouchbase_cmd,
+                'acouchbase_opts': self.integration_config.acouchbase_opts,
+                'couchbase_cmd': self.integration_config.couchbase_cmd,
+                'couchbase_opts': self.integration_config.couchbase_opts,
+            }
+
+    @classmethod
+    def get_default_pytest_config(cls, sdk_project: SdkProject) -> PytestConfig:
+        return cls(
+            integration_config=PytestIntegrationConfig.get_default_config(sdk_project),
+            unit_config=PytestUnitConfig.get_default_config(sdk_project),
+        )
+
+    @staticmethod
+    def get_config_keys() -> List[str]:
+        return [
+            'debug_logging',
+            'acouchbase_cmd',
+            'acouchbase_opts',
+            'couchbase_cmd',
+            'couchbase_opts',
+        ]
+
+    @staticmethod
+    def get_config_options(cfg: Dict[str, Any], sdk_project: SdkProject) -> Dict[str, str]:
+        if sdk_project == SdkProject.Analytics:
+            debug_logging = cfg.get('debug_logging', cfg.get('debug-logging', None))
+            acb_cmd = cfg.get('acouchbase_analytics_cmd', cfg.get('acouchbase-analytics-cmd', None))
+            acb_opts = cfg.get('acouchbase_analytics_opts', cfg.get('acouchbase-analytics-opts', None))
+            cb_cmd = cfg.get('couchbase_analytics_cmd', cfg.get('couchbase-analytics-cmd', None))
+            cb_opts = cfg.get('couchbase_analytics_opts', cfg.get('couchbase-analytics-opts', None))
+        elif sdk_project == SdkProject.Columnar:
+            debug_logging = cfg.get('debug_logging', cfg.get('debug-logging', None))
+            acb_cmd = cfg.get('acouchbase_columnar_cmd', cfg.get('acouchbase-columnar-cmd', None))
+            acb_opts = cfg.get('acouchbase_columnar_opts', cfg.get('acouchbase-columnar-opts', None))
+            cb_cmd = cfg.get('couchbase_columnar_cmd', cfg.get('couchbase-columnar-cmd', None))
+            cb_opts = cfg.get('couchbase_columnar_opts', cfg.get('couchbase-columnar-opts', None))
+        elif sdk_project == SdkProject.Operational:
+            debug_logging = cfg.get('debug_logging', cfg.get('debug-logging', None))
+            acb_cmd = cfg.get('acouchbase_cmd', cfg.get('acouchbase-cmd', None))
+            acb_opts = cfg.get('acouchbase_opts', cfg.get('acouchbase-opts', None))
+            cb_cmd = cfg.get('couchbase_cmd', cfg.get('couchbase-cmd', None))
+            cb_opts = cfg.get('couchbase_opts', cfg.get('couchbase-opts', None))
+        else:
+            print(f'Invalid SDK project: {sdk_project.value}')
+            sys.exit(1)
+
+        output: Dict[str, str] = {}
+        if debug_logging is not None:
+            output['debug_logging'] = debug_logging
+        if acb_cmd is not None:
+            output['acouchbase_cmd'] = acb_cmd
+        if acb_opts is not None:
+            output['acouchbase_opts'] = acb_opts
+        if cb_cmd is not None:
+            output['couchbase_cmd'] = cb_cmd
+        if cb_opts is not None:
+            output['couchbase_opts'] = cb_opts
+
+        return output
+
+
+@dataclass
+class PytestIntegrationConfig:
+    debug_logging: bool
+    acouchbase_cmd: str
+    acouchbase_opts: str
+    couchbase_cmd: str
+    couchbase_opts: str
+
+    @classmethod
+    def get_default_config(cls, sdk_project: SdkProject) -> PytestIntegrationConfig:
+        if sdk_project == SdkProject.Analytics:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbac_acouchbase and pycbac_integration'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbac_couchbase and pycbac_integration'",
+                couchbase_opts='-rA -vv',
+            )
+        elif sdk_project == SdkProject.Columnar:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbcc_acouchbase and pycbac_integration'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbcc_couchbase and pycbac_integration'",
+                couchbase_opts='-rA -vv',
+            )
+        elif sdk_project == SdkProject.Operational:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbc_acouchbase and pycbac_integration'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbc_couchbase and pycbac_integration'",
+                couchbase_opts='-rA -vv',
+            )
+        else:
+            print(f'Invalid SDK project: {sdk_project.value}')
+            sys.exit(1)
+
+
+@dataclass
+class PytestUnitConfig:
+    debug_logging: bool
+    acouchbase_cmd: str
+    acouchbase_opts: str
+    couchbase_cmd: str
+    couchbase_opts: str
+
+    @classmethod
+    def get_default_config(cls, sdk_project: SdkProject) -> PytestUnitConfig:
+        if sdk_project == SdkProject.Analytics:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbac_acouchbase and pycbac_unit'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbac_couchbase and pycbac_unit'",
+                couchbase_opts='-rA -vv',
+            )
+        elif sdk_project == SdkProject.Columnar:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbcc_acouchbase and pycbcc_unit'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbcc_couchbase and pycbcc_unit'",
+                couchbase_opts='-rA -vv',
+            )
+        elif sdk_project == SdkProject.Operational:
+            return cls(
+                debug_logging=False,
+                acouchbase_cmd="pytest -m 'pycbc_acouchbase and pycbc_unit'",
+                acouchbase_opts='-rA -vv',
+                couchbase_cmd="pytest -m 'pycbc_couchbase and pycbc_unit'",
+                couchbase_opts='-rA -vv',
+            )
+        else:
+            print(f'Invalid SDK project: {sdk_project.value}')
+            sys.exit(1)
+
+
+@dataclass
 class TestConfig:
     skip_integration: bool
     skip_cbdino: bool
@@ -266,9 +467,11 @@ class LinuxStageMatrix(TypedDict, total=False):
 
 
 class StageMatrix(TypedDict, total=False):
+    has_alpine: bool
     has_linux: bool
     has_macos: bool
     has_windows: bool
+    alpine: Optional[LinuxStageMatrix]
     linux: Optional[LinuxStageMatrix]
     macos: Optional[MacosStageMatrix]
     windows: Optional[WindowsStageMatrix]
@@ -283,6 +486,7 @@ class TestStageMatrix(StageMatrix, total=False):
     test_config: Optional[TestConfig]
     cbdino_config: Optional[CbdinoConfig]
     linux_cbdino: Optional[LinuxStageMatrix]
+    pytest_config: Optional[PytestConfig]
 
 
 DEFAULT_CONFIG: Dict[str, ConfigOption] = {
@@ -370,6 +574,15 @@ def get_env_variable(key: str, quiet: Optional[bool] = False) -> Optional[str]:
             print(f'Error getting environment variable {key}: {e}')
             sys.exit(1)
     return None
+
+
+def get_config_boolean(config_value: Union[bool, str]) -> bool:
+    if isinstance(config_value, bool):
+        return config_value
+    if config_value.lower() in ['true', '1', 'y', 'yes', 'on']:
+        return True
+    else:
+        return False
 
 
 def get_config_boolean_as_str(config_value: str) -> str:
@@ -545,7 +758,6 @@ class ConfigHandler:
                 if (default := default_cfg[k].default) is not None:
                     cfg[k] = default
 
-        # print(f'{json.dumps({default_cfg[k]["sdk_alias"]:v for k, v in cfg.items()})}')
         print(' '.join([f'{default_cfg[k].sdk_alias}={v}' for k, v in cfg.items()]))
 
     @staticmethod
@@ -594,6 +806,13 @@ class ConfigHandler:
         return x86_64_platforms, arm64_platforms
 
 
+class PublishConfigHandler:
+    @staticmethod
+    def build_publish_config(config_key: str, version_key: str) -> None:
+        _, _, publish_config, _ = UserConfigHandler.parse_user_config(config_key, version_key=version_key)
+        print(f'{json.dumps({"publish_config": publish_config.to_dict()})}')
+
+
 class StageMatrixConfigHandler:
     @staticmethod
     def _build_cbdino_stage_matrix_portion(test_matrix: TestStageMatrix, test_config: TestConfig) -> None:
@@ -616,11 +835,14 @@ class StageMatrixConfigHandler:
             test_matrix['has_linux_cbdino'] = False
 
     @staticmethod
-    def _build_integration_test_stage_matrix(test_matrix: TestStageMatrix, test_config: TestConfig) -> None:
+    def _build_integration_test_stage_matrix(
+        test_matrix: TestStageMatrix, test_config: TestConfig, pytest_config: PytestConfig
+    ) -> None:
         test_matrix['skip_cbdino'] = test_config.skip_cbdino
         test_matrix['skip_integration'] = test_config.skip_integration
         test_matrix['api'] = test_config.apis
         test_matrix['install_type'] = test_config.install_types
+        test_matrix['pytest_config'] = pytest_config
         if test_config.skip_cbdino is False:
             StageMatrixConfigHandler._build_cbdino_stage_matrix_portion(test_matrix, test_config)
         if test_config.skip_integration is False:
@@ -629,6 +851,24 @@ class StageMatrixConfigHandler:
                 test_matrix['skip_integration'] = test_config.skip_integration
             else:
                 test_matrix['test_config'] = test_config
+
+    @staticmethod
+    def _build_linux_alpine_stage_matrix(
+        python_versions: List[str], x86_64_platforms: List[str], arm64_platforms: List[str]
+    ) -> LinuxStageMatrix:
+        linux_alpine_matrix: LinuxStageMatrix = {}
+        if 'alpine' in x86_64_platforms:
+            if 'linux_type' not in linux_alpine_matrix:
+                linux_alpine_matrix['linux_type'] = ['musllinux']
+            else:
+                linux_alpine_matrix['linux_type'].append('musllinux')
+            if 'arch' not in linux_alpine_matrix:
+                linux_alpine_matrix['arch'] = ['x86_64']
+
+        if linux_alpine_matrix:
+            linux_alpine_matrix['python_version'] = python_versions
+
+        return linux_alpine_matrix
 
     @staticmethod
     def _build_linux_stage_matrix(
@@ -645,13 +885,6 @@ class StageMatrixConfigHandler:
                 linux_matrix['arch'] = ['aarch64']
             else:
                 linux_matrix['arch'].append('aarch64')
-        if 'alpine' in x86_64_platforms:
-            if 'linux_type' not in linux_matrix:
-                linux_matrix['linux_type'] = ['musllinux']
-            else:
-                linux_matrix['linux_type'].append('musllinux')
-            if 'arch' not in linux_matrix:
-                linux_matrix['arch'] = ['x86_64']
 
         if linux_matrix:
             linux_matrix['python_version'] = python_versions
@@ -659,6 +892,56 @@ class StageMatrixConfigHandler:
                 linux_matrix['exclude'] = [{'linux-type': 'musllinux', 'arch': 'aarch64'}]
 
         return linux_matrix
+
+    @staticmethod
+    def _build_linux_stage_matrix_new(
+        python_versions: List[str], x86_64_platforms: List[str], arm64_platforms: List[str]
+    ) -> LinuxStageMatrix:
+        linux_matrix: LinuxStageMatrix = {}
+        if 'linux' in x86_64_platforms:
+            linux_plat = get_env_variable('CBCI_DEFAULT_LINUX_X86_64_PLATFORM')
+            linux_matrix['os'] = [linux_plat]
+            linux_matrix['arch'] = ['x86_64']
+        if 'macos' in arm64_platforms:
+            linux_plat = get_env_variable('CBCI_DEFAULT_LINUX_ARM64_PLATFORM')
+            if 'os' not in linux_matrix or linux_matrix['os'] is None:
+                linux_matrix['os'] = [linux_plat]
+            else:
+                linux_matrix['os'].append(linux_plat)
+            if 'arch' not in linux_matrix:
+                linux_matrix['arch'] = ['arm64']
+            else:
+                linux_matrix['arch'].append('arm64')
+
+        if linux_matrix:
+            linux_matrix['python_version'] = python_versions
+            if 'arm64' in linux_matrix['arch'] and 'x86_64' in linux_matrix['arch']:
+                linux_x86_64_plat = get_env_variable('CBCI_DEFAULT_LINUX_X86_64_PLATFORM')
+                linux_arm64_plat = get_env_variable('CBCI_DEFAULT_LINUX_ARM64_PLATFORM')
+                linux_matrix['exclude'] = [
+                    {'os': linux_x86_64_plat, 'arch': 'arm64'},
+                    {'os': linux_arm64_plat, 'arch': 'x86_64'},
+                ]
+
+        return linux_matrix
+
+    @staticmethod
+    def _build_linux_alpine_validate_wheel_stage_matrix(  # noqa: C901
+        python_versions: List[str],
+        x86_64_platforms: List[str],
+        arm64_platforms: List[str],
+    ) -> LinuxStageMatrix:
+        alpine_matrix: LinuxStageMatrix = {}
+        if 'alpine' in x86_64_platforms:
+            alpine_container = get_env_variable('CBCI_DEFAULT_ALPINE_CONTAINER')
+            if 'container' not in alpine_matrix or alpine_matrix['container'] is None:
+                alpine_matrix['container'] = [alpine_container]
+            else:
+                alpine_matrix['container'].append(alpine_container)
+            if 'arch' not in alpine_matrix:
+                alpine_matrix['arch'] = ['x86_64']
+
+        return alpine_matrix
 
     @staticmethod
     def _build_linux_validate_wheel_stage_matrix(  # noqa: C901
@@ -679,27 +962,11 @@ class StageMatrixConfigHandler:
                 linux_matrix['arch'] = ['aarch64']
             else:
                 linux_matrix['arch'].append('aarch64')
-        if 'alpine' in x86_64_platforms:
-            alpine_container = get_env_variable('CBCI_DEFAULT_ALPINE_CONTAINER')
-            if 'container' not in linux_matrix or linux_matrix['container'] is None:
-                linux_matrix['container'] = [alpine_container]
-            else:
-                linux_matrix['container'].append(alpine_container)
-            if 'arch' not in linux_matrix:
-                linux_matrix['arch'] = ['x86_64']
 
         if linux_matrix:
             default_linux_plat = get_env_variable('CBCI_DEFAULT_LINUX_PLATFORM')
             linux_matrix['os'] = [default_linux_plat]
             linux_matrix['python_version'] = python_versions
-            if (
-                'aarch64' in linux_matrix['arch']
-                and 'container' in linux_matrix
-                and linux_matrix['container'] is not None
-            ):
-                alpine_container = get_env_variable('CBCI_DEFAULT_ALPINE_CONTAINER')
-                if alpine_container in linux_matrix['container']:
-                    linux_matrix['exclude'] = [{'container': alpine_container, 'arch': 'aarch64'}]
 
         return linux_matrix
 
@@ -730,6 +997,12 @@ class StageMatrixConfigHandler:
         matrix_dict['test_wheel_install'] = True if 'wheel' in install_types else False
 
     @staticmethod
+    def _add_install_command(matrix_dict: Dict[str, Any]) -> None:
+        install_cmd = TestConfigHandler.get_install_command()
+        if install_cmd is not None:
+            matrix_dict['install_cmd'] = install_cmd
+
+    @staticmethod
     def _add_cbdino_config_to_stage_matrix(
         matrix_dict: Dict[str, Any],
         test_matrix: TestStageMatrix,
@@ -748,6 +1021,32 @@ class StageMatrixConfigHandler:
                 }
 
     @staticmethod
+    def _add_pytest_config(matrix_dict: Dict[str, Any], test_matrix: TestStageMatrix, is_unit: bool) -> None:
+        if 'pytest_config' not in test_matrix or test_matrix['pytest_config'] is None:
+            return
+
+        pytest_config = test_matrix['pytest_config']
+        pytest_dict = pytest_config.to_dict(is_unit)
+        if 'test_acouchbase_api' in matrix_dict and matrix_dict['test_acouchbase_api'] is True:
+            if 'pytest' not in matrix_dict:
+                matrix_dict['pytest'] = {}
+            matrix_dict['pytest'].update(
+                {
+                    'acouchbase_cmd': pytest_dict['acouchbase_cmd'],
+                    'acouchbase_opts': pytest_dict['acouchbase_opts'],
+                }
+            )
+        if 'test_couchbase_api' in matrix_dict and matrix_dict['test_couchbase_api'] is True:
+            if 'pytest' not in matrix_dict:
+                matrix_dict['pytest'] = {}
+            matrix_dict['pytest'].update(
+                {
+                    'couchbase_cmd': pytest_dict['couchbase_cmd'],
+                    'couchbase_opts': pytest_dict['couchbase_opts'],
+                }
+            )
+
+    @staticmethod
     def _stage_matrix_as_dict(stage: str, stage_matrix: Union[StageMatrix, TestStageMatrix]) -> Dict[str, Any]:  # noqa: C901
         matrix_dict: Dict[str, Any] = {}
         if 'linux' in stage_matrix and stage_matrix['linux'] is not None:
@@ -759,6 +1058,15 @@ class StageMatrixConfigHandler:
                     matrix_dict['linux']['python-version'] = v
                 else:
                     matrix_dict['linux'][k] = v
+        if 'alpine' in stage_matrix and stage_matrix['alpine'] is not None:
+            matrix_dict['alpine'] = {}
+            for k, v in stage_matrix['alpine'].items():
+                if k == 'linux_type':
+                    matrix_dict['alpine']['linux-type'] = v
+                elif k == 'python_version':
+                    matrix_dict['alpine']['python-version'] = v
+                else:
+                    matrix_dict['alpine'][k] = v
         if 'macos' in stage_matrix and stage_matrix['macos'] is not None:
             matrix_dict['macos'] = {}
             for k, v in stage_matrix['macos'].items():
@@ -774,6 +1082,7 @@ class StageMatrixConfigHandler:
                 else:
                     matrix_dict['windows'][k] = v
         matrix_dict['has_linux'] = stage_matrix.get('has_linux', False)
+        matrix_dict['has_alpine'] = stage_matrix.get('has_alpine', False)
         matrix_dict['has_macos'] = stage_matrix.get('has_macos', False)
         matrix_dict['has_windows'] = stage_matrix.get('has_windows', False)
         if stage == 'test_unit':
@@ -782,6 +1091,8 @@ class StageMatrixConfigHandler:
             # TODO: this is a possibility, but the matrix becomes rather large (>= 60)
             # add_test_config_to_stage_matrix(matrix_dict, test_matrix, sdk_project)
             StageMatrixConfigHandler._add_apis_and_install_type_to_stage_matrix(matrix_dict, test_matrix, sdk_project)
+            StageMatrixConfigHandler._add_install_command(matrix_dict)
+            StageMatrixConfigHandler._add_pytest_config(matrix_dict, test_matrix, is_unit=True)
         elif stage == 'test_integration':
             sdk_project = SdkProject.from_env()
             test_matrix = cast(TestStageMatrix, stage_matrix)
@@ -792,6 +1103,8 @@ class StageMatrixConfigHandler:
             # add_test_config_to_stage_matrix(matrix_dict, test_matrix, sdk_project)
             StageMatrixConfigHandler._add_apis_and_install_type_to_stage_matrix(matrix_dict, test_matrix, sdk_project)
             StageMatrixConfigHandler._add_cbdino_config_to_stage_matrix(matrix_dict, test_matrix)
+            StageMatrixConfigHandler._add_install_command(matrix_dict)
+            StageMatrixConfigHandler._add_pytest_config(matrix_dict, test_matrix, is_unit=False)
             test_config = test_matrix.get('test_config', None)
             if test_config is not None:
                 matrix_dict['test_config'] = test_config.to_dict(sdk_project)
@@ -799,14 +1112,26 @@ class StageMatrixConfigHandler:
 
     @staticmethod
     def build_linux_stage_matrix(
-        python_versions: List[str], x86_64_platforms: List[str], arm64_platforms: List[str], stage: ConfigStage
+        python_versions: List[str],
+        x86_64_platforms: List[str],
+        arm64_platforms: List[str],
+        stage: ConfigStage,
+        is_alpine: bool,
     ) -> LinuxStageMatrix:
         linux_matrix: LinuxStageMatrix = {}
         if stage in [ConfigStage.BUILD_WHEEL, ConfigStage.TEST_UNIT, ConfigStage.TEST_INTEGRATION]:
-            return StageMatrixConfigHandler._build_linux_stage_matrix(
+            if is_alpine:
+                return StageMatrixConfigHandler._build_linux_alpine_stage_matrix(
+                    python_versions, x86_64_platforms, arm64_platforms
+                )
+            return StageMatrixConfigHandler._build_linux_stage_matrix_new(
                 python_versions, x86_64_platforms, arm64_platforms
             )
         elif stage == ConfigStage.VALIDATE_WHEEL:
+            if is_alpine:
+                return StageMatrixConfigHandler._build_linux_alpine_validate_wheel_stage_matrix(
+                    python_versions, x86_64_platforms, arm64_platforms
+                )
             return StageMatrixConfigHandler._build_linux_validate_wheel_stage_matrix(
                 python_versions, x86_64_platforms, arm64_platforms
             )
@@ -884,7 +1209,11 @@ class StageMatrixConfigHandler:
 
     @staticmethod
     def build_stage_matrices(
-        python_versions: List[str], x86_64_platforms: List[str], arm64_platforms: List[str], test_config: TestConfig
+        python_versions: List[str],
+        x86_64_platforms: List[str],
+        arm64_platforms: List[str],
+        test_config: TestConfig,
+        pytest_config: PytestConfig,
     ) -> Dict[str, Union[StageMatrix, TestStageMatrix]]:
         matrices: Dict[str, StageMatrix] = {}
         sdk_project = SdkProject.from_env()
@@ -901,13 +1230,21 @@ class StageMatrixConfigHandler:
             stage_matrix: StageMatrix = {}
 
             linux_matrix = StageMatrixConfigHandler.build_linux_stage_matrix(
-                python_versions, x86_64_platforms, arm64_platforms, stage
+                python_versions, x86_64_platforms, arm64_platforms, stage, False
             )
             if linux_matrix:
                 stage_matrix['linux'] = linux_matrix
                 stage_matrix['has_linux'] = True
             else:
                 stage_matrix['has_linux'] = False
+            alpine_matrix = StageMatrixConfigHandler.build_linux_stage_matrix(
+                python_versions, x86_64_platforms, arm64_platforms, stage, True
+            )
+            if alpine_matrix:
+                stage_matrix['alpine'] = alpine_matrix
+                stage_matrix['has_alpine'] = True
+            else:
+                stage_matrix['has_alpine'] = False
             macos_matrix = StageMatrixConfigHandler.build_macos_stage_matrix(
                 python_versions, x86_64_platforms, arm64_platforms, stage
             )
@@ -930,10 +1267,13 @@ class StageMatrixConfigHandler:
                 unit_test_matrix: TestStageMatrix = cast(TestStageMatrix, deepcopy(stage_matrix))
                 unit_test_matrix['api'] = test_config.apis
                 unit_test_matrix['install_type'] = test_config.install_types
+                unit_test_matrix['pytest_config'] = pytest_config
                 matrices[stage_name] = unit_test_matrix
             elif stage == ConfigStage.TEST_INTEGRATION:
                 int_test_matrix: TestStageMatrix = cast(TestStageMatrix, deepcopy(stage_matrix))
-                StageMatrixConfigHandler._build_integration_test_stage_matrix(int_test_matrix, test_config)
+                StageMatrixConfigHandler._build_integration_test_stage_matrix(
+                    int_test_matrix, test_config, pytest_config
+                )
                 matrices[stage_name] = int_test_matrix
             else:
                 matrices[stage_name] = stage_matrix
@@ -942,9 +1282,9 @@ class StageMatrixConfigHandler:
 
     @staticmethod
     def get_stage_matrices(config_key: str, quiet: Optional[bool] = True) -> None:
-        config, test_config = UserConfigHandler.parse_user_config(config_key, quiet=quiet)
+        config, test_config, _, pytest_config = UserConfigHandler.parse_user_config(config_key, quiet=quiet)
         matrices = StageMatrixConfigHandler.build_stage_matrices(
-            config['python_versions'], config['x86_64_platforms'], config['arm64_platforms'], test_config
+            config['python_versions'], config['x86_64_platforms'], config['arm64_platforms'], test_config, pytest_config
         )
         gha_matrices = {k: StageMatrixConfigHandler._stage_matrix_as_dict(k, v) for k, v in matrices.items()}
         print(f'{json.dumps(gha_matrices)}')
@@ -1188,6 +1528,19 @@ class TestConfigHandler:
         with open(os.path.join(output_path, 'requirements-test.txt'), 'w') as outfile:
             outfile.write('\n'.join(final_reqs))
 
+    @staticmethod
+    def get_install_command() -> Optional[str]:
+        install_cmd = None
+        packaging_index = get_env_variable('CBCI_PACKAGING_INDEX', quiet=True)
+        if packaging_index is None:
+            return install_cmd
+        if packaging_index.upper() == 'TEST_PYPI':
+            install_cmd = 'install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple'
+        elif packaging_index.upper() == 'PYPI':
+            install_cmd = 'install'
+
+        return install_cmd
+
 
 class UserConfigHandler:
     @staticmethod
@@ -1263,7 +1616,9 @@ class UserConfigHandler:
         return test_config
 
     @staticmethod
-    def parse_user_config(config_key: str, quiet: Optional[bool] = True) -> Tuple[Dict[str, List[str]], TestConfig]:
+    def parse_user_config(
+        config_key: str, quiet: Optional[bool] = True, version_key: Optional[str] = None
+    ) -> Tuple[Dict[str, List[str]], TestConfig, PublishConfig, PytestConfig]:
         user_config = UserConfigHandler.user_config_as_json(config_key)
         cfg = {}
         versions = ConfigHandler.set_python_versions(
@@ -1280,7 +1635,83 @@ class UserConfigHandler:
         cfg['x86_64_platforms'] = x86_64_platforms
         cfg['arm64_platforms'] = arm64_platforms
         test_config = UserConfigHandler.parse_user_test_config(user_config)
-        return cfg, test_config
+        publish_config = UserConfigHandler.parse_user_publish_config(user_config, version_key=version_key)
+        pytest_config = UserConfigHandler.parse_user_pytest_config(user_config)
+        return cfg, test_config, publish_config, pytest_config
+
+    @staticmethod
+    def parse_user_publish_config(cfg: Dict[str, Any], version_key: Optional[str] = None) -> PublishConfig:  # noqa: C901
+        publish_config = PublishConfig.get_default_publish_config()
+        version_key = version_key or 'CBCI_VERSION'
+        config_version = get_env_variable(version_key, quiet=True)
+        if config_version is not None:
+            publish_config.set_git_tag = config_version
+        tests_run_id = get_env_variable('CBCI_TESTS_RUN_ID', quiet=True)
+        if tests_run_id is not None:
+            publish_config.tests_run_id = tests_run_id
+        if 'publish_config' not in cfg or 'publish-config' not in cfg:
+            return publish_config
+
+        publish_cfg = cfg.get('publish_config', cfg.get('publish-config', None))
+        if not isinstance(publish_cfg, dict):
+            return publish_config
+        if 'publish_test_pypi' in publish_cfg or 'publish-test-pypi' in publish_cfg:
+            pub_test_pypi = publish_cfg.get('publish_test_pypi', publish_cfg.get('publish-test-pypi', True))
+            if isinstance(pub_test_pypi, (bool, str)):
+                publish_config.publish_test_pypi = get_config_boolean(pub_test_pypi)
+        if 'publish_pypi' in publish_cfg or 'publish-pypi' in publish_cfg:
+            pub_pypi = publish_cfg.get('publish_pypi', publish_cfg.get('publish-pypi', True))
+            if isinstance(pub_pypi, (bool, str)):
+                publish_config.publish_pypi = get_config_boolean(pub_pypi)
+        if 'publish_api_docs' in publish_cfg or 'publish-api-docs' in publish_cfg:
+            pub_api_docs = publish_cfg.get('publish_api_docs', publish_cfg.get('publish-api-docs', True))
+            if isinstance(pub_api_docs, (bool, str)):
+                publish_config.publish_api_docs = get_config_boolean(pub_api_docs)
+        if 'publish_dry_run' in publish_cfg or 'publish-dry-run' in publish_cfg:
+            pub_dry_run = publish_cfg.get('publish_dry_run', publish_cfg.get('publish-dry-run', False))
+            if isinstance(pub_dry_run, (bool, str)):
+                publish_config.publish_dry_run = get_config_boolean(pub_dry_run)
+        else:
+            publish_dry_run = get_env_variable('CBCI_PUBLISH_DRY_RUN', quiet=True)
+            if publish_dry_run is not None:
+                publish_config.publish_dry_run = get_config_boolean(publish_dry_run)
+
+        return publish_config
+
+    @staticmethod
+    def parse_user_pytest_config(cfg: Dict[str, Any]) -> PytestConfig:  # noqa: C901
+        sdk_project = SdkProject.from_env()
+        pytest_config = PytestConfig.get_default_pytest_config(sdk_project)
+        if 'pytest_config' not in cfg and 'pytest-config' not in cfg:
+            return pytest_config
+        pytest_cfg = cfg.get('pytest_config', cfg.get('pytest-config', None))
+        if not isinstance(pytest_cfg, dict):
+            return pytest_config
+
+        global_cfg = PytestConfig.get_config_options(pytest_cfg, sdk_project)
+        if 'unit' in pytest_cfg and isinstance(pytest_cfg['unit'], dict):
+            unit_cfg = PytestConfig.get_config_options(pytest_cfg['unit'], sdk_project)
+        else:
+            unit_cfg = {}
+
+        for cfg_key in PytestConfig.get_config_keys():
+            if cfg_key in unit_cfg:
+                setattr(pytest_config.unit_config, cfg_key, unit_cfg[cfg_key])
+            elif cfg_key in global_cfg:
+                setattr(pytest_config.unit_config, cfg_key, global_cfg[cfg_key])
+
+        if 'integration' in pytest_cfg and isinstance(pytest_cfg['integration'], dict):
+            int_cfg = PytestConfig.get_config_options(pytest_cfg['integration'], sdk_project)
+        else:
+            int_cfg = {}
+
+        for cfg_key in PytestConfig.get_config_keys():
+            if cfg_key in int_cfg:
+                setattr(pytest_config.integration_config, cfg_key, int_cfg[cfg_key])
+            elif cfg_key in global_cfg:
+                setattr(pytest_config.integration_config, cfg_key, global_cfg[cfg_key])
+
+        return pytest_config
 
     @staticmethod
     def parse_user_test_config(cfg: Dict[str, Any]) -> TestConfig:
@@ -1356,6 +1787,11 @@ if __name__ == '__main__':
         TestConfigHandler.build_pytest_ini(sys.argv[2], sys.argv[3])
     elif cmd == 'build_cbdino_config_yaml':
         CbDinoConfigHandler.build_cbdino_config_yaml(sys.argv[2])
+    elif cmd == 'build_publish_config':
+        if len(sys.argv) < 4:
+            print('Expected config key and version key.')
+            sys.exit(1)
+        PublishConfigHandler.build_publish_config(sys.argv[2], sys.argv[3])
     else:
         print(f'Invalid command: {cmd}')
         sys.exit(1)

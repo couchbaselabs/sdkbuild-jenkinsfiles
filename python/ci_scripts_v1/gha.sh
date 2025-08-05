@@ -27,8 +27,10 @@ function display_info {
     echo "DEFAULT_PYTHON=$CBCI_DEFAULT_PYTHON"
     echo "SUPPORTED_PYTHON_VERSIONS=$CBCI_SUPPORTED_PYTHON_VERSIONS"
     echo "SUPPORTED_X86_64_PLATFORMS=$CBCI_SUPPORTED_X86_64_PLATFORMS"
-    echo "DEFAULT_LINUX_PLATFORM=$CBCI_DEFAULT_LINUX_PLATFORM"
+    echo "DEFAULT_LINUX_X86_64_PLATFORM=$CBCI_DEFAULT_LINUX_X86_64_PLATFORM"
+    echo "DEFAULT_LINUX_ARM64_PLATFORM=$CBCI_DEFAULT_LINUX_ARM64_PLATFORM"
     echo "DEFAULT_MACOS_X86_64_PLATFORM=$CBCI_DEFAULT_MACOS_X86_64_PLATFORM"
+    echo "DEFAULT_MACOS_ARM64_PLATFORM=$CBCI_DEFAULT_MACOS_ARM64_PLATFORM"
     echo "DEFAULT_WINDOWS_PLATFORM=$CBCI_DEFAULT_WINDOWS_PLATFORM"
     echo "DEFAULT_LINUX_CONTAINER=$CBCI_DEFAULT_LINUX_CONTAINER"
     echo "DEFAULT_ALPINE_CONTAINER=$CBCI_DEFAULT_ALPINE_CONTAINER"
@@ -58,20 +60,82 @@ function validate_version {
     fi
 }
 
-function validate_input {
+function validate_pycbc_input {
     workflow_type="${1:-}"
     set_project_prefix
-    if [ "$workflow_type" == "build_wheels" ]; then
-        echo "workflow_type: build_wheels, params: $@"
+    if [ "$workflow_type" == "build_wheels" ] || [ "$workflow_type" == "publish" ]; then
+        echo "workflow_type: ${workflow_type}, params: $@"
         is_release="${CBCI_IS_RELEASE:-}"
         if [[ ! -z "$is_release" && "$is_release" == "true" ]]; then
             validate_sha
             validate_version
         fi
     elif [ "$workflow_type" == "tests" ]; then
-        echo "workflow_type: tests, params: $@"
+        echo "workflow_type: ${workflow_type}, params: $@"
     else
         echo "Invalid workflow type: $workflow_type"
+        exit 1
+    fi
+}
+
+function validate_pycbcc_input {
+    workflow_type="${1:-}"
+    set_project_prefix
+    if [ "$workflow_type" == "build_wheels" ] || [ "$workflow_type" == "publish" ]; then
+        echo "workflow_type: ${workflow_type}, params: $@"
+        is_release="${CBCI_IS_RELEASE:-}"
+        if [[ ! -z "$is_release" && "$is_release" == "true" ]]; then
+            validate_sha
+            validate_version
+        fi
+    elif [ "$workflow_type" == "tests" ]; then
+        echo "workflow_type: ${workflow_type}, params: $@"
+    else
+        echo "Invalid workflow type: $workflow_type"
+        exit 1
+    fi
+}
+
+function validate_pycbac_input {
+    workflow_type="${1:-}"
+    set_project_prefix
+    if [ "$workflow_type" == "tests" ] || [ "$workflow_type" == "publish" ]; then
+        echo "workflow_type: ${workflow_type}, params: $@"
+        is_release="${CBCI_IS_RELEASE:-}"
+        if [[ ! -z "$is_release" && "$is_release" == "true" ]]; then
+            validate_sha
+            validate_version
+        fi
+    elif [ "$workflow_type" == "verify_release" ]; then
+        echo "workflow_type: ${workflow_type}, params: $@"
+        validate_version
+        validate_sha
+        packaging_index="${CBCI_PACKAGING_INDEX:-}"
+        if [ -z "$packaging_index" ]; then
+            echo "Must provide a packaging index."
+            exit 1
+        fi
+        if [ "$packaging_index" != "PYPI" ] && [ "$packaging_index" != "TEST_PYPI" ]; then
+            echo "Packing index must be either PYPI or TEST_PYPI. Provided: $packaging_index"
+            exit 1
+        fi
+    else
+        echo "Invalid workflow type: $workflow_type"
+        exit 1
+    fi
+}
+
+function validate_input {
+    workflow_type="${1:-}"
+    set_project_prefix
+    if [ "$PROJECT_PREFIX" == "PYCBC" ]; then
+        validate_pycbc_input "$workflow_type"
+    elif [ "$PROJECT_PREFIX" == "PYCBCC" ]; then
+        validate_pycbcc_input "$workflow_type"
+    elif [ "$PROJECT_PREFIX" == "PYCBAC" ]; then
+        validate_pycbac_input "$workflow_type"
+    else
+        echo "Invalid project prefix: $PROJECT_PREFIX"
         exit 1
     fi
 }
@@ -806,6 +870,17 @@ function build_test_setup {
     
 }
 
+function build_publish_config {
+    exit_code=0
+    publish_config=$(python "$CI_SCRIPTS_PATH/pygha.py" "build_publish_config" "CBCI_CONFIG" "CBCI_VERSION") || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo "publish_config=$publish_config"
+        echo "Failed to build publish config."
+        exit 1
+    fi
+    echo "$publish_config"
+}
+
 cmd="${1:-empty}"
 
 if [ "$cmd" == "display_info" ]; then
@@ -828,6 +903,8 @@ elif [ "$cmd" == "build_test_setup" ]; then
     build_test_setup
 elif [ "$cmd" == "build_test_config_ini" ]; then
     build_test_config_ini "${@:2}"
+elif [ "$cmd" == "build_publish_config" ]; then
+    build_publish_config
 else
     echo "Invalid command: $cmd"
 fi
