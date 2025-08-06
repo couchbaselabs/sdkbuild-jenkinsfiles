@@ -177,6 +177,7 @@ function set_client_version {
             echo "Missing expected files.  Confirm checkout has completed successfully."
             exit 1
         fi
+        python -m pip install tomli tomli-w
         version_script="couchbase_analytics_version.py"
     else
         echo "Invalid project prefix: $PROJECT_PREFIX"
@@ -184,13 +185,16 @@ function set_client_version {
     fi
     version="${CBCI_VERSION:-}"
     if ! [ -z "$version" ]; then
+        echo "Setting client version git tag to $version"
         git config user.name "Couchbase SDK Team"
         git config user.email "sdk_dev@couchbase.com"
         git tag -a $version -m "Release of client version $version"
+        git tag --sort=-version:refname | head -n 10
     fi
 
     if [ "$PROJECT_PREFIX" == "PYCBAC" ]; then
         python $version_script --mode make --update-pyproject
+        python -m pip uninstall -y tomli tomli-w
     else
         python $version_script --mode make
     fi
@@ -198,7 +202,7 @@ function set_client_version {
 
 function setup_and_execute_linting {
     set_project_prefix
-    if [ ! -z  ]; then
+    if [ ! -z "${CBCI_USE_UV:-}" ]; then
         uv sync --locked --no-group sphinx
     else
         python -m pip install --upgrade pip setuptools wheel
@@ -264,10 +268,10 @@ function build_sdist {
     if [ "$PROJECT_PREFIX" != "PYCBAC" ]; then
         echo "Building C++ core CPM Cache."
         python setup.py configure_ext
-        set_client_version
         rm -rf ./build
     fi
 
+    set_client_version
     echo "Building source distribution."
     python setup.py sdist
     cd dist
