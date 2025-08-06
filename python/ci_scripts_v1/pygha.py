@@ -1649,7 +1649,7 @@ class UserConfigHandler:
         tests_run_id = get_env_variable('CBCI_TESTS_RUN_ID', quiet=True)
         if tests_run_id is not None:
             publish_config.tests_run_id = tests_run_id
-        if 'publish_config' not in cfg or 'publish-config' not in cfg:
+        if 'publish_config' not in cfg and 'publish-config' not in cfg:
             return publish_config
 
         publish_cfg = cfg.get('publish_config', cfg.get('publish-config', None))
