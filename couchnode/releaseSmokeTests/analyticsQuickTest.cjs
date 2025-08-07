@@ -121,7 +121,7 @@ async function runSmokeTest() {
 
         if (testConfig.disableCertVerification) {
             options.securityOptions = {
-                disableCertVerification: true,
+                disableServerCertificateVerification: true,
             }
         }
 
