@@ -1,3 +1,4 @@
+def CMAKE_VERSION = "3.31.8"
 def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
 def CB_VERSIONS = [
     "71release": [tag: "7.1-release"],
@@ -82,12 +83,21 @@ stage("build") {
                         envs.push("CB_CC=gcc")
                         envs.push("CB_CXX=g++")
                     }
+                    path = PATH
                     if (platform == "windows") {
+                        bat("cbdep install -d deps cmake ${CMAKE_VERSION}")
+                        path = "$WORKSPACE/deps/cmake-$CMAKE_VERSION/bin;" + path
+
                         bat("cbdep install -d deps openssl 1.1.1g-sdk2")
-                        path = PATH
                         path += ";$WORKSPACE/deps/openssl-1.1.1g-sdk2"
-                        envs.push("PATH=$path")
+                    } else if (platform != "alpine") {
+                        // TODO(DC): This doesn't work on alpine (see: https://couchbase.slack.com/archives/CC679H71R/p1756221557777939)
+                        // The cmake version it comes with is high enough, so let's skip it for now
+                        sh("cbdep install -d deps cmake ${CMAKE_VERSION}")
+                        path = "$WORKSPACE/deps/cmake-$CMAKE_VERSION/bin:" + path
                     }
+                    echo("PATH=$path")
+                    envs.push("PATH=$path")
                     withEnv(envs) {
                         dir("ws_${platform}/couchbase-cxx-client") {
                             if (platform == "windows") {
