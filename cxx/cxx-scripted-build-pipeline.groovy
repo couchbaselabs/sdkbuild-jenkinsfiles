@@ -244,7 +244,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 if (CLUSTER.major() >= 8 || (CLUSTER.major() == 7 && CLUSTER.minor() >= 6)) {
                                     // FTS changed their throttling behaviour when creating indexes to better respect its RAM quota. It now needs more memory to create search indexes in time.
                                     // See MB-64303
-                                    shWithEcho("curl -v -X POST -u Administrator:password -d 'ftsMemoryQuota=2048' http://${CLUSTER.firstIP()}:8091/pools/default")
+                                    sh("curl -v -X POST -u Administrator:password -d 'ftsMemoryQuota=2048' http://${CLUSTER.firstIP()}:8091/pools/default")
                                 }
                             }
                         }
