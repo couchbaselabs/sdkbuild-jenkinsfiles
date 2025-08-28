@@ -83,7 +83,7 @@ stage("build") {
                         envs.push("CB_CC=gcc")
                         envs.push("CB_CXX=g++")
                     }
-                    path = PATH
+                    def path = PATH
                     if (platform == "windows") {
                         bat("cbdep install -d deps cmake ${CMAKE_VERSION}")
                         path = "$WORKSPACE/deps/cmake-$CMAKE_VERSION/bin;" + path
@@ -217,7 +217,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                 "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                             ]){
                                 deleteDir()
-                                def allocate_cmd = "cbdyncluster allocate --num-nodes=3 --server-version=${version} --platform ec2"
+                                def allocate_cmd = "cbdyncluster allocate --num-nodes=3 --server-version=${version}"
                                 if (USE_CE.toBoolean()) {
                                     allocate_cmd += " --use-ce"
                                 }
@@ -240,7 +240,12 @@ if (!SKIP_TESTS.toBoolean()) {
                                     add_bucket_cmd += " --storage-backend ${STORAGE_BACKEND}"
                                 }
                                 sh(add_bucket_cmd)
-                                sh("curl -sS -uAdministrator:password http://${CLUSTER.firstIP()}:8093/query/service -d'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
+                                sh("curl -sS -u Administrator:password http://${CLUSTER.firstIP()}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
+                                if (CLUSTER.major() >= 8 || (CLUSTER.major() == 7 && CLUSTER.minor() >= 6)) {
+                                    // FTS changed their throttling behaviour when creating indexes to better respect its RAM quota. It now needs more memory to create search indexes in time.
+                                    // See MB-64303
+                                    shWithEcho("curl -v -X POST -u Administrator:password -d 'ftsMemoryQuota=2048' http://${CLUSTER.firstIP()}:8091/pools/default")
+                                }
                             }
                         }
                         timeout(unit: 'MINUTES', time: 40) {
