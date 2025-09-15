@@ -1,9 +1,10 @@
 <% # vim: ft=eruby et ts=4 sw=4 sts=4
-patch = 'cb6'
+patch = 'cb4'
 supported_interpreters = [
-    '8.1.0',
-    '8.0.13',
-    '7.4.26',
+    '8.2.29',
+#   '8.1.0',
+#   '8.0.13',
+#   '7.4.26',
 ]
 openssl_ver = '1.1.1g-sdk2'
 php_versions = supported_interpreters.map do |php_ver|
@@ -19,7 +20,7 @@ pipeline {
     agent none
     stages {
         stage('prepare') {
-            agent { label 'centos7' }
+            agent { label 'rockylinux9' }
             steps {
                 cleanWs()
                 sh('sudo yum remove -y libcouchbase*')
@@ -39,7 +40,7 @@ pipeline {
 <% php_root = "/tmp/php/php-#{ts}-#{php_ver}-#{patch}" %>
 <% php = "#{php_root}/bin/php" %>
 <% php_config = "#{php_root}/bin/php-config" %>
-                    agent { label 'centos7' }
+                    agent { label 'rockylinux9' }
                     stages {
                         stage('php') {
                             steps {
@@ -53,7 +54,7 @@ pipeline {
                         stage('lcb') {
                             steps {
                                 dir('<%= php_ver %>-<%= ts %>-<%= arch %>') {
-<% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-centos7-x86_64-#{lcb_ver}" %>
+<% lcb3_root = "install/libcouchbase-#{lcb_ver}/libcouchbase-rockylinux9-x86_64-#{lcb_ver}" %>
                                     sh('<%= cbdep_install %> --base-url http://sdk-snapshots.couchbase.com/cbdeps libcouchbase <%= lcb_ver %>')
                                     sh('mv <%= lcb3_root %> <%= lcb_root %>')
                                     sh('rm -rf <%= lcb_root %>/lib; ln -sf \$(realpath <%= lcb_root %>/lib64) <%= lcb_root %>/lib')
@@ -94,7 +95,7 @@ pipeline {
 <%
 def msvc_ver(php)
     case php
-    when /8.0/, /8.1/
+    when /8.0/, /8.1/, /8.2/
         'msvc2019'
     when /7.4/, /7.3/
         'msvc2017'
@@ -103,7 +104,7 @@ end
 
 def msvs_ver(php)
     case php
-    when /8.0/, /8.1/
+    when /8.0/, /8.1/, /8.2/
         '16.0'
     when /7.4/, /7.3/
         '15.0'
@@ -112,7 +113,7 @@ end
 
 def cbdep_platform(php)
     case php
-    when /8.0/, /8.1/
+    when /8.0/, /8.1/, /8.2/
         'windows_msvc2019'
     when /7.4/, /7.3/
         'windows_msvc2017'
@@ -121,7 +122,7 @@ end
 
 def agent_label(php)
     case php
-    when /8.0/, /8.1/
+    when /8.0/, /8.1/, /8.2/
         'msvc-2019'
     when /7.4/, /7.3/
         'msvc-2017'
@@ -222,12 +223,12 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
             }
         }
 <% if ENV['WINDOWS_ONLY'] %>
-<% php_ver = php_versions.map(&:first).find {|v| v =~ /7.4/} %>
+<% php_ver = php_versions.map(&:first).find {|v| v =~ /8.2/} %>
 <% ts = 'zts' %>
         stage('package') {
             stages {
                 stage('src') {
-                    agent { label 'centos7' }
+                    agent { label 'rockylinux9' }
                     steps {
                         cleanWs()
                         sh('<%= cbdep_install %> --dir /tmp/php php-<%= ts %> <%= php_ver %>-<%= patch %>')
@@ -256,7 +257,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
 <%     ['zts', 'nts'].each do |ts| %>
 <% release_dir = "php_couchbase-#{php_ver}-#{ts}-#{arch}#{'-openssl' if has_ssl}" %>
                         stage('w<%= ts[0] %><%= php_ver.to_f %><%= 's' if has_ssl %>') {
-                            agent { label 'centos7' }
+                            agent { label 'rockylinux9' }
                             steps {
                                 cleanWs()
                                 unstash 'tarball'
