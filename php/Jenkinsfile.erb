@@ -224,7 +224,7 @@ vc_vars = "%PROGRAMFILES(X86)%\\\\Microsoft Visual Studio\\\\#{msvc_ver(php_ver)
             }
         }
 <% if ENV['WINDOWS_ONLY'] %>
-<% php_ver = php_versions.map(&:first).find {|v| v =~ /8.2/} %>
+<% php_ver = php_versions.map(&:first).find {|v| v =~ /8.3/} %>
 <% ts = 'zts' %>
         stage('package') {
             stages {

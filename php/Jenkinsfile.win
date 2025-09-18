@@ -273,11 +273,11 @@ pipeline {
                     agent { label 'rockylinux9' }
                     steps {
                         cleanWs()
-                        sh('cbdep --debug install --dir /tmp/php php-zts -cb1')
+                        sh('cbdep --debug install --dir /tmp/php php-zts 8.3.24-cb1')
                         unstash 'php-couchbase'
                         dir('php-couchbase') {
                             sh('sed -i   "s:^    <date>.*</date>:<date>\$(date +%Y-%m-%d)</date>:" package.xml')
-                            sh('/tmp/php/php-zts--cb1/bin/pear package')
+                            sh('/tmp/php/php-zts-8.3.24-cb1/bin/pear package')
                             archiveArtifacts(artifacts: "couchbase-*.tgz", fingerprint: true)
                             stash(includes: 'couchbase-*tgz', name: 'tarball', useDefaultExcludes: false)
                             sh('tar xf couchbase-*.tgz')
