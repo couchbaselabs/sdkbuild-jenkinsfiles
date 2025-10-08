@@ -199,7 +199,28 @@ class DynamicCluster {
 }
 
 if (!SKIP_TESTS.toBoolean()) {
-    stage("tls=${USE_TLS}, cert_auth=${USE_CERT_AUTH}") {
+    node("sdkqe-$COMBINATION_PLATFORM") {
+        timeout(unit: 'MINUTES', time: 10) {
+            stage("unit tests") {
+                unstash("${COMBINATION_PLATFORM}_build")
+                withEnv([
+                        "CTEST_OUTPUT_ON_FAILURE=1",
+                        "TEST_LOG_LEVEL=trace",
+                        "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
+                ]) {
+                    dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
+                        try {
+                            sh("./bin/run-unit-tests")
+                        } finally {
+                            junit("cmake-build-tests/results.xml")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    stage("integration tests: tls=${USE_TLS}, cert_auth=${USE_CERT_AUTH}") {
         def cbverStages = [:]
         CB_VERSIONS.each{cb_version ->
             def v = cb_version.value
@@ -269,7 +290,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                             sh("if [ -f ./bin/init-cluster ] ; then ./bin/init-cluster ; fi")
                                         }
                                         try {
-                                            sh("./bin/run-unit-tests")
+                                            sh("./bin/run-integration-tests")
                                         } catch(e) {
                                             dir("server_logs_${label}") {
                                                 sh("cbdyncluster cbcollect ${CLUSTER.clusterId()}")
@@ -323,7 +344,7 @@ if (!SKIP_TESTS.toBoolean()) {
                             ]) {
                                 dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
                                     try {
-                                        sh("./bin/run-unit-tests")
+                                        sh("./bin/run-integration-tests")
                                     } finally {
                                         junit("cmake-build-tests/results.xml")
                                     }
