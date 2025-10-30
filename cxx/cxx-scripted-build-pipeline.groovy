@@ -262,11 +262,6 @@ if (!SKIP_TESTS.toBoolean()) {
                                 }
                                 sh(add_bucket_cmd)
                                 sh("curl -sS -u Administrator:password http://${CLUSTER.firstIP()}:8093/query/service -d 'statement=CREATE PRIMARY INDEX ON default USING GSI' -d 'timeout=300s'")
-                                if (CLUSTER.major() >= 8 || (CLUSTER.major() == 7 && CLUSTER.minor() >= 6)) {
-                                    // FTS changed their throttling behaviour when creating indexes to better respect its RAM quota. It now needs more memory to create search indexes in time.
-                                    // See MB-64303
-                                    sh("curl -v -X POST -u Administrator:password -d 'ftsMemoryQuota=2048' http://${CLUSTER.firstIP()}:8091/pools/default")
-                                }
                             }
                         }
                         timeout(unit: 'MINUTES', time: 40) {
@@ -285,7 +280,8 @@ if (!SKIP_TESTS.toBoolean()) {
                                         withEnv([
                                             "CB_STRICT_ENCRYPTION=${USE_TLS}",
                                             "CB_HOST=${CLUSTER.firstIP()}",
-                                            "CB_TRAVEL_SAMPLE=true"
+                                            "CB_TRAVEL_SAMPLE=true",
+                                            "CB_FTS_QUOTA=2048", // See MB-64303
                                         ]) {
                                             sh("if [ -f ./bin/init-cluster ] ; then ./bin/init-cluster ; fi")
                                         }
