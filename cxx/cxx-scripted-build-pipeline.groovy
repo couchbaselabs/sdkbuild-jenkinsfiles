@@ -1,5 +1,5 @@
 def CMAKE_VERSION = "3.31.8"
-def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64" ]
+def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64", "qe-ubuntu24-amd64", "qe-ubuntu24-arm64"]
 def CB_VERSIONS = [
     "71release": [tag: "7.1-release"],
     "72stable": [tag: "7.2-stable"],
