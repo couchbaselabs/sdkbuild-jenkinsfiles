@@ -1,8 +1,8 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def DOTNET_SDK_VERSIONS = ["6.0.417", "8.0.100"]
-def DOTNET_SDK_VERSION = "8.0.100"
+def DOTNET_SDK_VERSIONS = ["8.0.100", "10.0.100"]
+def DOTNET_SDK_VERSION = "10.0.100"
 def BUILD_VARIANT = IS_GERRIT_TRIGGER ? "buildbot" : "latest"
 def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
