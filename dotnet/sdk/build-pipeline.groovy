@@ -109,10 +109,10 @@ pipeline {
                                 for (tp in unitTestProjects) {
                                     try {
                                         testOpts = "--test-adapter-path:. --logger \"trx\" ${tp} --filter FullyQualifiedName~UnitTest --no-build --blame-hang --blame-hang-timeout 5min" // --results-directory UnitTestResults"
-                                        if (PLAT == "m1") {
+                                        //if (PLAT == "m1") {
                                             // we only support Apple M1 on .NET 6.0 or later
-                                            testOpts = testOpts + " -f net6.0"
-                                        }
+                                         //   testOpts = testOpts + " -f net6.0"
+                                       // }
                                         dotNetWithEcho(PLAT, "test ${testOpts}")
                                         pairs[tp.name] = "SUCCESS"
                                     } catch (Exception e) {
