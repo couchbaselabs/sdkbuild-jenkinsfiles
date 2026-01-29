@@ -78,7 +78,7 @@ pipeline {
                 axes {
                     axis {
                         name 'PLAT'
-                        values "windows","centos8","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1" /*,"qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64", "qe-ubuntu24-amd64", "qe-ubuntu24-arm64", "qe-grav3-amzn2", "qe-grav4-amzn2"*/
+                        values "windows","centos8","macos","ubuntu20", /*"qe-grav2-amzn2",*/ "alpine", "m1" ,"qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64", "qe-ubuntu24-amd64", "qe-ubuntu24-arm64", "qe-grav3-amzn2", "qe-grav4-amzn2"
                     }
                 }
                 agent { label PLAT }
