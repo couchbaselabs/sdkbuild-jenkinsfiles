@@ -271,6 +271,7 @@ pipeline {
             }
         }
 
+
         stage('nix') {
             matrix {
                 axes {
@@ -333,7 +334,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('int') {
             when {

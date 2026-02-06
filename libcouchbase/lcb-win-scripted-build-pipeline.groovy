@@ -203,7 +203,6 @@ pipeline {
             }
         }
 
-
         stage('win') {
             matrix {
                 axes {
@@ -323,6 +322,7 @@ del "%CMAKE_ZIP_FILE%"
                 }
             }
         }
+
 
     }
 }

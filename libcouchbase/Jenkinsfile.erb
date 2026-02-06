@@ -361,76 +361,6 @@ pipeline {
             }
         }
 
-<% unless ENV['WINDOWS_ONLY'] %>
-        stage('nix') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values <%= nix_test_builds.map { |(label, dist, relno, arch)| label.inspect }.join(", ") %>
-                    }
-                }
-
-                agent { label PLATFORM }
-                stages {
-                    stage("prep") {
-                        steps {
-                            dir("ws_${PLATFORM}") {
-                                deleteDir()
-                                unstash 'libcouchbase'
-                            }
-                        }
-                    }
-                    stage('build') {
-                        environment {
-                            CMAKE_BUILD_PARALLEL_LEVEL=8
-                        }
-                        steps {
-                            dir("ws_${PLATFORM}") {
-                                dir('build') {
-                                    sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> ../libcouchbase')
-                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
-                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
-                                }
-                            }
-                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
-                        }
-                    }
-                    stage('test') {
-<% if integration_enabled %>
-                        when {
-                            expression {
-                                return !SKIP_TESTS.toBoolean()
-                            }
-                        }
-<% end %>
-                        options {
-                            timeout(time: 60, unit: 'MINUTES')
-                        }
-                        environment {
-<% if gtest_shuffle %>
-                            GTEST_SHUFFLE=1
-<% end %>
-                            CTEST_PARALLEL_LEVEL=1
-                            CTEST_OUTPUT_ON_FAILURE=1
-                        }
-                        post {
-                           always {
-                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
-                           }
-                       }
-                       steps {
-                           dir("ws_${PLATFORM}/build") {
-                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                           }
-                       }
-                    }
-                }
-            }
-        }
-<% end %>
-
 <% unless ENV['LINUX_ONLY'] %>
         stage('win') {
             matrix {
@@ -559,6 +489,76 @@ del "%CMAKE_ZIP_FILE%"
 <% end %>
                             }
                         }
+                    }
+                }
+            }
+        }
+<% end %>
+
+<% unless ENV['WINDOWS_ONLY'] %>
+        stage('nix') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values <%= nix_test_builds.map { |(label, dist, relno, arch)| label.inspect }.join(", ") %>
+                    }
+                }
+
+                agent { label PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                deleteDir()
+                                unstash 'libcouchbase'
+                            }
+                        }
+                    }
+                    stage('build') {
+                        environment {
+                            CMAKE_BUILD_PARALLEL_LEVEL=8
+                        }
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                dir('build') {
+                                    sh('cmake -DCMAKE_BUILD_TYPE=<%= reltype %> ../libcouchbase')
+                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                }
+                            }
+                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
+                        }
+                    }
+                    stage('test') {
+<% if integration_enabled %>
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
+                            }
+                        }
+<% end %>
+                        options {
+                            timeout(time: 60, unit: 'MINUTES')
+                        }
+                        environment {
+<% if gtest_shuffle %>
+                            GTEST_SHUFFLE=1
+<% end %>
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                           always {
+                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
+                           }
+                       }
+                       steps {
+                           dir("ws_${PLATFORM}/build") {
+                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                           }
+                       }
                     }
                 }
             }

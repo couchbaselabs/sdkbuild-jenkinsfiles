@@ -271,69 +271,6 @@ pipeline {
             }
         }
 
-        stage('nix') {
-            matrix {
-                axes {
-                    axis {
-                        name 'PLATFORM'
-                        values "ubuntu20", "debian12", "rockylinux9", "m1", "qe-grav2-amzn2", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
-                    }
-                }
-
-                agent { label PLATFORM }
-                stages {
-                    stage("prep") {
-                        steps {
-                            dir("ws_${PLATFORM}") {
-                                deleteDir()
-                                unstash 'libcouchbase'
-                            }
-                        }
-                    }
-                    stage('build') {
-                        environment {
-                            CMAKE_BUILD_PARALLEL_LEVEL=8
-                        }
-                        steps {
-                            dir("ws_${PLATFORM}") {
-                                dir('build') {
-                                    sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
-                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
-                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
-                                }
-                            }
-                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
-                        }
-                    }
-                    stage('test') {
-                        when {
-                            expression {
-                                return !SKIP_TESTS.toBoolean()
-                            }
-                        }
-                        options {
-                            timeout(time: 60, unit: 'MINUTES')
-                        }
-                        environment {
-                            CTEST_PARALLEL_LEVEL=1
-                            CTEST_OUTPUT_ON_FAILURE=1
-                        }
-                        post {
-                           always {
-                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
-                           }
-                       }
-                       steps {
-                           dir("ws_${PLATFORM}/build") {
-                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
-                           }
-                       }
-                    }
-                }
-            }
-        }
-
         stage('win') {
             matrix {
                 axes {
@@ -449,6 +386,69 @@ del "%CMAKE_ZIP_FILE%"
                                 archiveArtifacts(artifacts: "${VERSION.tarName()}_vc${MSVS.split(' ')[0]}_${ARCH == 'x64' ? 'amd64' : 'x86'}${TLS.toBoolean() ? '_openssl3' : ''}.zip", fingerprint: true)
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        stage('nix') {
+            matrix {
+                axes {
+                    axis {
+                        name 'PLATFORM'
+                        values "ubuntu20", "debian12", "rockylinux9", "m1", "qe-grav2-amzn2", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
+                    }
+                }
+
+                agent { label PLATFORM }
+                stages {
+                    stage("prep") {
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                deleteDir()
+                                unstash 'libcouchbase'
+                            }
+                        }
+                    }
+                    stage('build') {
+                        environment {
+                            CMAKE_BUILD_PARALLEL_LEVEL=8
+                        }
+                        steps {
+                            dir("ws_${PLATFORM}") {
+                                dir('build') {
+                                    sh('cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ../libcouchbase')
+                                    sh("cmake --build . --target all ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                    sh("cmake --build . --target alltests ${VERBOSE.toBoolean() ? '--verbose' : ''}")
+                                }
+                            }
+                            stash(includes: "ws_${PLATFORM}/", name: "${PLATFORM}_build")
+                        }
+                    }
+                    stage('test') {
+                        when {
+                            expression {
+                                return !SKIP_TESTS.toBoolean()
+                            }
+                        }
+                        options {
+                            timeout(time: 60, unit: 'MINUTES')
+                        }
+                        environment {
+                            CTEST_PARALLEL_LEVEL=1
+                            CTEST_OUTPUT_ON_FAILURE=1
+                        }
+                        post {
+                           always {
+                               junit(testResults: "ws_${PLATFORM}/build/*.xml", allowEmptyResults: true)
+                           }
+                       }
+                       steps {
+                           dir("ws_${PLATFORM}/build") {
+                               sh("ctest --label-exclude contaminating ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                               sh("ctest --label-exclude normal ${VERBOSE.toBoolean() ? '--extra-verbose' : ''}")
+                           }
+                       }
                     }
                 }
             }
