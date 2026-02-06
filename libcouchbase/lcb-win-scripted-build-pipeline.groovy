@@ -281,6 +281,7 @@ del "%CMAKE_ZIP_FILE%"
                         environment {
                             CTEST_PARALLEL_LEVEL=1
                             CTEST_OUTPUT_ON_FAILURE=1
+                            LCB_LOGLEVEL=5
                         }
                         post {
                             always {
