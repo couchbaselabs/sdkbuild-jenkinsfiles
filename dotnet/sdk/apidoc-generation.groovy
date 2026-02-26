@@ -1,8 +1,8 @@
 // Please do not Save the Jenkins pipeline with a modified script.
 // Instead, use the Replay function to test build script changes, then commit final changes
 // to the sdkbuilds-jenkinsfile repository.
-def DOTNET_SDK_VERSION = "8.0.401"
-def DOTNET_SDK_VERSIONS = ["6.0.425", DOTNET_SDK_VERSION]
+def DOTNET_SDK_VERSION = "10.0.100"
+def DOTNET_SDK_VERSIONS = ["8.0.416", DOTNET_SDK_VERSION]
 
 // Windows has a 255 character path limit, still.
 // cbdep trying to unzip .NET SDK 5.0.x shows a FileNotFound error, which is really a PathTooLong error
@@ -238,4 +238,5 @@ def installSdksForPlatform(PLATFORM, DOTNET_SDK_VERSIONS) {
             }
         }
     }
+
 }
