@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e -u
 
-DEFAULT_BIN=/opt/python/cp39-cp39/bin
+DEFAULT_BIN=/opt/python/cp310-cp310/bin
 DEFAULT_PYTHON=$DEFAULT_BIN/python
 DEFAULT_PIP=$DEFAULT_BIN/pip
-$DEFAULT_PYTHON -m pip install auditwheel==6.1.0
+$DEFAULT_PYTHON -m pip install auditwheel==6.5.1 wheel
 if [[ -n "${PYCBC_LIMITED_API-}" ]]; then
     $DEFAULT_PYTHON -m pip install abi3audit
 fi
@@ -15,9 +15,11 @@ fi
 #                          "cp310-cp310",
 #                          "cp311-cp311",
 #                          "cp312-cp312",
-#                          "cp313-cp313"]
+#                          "cp313-cp313",
+#                          "cp314-cp314"]
 # 3.7 EOL 2023.06.30, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
 # 3.8 EOL 2024.10.07, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
+# 3.9 EOL 2025.10.31, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
 IFS=' ' read -r -a allowed_python_versions <<< $CPYTHON_VERSIONS
 
 function in_allowed_python_versions {
@@ -50,6 +52,9 @@ function get_python_version {
             ;;
         "cp313-cp313")
             python_version="3.13"
+            ;;
+        "cp314-cp314")
+            python_version="3.14"
             ;;
     esac
 
@@ -98,17 +103,33 @@ function reduce_wheel_size {
             mv $f $PYTHON_SDK_DEBUG_WHEELHOUSE
             echo "checking dir..."
             ls -alh
-            cd $WHEEL_ROOT/couchbase
-            cp pycbc_core.so pycbc_core.orig.so
-            objcopy --only-keep-debug pycbc_core.so pycbc_core.debug.so
-            objcopy --strip-debug --strip-unneeded pycbc_core.so
-            objcopy --add-gnu-debuglink=pycbc_core.debug.so pycbc_core.so
-            echo "grep pycbc.so sizes"
-            ls -alh | grep pycbc
-            rm pycbc_core.orig.so pycbc_core.debug.so
-            echo "grep pycbc.so sizes (should only have reduced size)"
-            ls -alh | grep pycbc
-            cd ../..
+            # UPDATE 2026.02: PYCBC-1745 (v4.6.0)
+            if [[ -d "$WHEEL_ROOT/couchbase/logic/pycbc_core" ]]; then
+                cd $WHEEL_ROOT/couchbase/logic/pycbc_core
+                cp _core.so _core.orig.so
+                objcopy --only-keep-debug _core.so _core.debug.so
+                objcopy --strip-debug --strip-unneeded _core.so
+                objcopy --add-gnu-debuglink=_core.debug.so _core.so
+                echo "grep _core.so sizes"
+                ls -alh | grep _core
+                rm _core.orig.so _core.debug.so
+                echo "grep _core.so sizes (should only have reduced size)"
+                ls -alh | grep _core
+                cd ../../../..
+            else
+                cd $WHEEL_ROOT/couchbase
+                cp pycbc_core.so pycbc_core.orig.so
+                objcopy --only-keep-debug pycbc_core.so pycbc_core.debug.so
+                objcopy --strip-debug --strip-unneeded pycbc_core.so
+                objcopy --add-gnu-debuglink=pycbc_core.debug.so pycbc_core.so
+                echo "grep pycbc.so sizes"
+                ls -alh | grep pycbc
+                rm pycbc_core.orig.so pycbc_core.debug.so
+                echo "grep pycbc.so sizes (should only have reduced size)"
+                ls -alh | grep pycbc
+                cd ../..
+            fi
+
             $DEFAULT_PYTHON -m wheel pack $WHEEL_ROOT
         else
           echo "Wheel $f is not tagged as manylinux or musllinux, removing."
