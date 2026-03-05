@@ -8,6 +8,12 @@ def SUFFIX = "r${BUILD_NUMBER}"
 def BRANCH = ""
 DERIVED_VERSION = "3.5.2-hardcoded"
 
+//Branch v3.8 supports net6 and net8 only
+if("${GERRIT_BRANCH}" == "v3.8"){
+    DOTNET_SDK_VERSIONS = ["6.0.417", "8.0.416"]
+    DOTNET_SDK_VERSION = "8.0.416"
+}
+
 pipeline {
     agent none
     stages {
