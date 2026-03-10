@@ -167,8 +167,7 @@ pipeline {
                         def toPack = [
                            "couchbase-net-client\\src\\Couchbase\\Couchbase.csproj",
                             "couchbase-net-client\\src\\Couchbase.Extensions.DependencyInjection\\Couchbase.Extensions.DependencyInjection.csproj",
-                            "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj",
-                            "couchbase-net-client\\src\\Couchbase.Transactions\\Couchbase.Transactions.csproj"
+                            "couchbase-net-client\\src\\Couchbase.Extensions.OpenTelemetry\\Couchbase.Extensions.OpenTelemetry.csproj"
                         ]
 
                         for (tp in toPack) {
