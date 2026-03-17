@@ -22,6 +22,8 @@ fi
 # 3.9 EOL 2025.10.31, keep in list just in case, but CI pipeline sets CPYTHON_VERSIONS
 IFS=' ' read -r -a allowed_python_versions <<< $CPYTHON_VERSIONS
 
+echo "Allowed Python versions: ${allowed_python_versions[*]}"
+
 function in_allowed_python_versions {
     local e match="$1"
     shift
@@ -193,6 +195,7 @@ for PYBIN in /opt/python/*; do
         else
             export PYCBC_PYTHON3_INCLUDE_DIR="/opt/python/${python_bin}/include/python${python_version}"
         fi
+        echo "Building wheel for Python ${python_version} using executable ${PYCBC_PYTHON3_EXECUTABLE} and include dir ${PYCBC_PYTHON3_INCLUDE_DIR}"
         if [[ -n "${PYCBC_VERBOSE_MAKEFILE-}" ]]; then
             "/opt/python/${python_bin}/bin/pip" wheel $PYTHON_SDK_WORKDIR --no-deps -w $PYTHON_SDK_WHEELHOUSE -v -v -v
         else
@@ -200,6 +203,8 @@ for PYBIN in /opt/python/*; do
         fi
     fi
 done
+
+echo "Built wheels, now bundling external shared libraries..."
 
 # Bundle external shared libraries into the wheels
 # we use a monkey patched version of auditwheel in order to not bundle
