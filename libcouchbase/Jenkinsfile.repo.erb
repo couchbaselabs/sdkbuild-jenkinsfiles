@@ -86,7 +86,7 @@ repo_dir = "repo/#{distro_id}"
 repo_url = "https://sdk-snapshots.couchbase.com/libcouchbase/#{distro_id}"
 key_url = "https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key"
 %>
-                    agent { label 'debian10-signing' }
+                    agent { label 'debian12-signing' }
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*<%= distro %>*.tar')

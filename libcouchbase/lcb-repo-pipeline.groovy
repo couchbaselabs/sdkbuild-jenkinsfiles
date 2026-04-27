@@ -182,7 +182,7 @@ gpgkey = https://sdk-snapshots.couchbase.com/libcouchbase/couchbase.key
 
                 stage('ubuntu2404') {
 
-                    agent { label 'debian10-signing' }
+                    agent { label 'debian12-signing' }
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*noble*.tar')
@@ -219,7 +219,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2404 noble noble/main
                 }
                 stage('ubuntu2204') {
 
-                    agent { label 'debian10-signing' }
+                    agent { label 'debian12-signing' }
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*jammy*.tar')
@@ -256,7 +256,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/ubuntu2204 jammy jammy/main
                 }
                 stage('debian12') {
 
-                    agent { label 'debian10-signing' }
+                    agent { label 'debian12-signing' }
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*bookworm*.tar')
@@ -293,7 +293,7 @@ deb https://sdk-snapshots.couchbase.com/libcouchbase/debian12 bookworm bookworm/
                 }
                 stage('debian11') {
 
-                    agent { label 'debian10-signing' }
+                    agent { label 'debian12-signing' }
                     steps {
                         cleanWs()
                         copyArtifacts(projectName: 'lcb-lnx-scripted-build-pipeline', selector: UPSTREAM_BUILD.isEmpty() ? upstream() : specific(UPSTREAM_BUILD), filter: 'libcouchbase-*bullseye*.tar')
