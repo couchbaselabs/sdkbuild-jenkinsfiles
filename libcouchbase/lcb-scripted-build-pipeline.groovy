@@ -559,7 +559,7 @@ del "%CMAKE_ZIP_FILE%"
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get install -y --no-install-recommends cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/bionic-amd64.cow \
                                     --distribution bionic \
@@ -610,7 +610,7 @@ del "%CMAKE_ZIP_FILE%"
                             }
                             steps {
                                 sh("""
-                                    sudo apt-get update -y && sudo apt-get upgrade -y && sudo apt-get install -y cowbuilder && \
+                                    sudo apt-get update -y && sudo apt-get install -y --no-install-recommends cowbuilder && \
                                     sudo cowbuilder --create \
                                     --basepath /var/cache/pbuilder/buster-amd64.cow \
                                     --distribution buster \
