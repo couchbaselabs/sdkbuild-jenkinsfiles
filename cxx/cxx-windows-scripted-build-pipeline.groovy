@@ -1,3 +1,6 @@
+// TODO(TD-01): apply the same winget-based modernization to cxx-scripted-build-pipeline.groovy,
+//              which still installs cmake and OpenSSL via cbdep on its dedicated Windows agents.
+
 def PLATFORMS = [ "windows" ]
 def CB_VERSIONS = [
     "71release": [tag: "7.1-release"],
