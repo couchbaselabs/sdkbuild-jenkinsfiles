@@ -1,11 +1,27 @@
 def CMAKE_VERSION = "3.31.8"
-def PLATFORMS = [ "ubuntu20", "rockylinux9", "centos8", "macos", "m1", "amzn2", "qe-grav2-amzn2", "alpine", "windows", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64", "qe-ubuntu24-amd64", "qe-ubuntu24-arm64"]
+def PLATFORMS = [
+    "ubuntu20",
+    "rockylinux9",
+    "centos8",
+    "macos",
+    "m1",
+    "amzn2",
+    "qe-grav2-amzn2",
+    "alpine",
+    "windows",
+    "qe-ubuntu20-arm64",
+    "qe-ubuntu22-arm64",
+    "qe-rhel9-arm64",
+    "qe-ubuntu24-amd64",
+    "qe-ubuntu24-arm64"
+]
 def CB_VERSIONS = [
     "71release": [tag: "7.1-release"],
     "72stable": [tag: "7.2-stable"],
     "76stable": [tag: "7.6-stable"],
     "80stable": [tag: "8.0-stable"]
 ]
+
 // no 7.0.4 release for community
 if (USE_CE.toBoolean()) {
     CB_VERSIONS["70release"] = [tag: "7.0.2", label: "7.0-release"]
@@ -13,6 +29,7 @@ if (USE_CE.toBoolean()) {
     CB_VERSIONS["70release"] = [tag: "7.0-release"]
 }
 def COMBINATION_PLATFORM = "rockylinux9"
+
 
 def checkout() {
     dir("couchbase-cxx-client") {
@@ -32,15 +49,16 @@ def checkout() {
     }
 }
 
+
 stage("prepare and validate") {
     node("sdkqe-$COMBINATION_PLATFORM") {
         script {
             buildName([
-                    BUILD_NUMBER,
-                    PR_ID == "" ? null : "pr${PR_ID}",
-                    // STORAGE_BACKEND,
-                    USE_TLS ? "tls" : null,
-                    USE_CERT_AUTH ? "cert" : null,
+                BUILD_NUMBER,
+                PR_ID == "" ? null : "pr${PR_ID}",
+                // STORAGE_BACKEND,
+                USE_TLS ? "tls" : null,
+                USE_CERT_AUTH ? "cert" : null,
             ].findAll { it != null }.join("-"))
         }
         cleanWs()
@@ -50,11 +68,12 @@ stage("prepare and validate") {
     }
 }
 
+
 stage("build") {
     def builds = [:]
     for (p in PLATFORMS) {
         def platform = p
-        builds[platform]= {
+        builds[platform] = {
             node(platform) {
                 stage("prep") {
                     dir("ws_${platform}") {
@@ -120,14 +139,15 @@ stage("build") {
     parallel(builds)
 }
 
+
 class DynamicCluster {
-    String id_ = null;
-    String ips_ = null;
-    String version_ = null;
-    boolean useTLS = false;
-    boolean useCertAuth = false;
-    String certsDir = null;
-    String connstr = null;
+    String id_ = null
+    String ips_ = null
+    String version_ = null
+    boolean useTLS = false
+    boolean useCertAuth = false
+    String certsDir = null
+    String connstr = null
 
     DynamicCluster(String version) {
         this.version_ = version
@@ -198,15 +218,16 @@ class DynamicCluster {
     }
 }
 
+
 if (!SKIP_TESTS.toBoolean()) {
     node("sdkqe-$COMBINATION_PLATFORM") {
         timeout(unit: 'MINUTES', time: 10) {
             stage("unit tests") {
                 unstash("${COMBINATION_PLATFORM}_build")
                 withEnv([
-                        "CTEST_OUTPUT_ON_FAILURE=1",
-                        "TEST_LOG_LEVEL=trace",
-                        "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
+                    "CTEST_OUTPUT_ON_FAILURE=1",
+                    "TEST_LOG_LEVEL=trace",
+                    "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
                 ]) {
                     dir("ws_${COMBINATION_PLATFORM}/couchbase-cxx-client") {
                         try {
@@ -222,7 +243,7 @@ if (!SKIP_TESTS.toBoolean()) {
 
     stage("integration tests: tls=${USE_TLS}, cert_auth=${USE_CERT_AUTH}") {
         def cbverStages = [:]
-        CB_VERSIONS.each{cb_version ->
+        CB_VERSIONS.each { cb_version ->
             def v = cb_version.value
             def version = v["tag"]
             def label = version
@@ -236,7 +257,7 @@ if (!SKIP_TESTS.toBoolean()) {
                         stage(label) {
                             withEnv([
                                 "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
-                            ]){
+                            ]) {
                                 deleteDir()
                                 def allocate_cmd = "cbdyncluster allocate --num-nodes=3 --server-version=${version}"
                                 if (USE_CE.toBoolean()) {
@@ -287,7 +308,7 @@ if (!SKIP_TESTS.toBoolean()) {
                                         }
                                         try {
                                             sh("./bin/run-integration-tests")
-                                        } catch(e) {
+                                        } catch (e) {
                                             dir("server_logs_${label}") {
                                                 sh("cbdyncluster cbcollect ${CLUSTER.clusterId()}")
                                             }
@@ -319,7 +340,7 @@ if (!SKIP_TESTS.toBoolean()) {
                     stage("capella") {
                         withEnv([
                             "AUTH=cxx-sdk-${BUILD_NUMBER}@couchbase.com"
-                        ]){
+                        ]) {
                             deleteDir()
                             CLUSTER.id_ = sh(script: "cbdyncluster create-cloud --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas --node kv,index,n1ql,eventing,fts,cbas", returnStdout: true).trim()
                             CLUSTER.ips_ = sh(script: "cbdyncluster ips ${CLUSTER.clusterId()}", returnStdout: true).trim()
