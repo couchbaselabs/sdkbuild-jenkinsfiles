@@ -468,6 +468,30 @@ pipeline {
                         }
                     }
                 }
+                stage('rhel10 x86_64') {
+                    agent { label 'mock' }
+                    stages {
+                        stage('r64v10') {
+                            steps {
+                                dir('ws_rhel10-64') {
+                                    sh("sudo chown couchbase:couchbase -R .")
+                                    deleteDir()
+                                    unstash 'libcouchbase'
+                                }
+                            }
+                        }
+                        stage('srpm') {
+                            steps {
+                                package_srpm("rhel", 64, 10, "x86_64", "rocky+epel-10-x86_64", VERSION)
+                            }
+                        }
+                        stage('rpm') {
+                            steps {
+                                package_rpm("rhel", 64, 10, "x86_64", "rocky+epel-10-x86_64", VERSION)
+                            }
+                        }
+                    }
+                }
                 stage('amzn2 x86_64') {
                     agent { label 'mock' }
                     stages {
