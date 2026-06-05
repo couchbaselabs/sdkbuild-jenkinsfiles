@@ -542,8 +542,8 @@ task_wheel() {
     # macos/windows run on the host (no container): hooks use absolute host paths.
     local core_dir host_debug hook_dir
     core_dir="${CBCI_CORE_DIR:-${SCRIPT_DIR}}"
-    host_debug="${CBCI_PROJECT_ROOT}/wheelhouse/dist_debug"
-    mkdir -p "${CBCI_PROJECT_ROOT}/wheelhouse/dist" "${host_debug}"
+    host_debug="${PROJECT_ROOT}/wheelhouse/dist_debug"
+    mkdir -p "${PROJECT_ROOT}/wheelhouse/dist" "${host_debug}"
     case "${CBCI_BUILD_PLATFORM:-}" in
         linux|alpine)
             hook_dir="/cbci"
