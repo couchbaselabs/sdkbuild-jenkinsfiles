@@ -1,0 +1,109 @@
+# ci-config.yaml - PYCBC (operational `couchbase`) defaults and support matrix.
+#
+# Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
+# Override at runtime via promoted vars (PLATFORMS/ARCHES/PYTHON_VERSIONS/
+# USE_OPENSSL/OPENSSL_VERSION) or the CBCI_CONFIG_OVERRIDE JSON string.
+# Merge precedence (most specific wins): this file < CBCI_CONFIG_OVERRIDE < promoted vars.
+#
+# IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
+# (ubuntu-22.04, macos-14) and container images live in the vendor ADAPTER, not here.
+
+project: PYCBC
+
+# --- support matrix ----------------------------------------------------------
+support:
+  python_versions:
+    - { version: "3.9", drop_commit: "adb6e09573d2047d3736f35aa1762e0f0d4adf55" }
+    - "3.10"
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - { version: "3.14", min_commit: "adb6e09573d2047d3736f35aa1762e0f0d4adf55" }
+  default_python: "3.11"
+
+  architectures: ["x86_64", "arm64"]
+
+  # Which abstract platforms are supported per arch. A platform is one of
+  # linux, alpine, macos, windows. linux is manylinux; alpine is musllinux.
+  platforms:
+    x86_64: ["linux", "alpine", "macos", "windows"]
+    arm64:  ["linux", "macos"]
+
+# --- build defaults ----------------------------------------------------------
+build:
+  ssl: boringssl            # boringssl | openssl
+  openssl_version: null     # only used when ssl == openssl (e.g. "3.1.4")
+  build_type: RelWithDebInfo
+  abi3: false               # true -> coarse build units (one cpXY-abi3 wheel).
+                            # Also accepts a commit-gated form, which lets one config serve
+                            # both eras of the SDK (abi3 landed in PYCBC-1854):
+                            #   abi3: { enabled: true, min_commit: "<sha>" }
+                            # The ABI3 promoted var overrides the gate; leave it unset (or
+                            # "auto") to let the gate decide.
+  # Lowest CPython an abi3 wheel loads on. Drives the build interpreter, the Py_LIMITED_API
+  # level, and the wheel's cpXY-abi3 tag together, so they cannot drift. Keep it equal to the
+  # lowest entry in support.python_versions; validate-config checks that.
+  abi3_floor: "3.10"
+  set_cpm_cache: true       # bake C++ core CPM cache into the sdist
+  use_uv: false             # PYCBC default off; analytics on (end-state: uv everywhere)
+  verbose_makefile: false
+
+  # libc flavors per platform. Drives build-unit keys and image selection.
+  libc:
+    linux: manylinux        # manylinux2014 (glibc 2.17: installs on CentOS 7 / Amazon Linux 2)
+    alpine: musllinux       # musllinux_1_2
+
+# --- test defaults -----------------------------------------------------------
+test:
+  apis: ["acouchbase", "couchbase", "txcouchbase"]   # PYCBC default API set
+  install_types: ["sdist", "wheel"]                   # artifact-isolation: test both
+  cluster: mock                                      # mock (gocaves) | realserver
+  skip_integration: true       # gate for the integration pipeline
+
+  pytest:
+    log_level: ""            # SDK log level during tests (trace|debug|info|warning|error|critical); "" = off. Overridden by TEST_LOGGING -> CBCI_TEST_LOG_LEVEL.
+    # Default = couchbase (classic) API only: it's the most widely used, so it gates every build.
+    # acouchbase/txcouchbase are deferred to periodic scheduled runs, driven via
+    # CBCI_TEST_COMMAND / CBCI_TEST_ARGS (see engine.test_cmds) rather than enabled here.
+    couchbase_cmd: "python -m pytest -m pycbc_couchbase"
+    # --reruns/--reruns-delay (pytest-rerunfailures, already a test dep -- see
+    # PROJECT_TEST_LAYOUT.reqs in engine.py): absorbs per-test timing/network flakiness
+    # in-process, in seconds, instead of a whole-suite Jenkins-level retry (~30min against
+    # a real cluster). A test that still fails after these is treated as a genuine/reported
+    # failure, not noise -- see scripted-integration-pipeline.groovy's runIntegrationTest.
+    couchbase_opts: "-p no:asyncio -v -p no:warnings --reruns 2 --reruns-delay 5"
+
+  # Neutral real-cluster spec for integration testing. Jenkins realizes this via
+  # cbdyncluster (jenkins.py integration-tags); GHA will realize it via cbdinocluster
+  # (test.integration.cbdino). Provisioning itself is an adapter concern; this block is
+  # only the shared shape (server-version matrix, topology inputs, bucket setup).
+  integration:
+    # Grouped by "era". version_subset picks one per group at random for a broad but
+    # bounded matrix (a full run flattens every group). SERVER_VERSIONS (Jenkins env) pins
+    # an exact list, overriding this resolution entirely, to reproduce a failure.
+    server_versions:
+      - ["6.6-release", "7.0-release", "7.1-release"]
+      - ["7.2-release", "7.6-stable"]
+      - ["8.0-stable"]
+    version_subset: true
+    num_nodes: 3
+    ram_quota: 2048
+    storage_mode: plasma
+    buckets: ["default"]
+    sample_buckets: ["beer-sample"]
+    developer_preview: false
+
+    cbdino:                   # future GHA realization
+      version: "7.6.6"
+      use_load_balancer: false
+      use_dns: false
+      use_dino_certs: false
+
+  skip_cbdino: true
+
+# --- publish defaults --------------------------------------------------------
+publish:
+  publish_pypi: true
+  publish_test_pypi: true
+  publish_api_docs: true
+  publish_dry_run: false

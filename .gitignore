@@ -6,3 +6,6 @@ cmake-build-debug
 .venv/
 .mypy_cache/
 .ruff_cache/
+
+# macos
+.DS_Store
