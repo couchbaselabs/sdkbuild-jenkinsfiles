@@ -32,7 +32,7 @@ from typing import Any, Dict, List, Optional
 CONFIG_FILENAME = "ci-config.yaml"
 
 # Promoted override vars (empty = use file). Map 1:1 to Jenkins params / GHA inputs.
-PROMOTED_VARS = ("PLATFORMS", "ARCHES", "PYTHON_VERSIONS", "USE_OPENSSL", "OPENSSL_VERSION", "ABI3")
+PROMOTED_VARS = ("PLATFORMS", "ARCHES", "PYTHON_VERSIONS", "USE_OPENSSL", "OPENSSL_VERSION", "ABI3", "INSTALL_TYPES")
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +185,12 @@ def _apply_promoted_vars(cfg: Dict[str, Any]) -> Dict[str, Any]:
     abi3 = (os.environ.get("ABI3") or "").strip()
     if abi3:
         build["abi3"] = abi3.lower() in ("1", "true", "y", "yes", "on")
+
+    # INSTALL_TYPES — list override
+    itypes = (os.environ.get("INSTALL_TYPES") or "").strip()
+    if itypes:
+        test = cfg.setdefault("test", {})
+        test["install_types"] = _parse_list(itypes)
 
     return cfg
 
