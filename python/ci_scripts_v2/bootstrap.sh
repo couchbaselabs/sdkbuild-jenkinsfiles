@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+#
+# bootstrap.sh — the ONLY file a consumer pipeline curls by name.
+#
+# Responsibilities:
+#   1. Pin the CI-core ref (tag/sha) the rest of the manifest is fetched from.
+#   2. Fetch the fixed manifest (engine.py, tasks.sh, tasks.ps1,
+#      auditwheel_patch.py, ci-config.yaml) at that ref.
+#   3. Verify what was fetched before anything runs.
+#
+# Consumer usage:
+#   curl -fsSL <pinned-ref>/python/bootstrap.sh -o bootstrap.sh
+#   ./bootstrap.sh
+#   ./tasks.sh <stage> ...
+#
+# NOTE (Phase 1 scaffold): auth + checksum verification are deferred (PLAN.md §9).
+# For now this fetches over plain HTTPS from a pinned ref. Do not ship to the
+# private-repo flow until verification below is implemented.
+
+set -euo pipefail
+
+# --- configuration -----------------------------------------------------------
+
+# Pinned ref of couchbase-sdk-ci that this bootstrap fetches. A CI fix ships by
+# moving this tag; SDK repos never change.
+CBCI_REF="${CBCI_REF:-main}"
+
+# Base raw URL for the python/ tree at the pinned ref.
+# TODO: point at the real private repo raw endpoint once the repo move lands.
+CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbase/couchbase-sdk-ci/${CBCI_REF}/python}"
+
+# Where the manifest is written. Consumers run ./tasks.sh from here.
+CBCI_DEST="${CBCI_DEST:-.}"
+
+# The fixed manifest (N=4 executors + config). bootstrap.sh itself is excluded —
+# it is already present. Growth happens *inside* these files, not as new files.
+CBCI_MANIFEST=(
+    "engine.py"
+    "tasks.sh"
+    "tasks.ps1"
+    "auditwheel_patch.py"
+    "ci-config.yaml"
+)
+
+# --- helpers -----------------------------------------------------------------
+
+log() { echo "[bootstrap] $*"; }
+die() {
+    log "ERROR: $*" >&2
+    exit 1
+}
+
+get_sha256() {
+    local file="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "${file}" | awk '{print $1}'
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "${file}" | awk '{print $1}'
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl dgst -sha256 "${file}" | awk '{print $NF}'
+    else
+        die "No sha256 verification tool found (sha256sum, shasum, or openssl)"
+    fi
+}
+
+get_expected_hash() {
+    local name="$1"
+    case "${name}" in
+        "engine.py")           echo "149899bbb501f1d849e33548eedf67929de0121240b368a145ea58cbccb5d147" ;;
+        "tasks.sh")            echo "36c1600e5ee22296eb830f2abd1d78c573d2d2979b930ca44c4d3e216f806f56" ;;
+        "tasks.ps1")           echo "3a8463dd6b2c93b258fc21cb69093f8be6826c5d48fd8b4cc6101a000ce5b297" ;;
+        "auditwheel_patch.py") echo "546592e40cf94e0e861f7373c5b764ffb88f4d719b03d26561c24735407dcf02" ;;
+        "ci-config.yaml")      echo "cd8fef10ed1d41ff5f34b01aa2ec7918b2e3ede942a4c5d233bad40654027d64" ;;
+        *)                     echo "" ;;
+    esac
+}
+
+fetch_one() {
+    local name="$1"
+    local url="${CBCI_BASE_URL}/${name}"
+    local out="${CBCI_DEST}/${name}"
+    log "fetching ${name} <- ${url}"
+    curl -fsSL "${url}" -o "${out}"
+}
+
+verify_manifest() {
+    local missing=0
+    for name in "${CBCI_MANIFEST[@]}"; do
+        local file="${CBCI_DEST}/${name}"
+        if [[ ! -s "${file}" ]]; then
+            log "ERROR: manifest file missing or empty: ${name}"
+            missing=1
+            continue
+        fi
+
+        local expected; expected="$(get_expected_hash "${name}")"
+        if [[ -n "${expected}" ]]; then
+            local actual; actual="$(get_sha256 "${file}")"
+            if [[ "${actual}" != "${expected}" ]]; then
+                log "ERROR: checksum verification failed for ${name}"
+                log "  expected: ${expected}"
+                log "  actual:   ${actual}"
+                missing=1
+            fi
+        fi
+    done
+    [[ "${missing}" -eq 0 ]] || exit 1
+}
+
+# --- main --------------------------------------------------------------------
+
+main() {
+    log "ref=${CBCI_REF} dest=${CBCI_DEST}"
+    mkdir -p "${CBCI_DEST}"
+    for name in "${CBCI_MANIFEST[@]}"; do
+        fetch_one "${name}"
+    done
+    chmod +x "${CBCI_DEST}/tasks.sh" || true
+    verify_manifest
+    log "manifest ready: ${CBCI_MANIFEST[*]}"
+}
+
+main "$@"

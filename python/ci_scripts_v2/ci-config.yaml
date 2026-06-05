@@ -1,0 +1,69 @@
+# ci-config.yaml — PYCBC (operational `couchbase`) defaults & support matrix.
+#
+# Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
+# Override at runtime via promoted vars (PLATFORMS/ARCHES/PYTHON_VERSIONS/
+# USE_OPENSSL/OPENSSL_VERSION) or the CBCI_CONFIG_OVERRIDE JSON string.
+# Merge precedence (most specific wins): this file < CBCI_CONFIG_OVERRIDE < promoted vars.
+#
+# IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
+# (ubuntu-22.04, macos-14) and container images live in the vendor ADAPTER, not here.
+
+project: PYCBC
+
+# --- support matrix ----------------------------------------------------------
+support:
+  python_versions: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+  default_python: "3.11"
+
+  architectures: ["x86_64", "arm64"]
+
+  # Which abstract platforms are supported per arch. platform ∈
+  # {linux, alpine, macos, windows}; linux→manylinux, alpine→musllinux.
+  platforms:
+    x86_64: ["linux", "alpine", "macos", "windows"]
+    arm64:  ["linux", "macos"]
+
+# --- build defaults ----------------------------------------------------------
+build:
+  ssl: boringssl            # boringssl | openssl
+  openssl_version: null     # only used when ssl == openssl (e.g. "3.1.4")
+  build_type: RelWithDebInfo
+  abi3: false               # true → coarse build units (one cpXY-abi3 wheel)
+  set_cpm_cache: true       # bake C++ core CPM cache into the sdist
+  use_uv: false             # PYCBC default off; analytics on (end-state: uv everywhere)
+  verbose_makefile: false
+
+  # libc flavors per platform — drives build-unit keys and image selection.
+  libc:
+    linux: manylinux        # manylinux_2_28 target
+    alpine: musllinux       # musllinux_1_2 target (Phase 0b)
+
+# --- test defaults -----------------------------------------------------------
+test:
+  apis: ["acouchbase", "couchbase", "txcouchbase"]   # PYCBC default API set
+  install_types: ["sdist", "wheel"]                   # artifact-isolation: test both
+  cluster: mock                                      # mock (gocaves) | realserver
+  skip_integration: true       # Phase 1 = unit only; integration is Phase 2
+  skip_cbdino: true
+
+  pytest:
+    debug_logging: false
+    acouchbase_cmd: "pytest -m pycbc_acouchbase"
+    acouchbase_opts: "-rA -vv"
+    couchbase_cmd: "pytest -m pycbc_couchbase"
+    couchbase_opts: "-rA -vv"
+
+  # cbdino cluster defaults (Phase 2; ignored while skip_cbdino: true)
+  cbdino:
+    num_nodes: 3
+    version: "7.6.6"
+    use_load_balancer: false
+    use_dns: false
+    use_dino_certs: false
+
+# --- publish defaults (Phase 3) ---------------------------------------------
+publish:
+  publish_pypi: true
+  publish_test_pypi: true
+  publish_api_docs: true
+  publish_dry_run: false
