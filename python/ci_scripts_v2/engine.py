@@ -613,7 +613,9 @@ def adapter_jenkins_tags(plan: Dict[str, Any]) -> Dict[str, Any]:
             env["CBCI_IMAGE"] = image
             env[_cibw_image_var(libc, arch)] = image
         job = {"label": _jenkins_label(platform, arch), "stage": "wheel"}
-        job.update({k: u[k] for k in ("platform", "arch", "libc", "abi3") if k in u})
+        # "python" is present only on non-abi3 units (one build unit per Python); propagate
+        # it so the Jenkins side can give each Python its own parallel branch + wheel stash.
+        job.update({k: u[k] for k in ("platform", "arch", "libc", "abi3", "python") if k in u})
         job["env"] = env
         return job
 

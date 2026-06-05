@@ -66,7 +66,7 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "0ef928666ea1a64c13510651e39a258b5bf3a06ff6189deb07ae10b9073974b7" ;;
+        "engine.py")           echo "b753c4beb3334d6b3c2681cffbb10c60a844e36dc0a8e5fcee6b056f162333c4" ;;
         "tasks.sh")            echo "36c1600e5ee22296eb830f2abd1d78c573d2d2979b930ca44c4d3e216f806f56" ;;
         "tasks.ps1")           echo "3a8463dd6b2c93b258fc21cb69093f8be6826c5d48fd8b4cc6101a000ce5b297" ;;
         "auditwheel_patch.py") echo "546592e40cf94e0e861f7373c5b764ffb88f4d719b03d26561c24735407dcf02" ;;
