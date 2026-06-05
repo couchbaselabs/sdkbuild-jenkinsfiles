@@ -23,11 +23,11 @@ set -euo pipefail
 
 # Pinned ref of couchbase-sdk-ci that this bootstrap fetches. A CI fix ships by
 # moving this tag; SDK repos never change.
-CBCI_REF="${CBCI_REF:-main}"
+CBCI_REF="${CBCI_REF:-master}"
 
 # Base raw URL for the python/ tree at the pinned ref.
 # TODO: point at the real private repo raw endpoint once the repo move lands.
-CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbase/couchbase-sdk-ci/${CBCI_REF}/python}"
+CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/${CBCI_REF}/python/ci_scripts_v2}"
 
 # Where the manifest is written. Consumers run ./tasks.sh from here.
 CBCI_DEST="${CBCI_DEST:-.}"
