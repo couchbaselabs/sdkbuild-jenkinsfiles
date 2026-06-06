@@ -548,8 +548,11 @@ task_wheel() {
         linux|alpine)
             hook_dir="/cbci"
             export CBCI_DEBUG_WHEELHOUSE="/cbci-debug"   # container-side; surfaces to host_debug
-            # cibuildwheel parses "<engine>; create_args: <args>" (oci_container.py).
-            export CIBW_CONTAINER_ENGINE="docker; create_args: --volume=${core_dir}:/cbci:ro --volume=${host_debug}:/cbci-debug:rw"
+            # cibuildwheel parses "<engine>; create_args: <args>" (oci_container.py) by
+            # splitting on ':' — a colon-delimited `--volume=src:dst:mode` spec gets shredded
+            # into separate argv tokens (cibuildwheel 3.4.1), yielding "invalid reference
+            # format" from docker. Use --mount (comma/equals, NO colons) so it survives intact.
+            export CIBW_CONTAINER_ENGINE="docker; create_args: --mount type=bind,source=${core_dir},target=/cbci,readonly --mount type=bind,source=${host_debug},target=/cbci-debug"
             ;;
         *)
             hook_dir="${core_dir}"
