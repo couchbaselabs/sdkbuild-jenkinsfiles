@@ -91,6 +91,75 @@ function Invoke-Wheel {
     & $Python -m cibuildwheel --output-dir wheelhouse/dist $target
 }
 
+function Invoke-WheelNative {
+    # NATIVE wheel build (no cibuildwheel) — the Jenkins path for Windows. Builds with the
+    # on-PATH (cbdep) python + the existing MSVC/cmake/go toolchain env (getEnvStr). Unlike
+    # POSIX, Windows debug info lives in separate .pdb files (not embedded in the .pyd), so
+    # the release wheel is already lean and there is no strip/debug-wheel split — instead we
+    # best-effort collect the .pdb(s) as raw symbols. See engine.py adapter_jenkins_tags.
+    Write-Log "wheel-native: building wheel natively (no cibuildwheel)"
+
+    # Export the same PYCBC_* knobs the engine resolves (PYCBC_USE_OPENSSL,
+    # PYCBC_BUILD_TYPE=RelWithDebInfo, ...) so the native build matches the planned config.
+    $buildEnvLines = & $Python $Engine build-env wheel
+    if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: build-env wheel failed" }
+    foreach ($pair in (($buildEnvLines -join " ").Split(" "))) {
+        if ($pair -like "*=*") {
+            $parts = $pair.Split("=", 2)
+            [System.Environment]::SetEnvironmentVariable($parts[0], $parts[1])
+        }
+    }
+
+    & $Python -m pip install --upgrade pip
+    & $Python -m pip install wheel
+    if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: failed to install build deps" }
+
+    # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
+    $target = "."
+    if (Test-Path "dist") {
+        $sdist = Get-ChildItem "dist\*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($sdist) { $target = $sdist.FullName }
+    }
+
+    $bdist = Join-Path ([System.IO.Path]::GetTempPath()) ("cbci-bdist-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $bdist | Out-Null
+
+    $pipArgs = @("-m", "pip", "wheel", $target, "--no-deps", "-w", $bdist)
+    if ($env:CBCI_BUILD_VERBOSITY) { $pipArgs += "-v" }
+    Write-Log "wheel-native: building wheel (target=$target)"
+    & $Python @pipArgs
+    if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: pip wheel failed" }
+
+    $distDir = Join-Path $ProjectRoot "wheelhouse\dist"
+    $debugDir = Join-Path $ProjectRoot "wheelhouse\dist_debug"
+    New-Item -ItemType Directory -Force -Path $distDir, $debugDir | Out-Null
+
+    $wheels = Get-ChildItem (Join-Path $bdist "*.whl") -ErrorAction SilentlyContinue
+    if (-not $wheels) { Stop-Task "wheel-native: pip produced no wheel in $bdist" }
+    foreach ($w in $wheels) {
+        Write-Log "wheel-native: release wheel $($w.Name)"
+        Copy-Item $w.FullName -Destination $distDir -Force
+    }
+
+    # Best-effort: collect .pdb symbols from the build tree into dist_debug (raw files, not
+    # a wheel). Missing .pdb is non-fatal — the release wheel stands on its own.
+    $pdbRoots = @()
+    if ($env:PYCBC_BUILD_TEMP) { $pdbRoots += $env:PYCBC_BUILD_TEMP }
+    if ($env:PYCBC_BUILD_BASE) { $pdbRoots += $env:PYCBC_BUILD_BASE }
+    $pdbRoots += (Join-Path $ProjectRoot "build")
+    $pdbFiles = foreach ($r in ($pdbRoots | Select-Object -Unique)) {
+        if (Test-Path $r) { Get-ChildItem -Path $r -Recurse -Filter *.pdb -ErrorAction SilentlyContinue }
+    }
+    $pdbCount = 0
+    foreach ($p in $pdbFiles) {
+        Copy-Item $p.FullName -Destination $debugDir -Force -ErrorAction SilentlyContinue
+        $pdbCount++
+    }
+    Write-Log "wheel-native: collected $pdbCount .pdb file(s) into dist_debug (best-effort)"
+
+    Remove-Item -Recurse -Force $bdist -ErrorAction SilentlyContinue
+}
+
 function Invoke-Validate {
     Write-Log "validating built wheel"
     $envLines = & $Python $Engine validate-env
@@ -225,11 +294,27 @@ function Invoke-Test {
     Write-Log "tests completed successfully."
 }
 
+# Optional artifact log (CBCI_LOG_FILE) — on par with tasks.sh: re-invoke this script
+# once with output teed to the file the vendor CI archives. Tee-Object (not
+# Start-Transcript) so native build output is captured under Windows PowerShell 5.1 too.
+# Guarded against recursion; internal hooks (_*) are skipped.
+if ($env:CBCI_LOG_FILE -and -not $env:CBCI_LOG_TEEING -and ($Stage -notlike "_*")) {
+    $logDir = Split-Path -Parent $env:CBCI_LOG_FILE
+    if ($logDir) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+    $env:CBCI_LOG_TEEING = "1"
+    $exe = (Get-Process -Id $PID).Path
+    $reArgs = @('-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath, $Stage)
+    if ($Args) { $reArgs += $Args }
+    & $exe @reArgs 2>&1 | Tee-Object -FilePath $env:CBCI_LOG_FILE
+    exit $LASTEXITCODE
+}
+
 switch ($Stage) {
     { $_ -in @("display-info", "display_info") } { Invoke-DisplayInfo; break }
     "lint"                                       { Invoke-Lint; break }
     "sdist"                                      { Invoke-Sdist; break }
     "wheel"                                      { Invoke-Wheel; break }
+    "wheel-native"                               { Invoke-WheelNative; break }
     "validate"                                   { Invoke-Validate; break }
     "test"                                       {
         Invoke-Test

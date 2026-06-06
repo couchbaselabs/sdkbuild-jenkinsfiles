@@ -612,7 +612,12 @@ def adapter_jenkins_tags(plan: Dict[str, Any]) -> Dict[str, Any]:
             # wheel` reads the libc/arch-matching CIBW var (both the same ref).
             env["CBCI_IMAGE"] = image
             env[_cibw_image_var(libc, arch)] = image
-        job = {"label": _jenkins_label(platform, arch), "stage": "wheel"}
+        # Jenkins HOW-policy (CONVENTIONS §4): cibuildwheel for containerized linux/alpine;
+        # native pip-wheel for macos/windows (cibuildwheel's interpreter provisioning —
+        # sudo on mac, nuget on windows — is unwanted there). A different vendor adapter
+        # (e.g. GHA) may choose `wheel` everywhere; the core exposes both verbs.
+        stage = "wheel" if platform in ("linux", "alpine") else "wheel-native"
+        job = {"label": _jenkins_label(platform, arch), "stage": stage}
         # "python" is present only on non-abi3 units (one build unit per Python); propagate
         # it so the Jenkins side can give each Python its own parallel branch + wheel stash.
         job.update({k: u[k] for k in ("platform", "arch", "libc", "abi3", "python") if k in u})

@@ -595,6 +595,64 @@ task_wheel() {
     log "debug wheels:";   ls -alh "${host_debug}" 2>/dev/null || log "  (none surfaced)"
 }
 
+task_wheel_native() {
+    # NATIVE wheel build (no cibuildwheel). The vendor adapter selects this verb instead
+    # of `wheel` for platforms where cibuildwheel's interpreter provisioning is unwanted
+    # (Jenkins macOS — see adapter_jenkins_tags). Builds ONE wheel with the on-PATH
+    # (cbdep) python, then reuses task__wheel_repair to emit the lean release wheel +
+    # full-symbol debug wheel — IDENTICAL strip/packaging to the cibuildwheel path.
+    # The host toolchain env (MACOSX_DEPLOYMENT_TARGET/ARCHFLAGS/_PYTHON_HOST_PLATFORM,
+    # cmake/go on PATH) is supplied by the vendor (Jenkins getEnvStr).
+    load_project_env
+    cd "${PROJECT_ROOT}"
+
+    if [[ "${CBCI_IS_PURE_PYTHON}" == "true" ]]; then
+        die "wheel-native: pure-python build path not yet implemented (Phase 4)"
+    fi
+
+    log "wheel-native: installing build deps"
+    "${PYTHON}" -m pip install --upgrade pip
+    "${PYTHON}" -m pip install -q wheel
+
+    # Export the SAME PYCBC_* knobs the cibuildwheel path passes via CIBW_ENVIRONMENT, so
+    # the native build is configured identically (PYCBC_USE_OPENSSL, PYCBC_BUILD_TYPE, ...).
+    local build_env
+    build_env="$("${PYTHON}" "${ENGINE}" build-env wheel)" || die "wheel-native: build-env wheel failed"
+    log "wheel-native: build-env: ${build_env}"
+    # shellcheck disable=SC2086  # intentional word-split of space-free KEY=VALUE pairs
+    export ${build_env}
+
+    # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
+    local target="." sdist
+    sdist="$(ls dist/*.tar.gz 2>/dev/null | head -1 || true)"
+    [[ -n "${sdist}" ]] && target="${sdist}"
+
+    local bdist; bdist="$(mktemp -d)"
+    local -a pipargs=( "${target}" --no-deps -w "${bdist}" )
+    [[ -n "${CBCI_BUILD_VERBOSITY:-}" ]] && pipargs+=( -v )
+    log "wheel-native: building wheel (target=${target})"
+    "${PYTHON}" -m pip wheel "${pipargs[@]}"
+
+    # Strip + debug-split each built wheel via the shared repair hook: release -> dist,
+    # full-symbol -> dist_debug. One packaging/strip code path for native + containerized.
+    mkdir -p "${PROJECT_ROOT}/wheelhouse/dist"
+    export CBCI_DEBUG_WHEELHOUSE="${PROJECT_ROOT}/wheelhouse/dist_debug"
+    mkdir -p "${CBCI_DEBUG_WHEELHOUSE}"
+
+    local whl found=0
+    for whl in "${bdist}"/*.whl; do
+        [[ -e "${whl}" ]] || break
+        found=1
+        log "wheel-native: repair+strip $(basename "${whl}")"
+        task__wheel_repair "${whl}" "${PROJECT_ROOT}/wheelhouse/dist"
+    done
+    (( found )) || die "wheel-native: pip produced no wheel in ${bdist}"
+
+    log "wheel-native: release wheels:"; ls -alh "${PROJECT_ROOT}/wheelhouse/dist"
+    log "wheel-native: debug wheels:";   ls -alh "${CBCI_DEBUG_WHEELHOUSE}" 2>/dev/null || log "  (none)"
+    rm -rf "${bdist}"
+}
+
 # Create a fresh, isolated venv at $1 (uv or stdlib) with an up-to-date pip.
 _make_clean_venv() {
     local venv="$1"
@@ -878,6 +936,7 @@ main() {
         sdist)                     task_sdist "$@" ;;
         image)                     task_image "$@" ;;
         wheel)                     task_wheel "$@" ;;
+        wheel-native)              task_wheel_native "$@" ;;
         validate)                  task_validate "$@" ;;
         test)                      task_test "$@" ;;
         docs)                      task_docs "$@" ;;
