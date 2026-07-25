@@ -81,8 +81,8 @@ function Task-DisplayInfo {
 
 function Task-Lint {
     Set-Location $PROJECT_ROOT
-    Log 'installing dependencies (npm ci)'
-    Invoke-Checked $NPM_BIN @('ci')
+    Log 'installing dependencies (npm ci --ignore-scripts)'
+    Invoke-Checked $NPM_BIN @('ci', '--ignore-scripts')
     Log 'running eslint'
     Invoke-Checked $NPM_BIN @('run', 'lint')
 }
@@ -90,8 +90,8 @@ function Task-Lint {
 function Task-Sdist {
     Set-Location $PROJECT_ROOT
 
-    Log 'installing dependencies (npm ci)'
-    Invoke-Checked $NPM_BIN @('ci')
+    Log 'installing dependencies (npm ci --ignore-scripts)'
+    Invoke-Checked $NPM_BIN @('ci', '--ignore-scripts')
 
     if (-not (Test-Path 'deps/couchbase-cxx-client/CMakeLists.txt')) {
         Log 'initializing couchbase-cxx-client submodule'

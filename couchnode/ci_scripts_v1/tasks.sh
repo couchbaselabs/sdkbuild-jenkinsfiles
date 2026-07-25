@@ -54,8 +54,8 @@ task_display_info() {
 task_lint() {
     # Ported from the repo's own `npm run lint` (package.json: eslint ./lib/ ./test/).
     cd "${PROJECT_ROOT}"
-    log "installing dependencies (npm ci)"
-    "${NPM_BIN}" ci
+    log "installing dependencies (npm ci --ignore-scripts)"
+    "${NPM_BIN}" ci --ignore-scripts
     log "running eslint"
     "${NPM_BIN}" run lint
 }
@@ -71,8 +71,8 @@ task_lint() {
 task_sdist() {
     cd "${PROJECT_ROOT}"
 
-    log "installing dependencies (npm ci)"
-    "${NPM_BIN}" ci
+    log "installing dependencies (npm ci --ignore-scripts)"
+    "${NPM_BIN}" ci --ignore-scripts
 
     if [[ ! -e deps/couchbase-cxx-client/.git && ! -e deps/couchbase-cxx-client/CMakeLists.txt ]]; then
         log "initializing couchbase-cxx-client submodule"
