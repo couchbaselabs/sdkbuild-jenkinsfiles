@@ -23,11 +23,11 @@ $ProgressPreference = 'SilentlyContinue'  # Invoke-WebRequest is glacial with th
 # moving this ref; SDK repos never change.
 $CBCI_REF = if ($env:CBCI_REF) { $env:CBCI_REF } else { 'master' }
 
-# Base raw URL for the nodejs/ tree at the pinned ref.
+# Base raw URL for the couchnode/ tree at the pinned ref.
 $CBCI_BASE_URL = if ($env:CBCI_BASE_URL) {
     $env:CBCI_BASE_URL
 } else {
-    "https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/$CBCI_REF/nodejs/ci_scripts_v2"
+    "https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/$CBCI_REF/couchnode/ci_scripts_v2"
 }
 
 # Where the manifest is written. Consumers run ./tasks.ps1 from here.

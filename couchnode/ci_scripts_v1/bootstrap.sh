@@ -12,7 +12,7 @@
 #      stdlib-only, so `npm ci` here is required before `node engine.js` works).
 #
 # Consumer usage:
-#   curl -fsSL <pinned-ref>/nodejs/bootstrap.sh -o bootstrap.sh
+#   curl -fsSL <pinned-ref>/couchnode/bootstrap.sh -o bootstrap.sh
 #   ./bootstrap.sh
 #   ./tasks.sh <stage> ...
 #
@@ -30,9 +30,9 @@ set -euo pipefail
 # moving this tag; SDK repos never change.
 CBCI_REF="${CBCI_REF:-master}"
 
-# Base raw URL for the nodejs/ tree at the pinned ref.
+# Base raw URL for the couchnode/ tree at the pinned ref.
 # TODO: point at the real private repo raw endpoint once the repo move lands
-CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/${CBCI_REF}/nodejs/ci_scripts_v1}"
+CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/${CBCI_REF}/couchnode/ci_scripts_v1}"
 
 # Where the manifest is written. Consumers run ./tasks.sh from here.
 CBCI_DEST="${CBCI_DEST:-.}"
