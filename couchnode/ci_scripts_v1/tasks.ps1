@@ -17,6 +17,9 @@
 #     build/Release folder, so this only affects where we go looking for the compiled
 #     .node afterward, never what gets passed to the build.
 
+# Force TLS 1.2 on PowerShell 5.1 / .NET Framework on older Windows Server agents
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
 $ErrorActionPreference = 'Stop'
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path

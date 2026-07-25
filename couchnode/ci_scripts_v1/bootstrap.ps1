@@ -14,6 +14,10 @@
 #
 # Keep the expected hashes below IN SYNC with bootstrap.sh (one table per bootstrapper).
 
+# Force TLS 1.2 on PowerShell 5.1 / .NET Framework on older Windows Server agents
+# so Invoke-WebRequest / Invoke-RestMethod doesn't fail with TLS secure channel errors.
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'  # Invoke-WebRequest is glacial with the progress bar
 
@@ -27,7 +31,7 @@ $CBCI_REF = if ($env:CBCI_REF) { $env:CBCI_REF } else { 'master' }
 $CBCI_BASE_URL = if ($env:CBCI_BASE_URL) {
     $env:CBCI_BASE_URL
 } else {
-    "https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/$CBCI_REF/couchnode/ci_scripts_v2"
+    "https://raw.githubusercontent.com/couchbaselabs/sdkbuild-jenkinsfiles/$CBCI_REF/couchnode/ci_scripts_v1"
 }
 
 # Where the manifest is written. Consumers run ./tasks.ps1 from here.
@@ -50,7 +54,7 @@ $CBCI_EXPECTED = @{
     'engine.js'         = '031c15e58cd69b6d0a6c6465c88ffdf4a02357529d414d6b01ff03111d08dbae'
     'jenkins.js'        = '17c99909ff1566afeb1ce853885485f30467b8bd7bc4a31125f2ee177942e306'
     'tasks.sh'          = '1712f970e923fde9a8e0dcb92da37a2e6a9ab16ec5843321b37ca460aa8c485a'
-    'tasks.ps1'         = '6000786161d04b0116af12f400bd2813d814762d02a15a7e60de3df5724f8655'
+    'tasks.ps1'         = 'af24d5a43f3ccbb778194e5a969f9a1fd9d8b75d8958145848984818f8e928f9'
     'ci-config.yaml'    = '41a5d7fe9a47049296b626e358edc118ea880d4fa4ad2877c130a6f554e60557'
     'package.json'      = '490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'
