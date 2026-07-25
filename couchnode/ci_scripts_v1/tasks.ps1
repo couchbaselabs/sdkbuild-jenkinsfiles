@@ -74,12 +74,14 @@ function Pkg-Version() {
 }
 
 function Get-TarExe {
-    if (Get-Command tar.exe -ErrorAction SilentlyContinue) { return 'tar.exe' }
-    if (Get-Command tar -ErrorAction SilentlyContinue) { return 'tar' }
+    # System32\tar.exe is Windows native bsdtar (Windows 10 / Server 2019+).
+    # Prefer it explicitly over MSYS/Git tar to avoid MSYS gzip/remote-host path issues.
     if ($env:SystemRoot) {
         $sys32Tar = Join-Path $env:SystemRoot 'System32\tar.exe'
         if (Test-Path $sys32Tar) { return $sys32Tar }
     }
+    if (Get-Command tar.exe -ErrorAction SilentlyContinue) { return 'tar.exe' }
+    if (Get-Command tar -ErrorAction SilentlyContinue) { return 'tar' }
     $gitTar = 'C:\Program Files\Git\usr\bin\tar.exe'
     if (Test-Path $gitTar) { return $gitTar }
     $gitTarX86 = 'C:\Program Files (x86)\Git\usr\bin\tar.exe'
@@ -88,19 +90,41 @@ function Get-TarExe {
 }
 
 function Unpack-Tarball([string]$tgzPath) {
+    # Ensure Git\usr\bin is on PATH if present so MSYS tar (if used) can locate gzip.exe
+    $gitUsrBin = 'C:\Program Files\Git\usr\bin'
+    if (Test-Path $gitUsrBin) {
+        if (($env:PATH -split ';') -notcontains $gitUsrBin) {
+            $env:PATH = "$gitUsrBin;$env:PATH"
+        }
+    }
+    $gitUsrBinX86 = 'C:\Program Files (x86)\Git\usr\bin'
+    if (Test-Path $gitUsrBinX86) {
+        if (($env:PATH -split ';') -notcontains $gitUsrBinX86) {
+            $env:PATH = "$gitUsrBinX86;$env:PATH"
+        }
+    }
+
     $tarBin = Get-TarExe
     if ($tarBin) {
-        Invoke-Checked $tarBin @('-xzf', $tgzPath, '--strip-components=1')
-        return
+        $relPath = Resolve-Path -Relative $tgzPath -ErrorAction SilentlyContinue
+        $tarFile = if ($relPath) { $relPath } else { $tgzPath }
+        Log "unpacking $tarFile using $tarBin"
+        & $tarBin --force-local -xzf $tarFile --strip-components=1
+        if ($LASTEXITCODE -eq 0) { return }
+        Log "WARNING: $tarBin exited $LASTEXITCODE; trying node fallback"
     }
-    Log "tar executable not found on PATH or standard system directories; using node fallback"
+
+    Log "Unpacking via node fallback..."
     & $NODE_BIN -e "
 const fs = require('fs');
 const path = require('path');
 const execDir = path.dirname(process.execPath);
-const candidate1 = path.join(execDir, 'node_modules/npm/node_modules/tar');
-const candidate2 = path.join(execDir, '../lib/node_modules/npm/node_modules/tar');
-const npmTar = fs.existsSync(candidate1) ? candidate1 : (fs.existsSync(candidate2) ? candidate2 : null);
+const candidates = [
+    path.join(execDir, 'node_modules/npm/node_modules/tar'),
+    path.join(execDir, '../lib/node_modules/npm/node_modules/tar'),
+    path.join(execDir, '../node_modules/npm/node_modules/tar')
+];
+let npmTar = candidates.find(c => fs.existsSync(c));
 if (npmTar) {
     require(npmTar).x({ file: process.argv[1], strip: 1, sync: true });
 } else {
