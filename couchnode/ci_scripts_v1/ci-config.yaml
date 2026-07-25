@@ -27,7 +27,7 @@ support:
   # {linux, alpine, macos, windows}; linux/alpine both need a libc flavor (see build.libc).
   platforms:
     x64:   ["linux", "alpine", "macos", "windows"]
-    arm64: ["linux", "macos"]
+    arm64: ["linux", "alpine", "macos"]
 
   # Alpine+arm64+electron is unsupported today (carried forward from the legacy
   # pipeline's own documented gap, JSCBC-1268) — not solved in this phase.

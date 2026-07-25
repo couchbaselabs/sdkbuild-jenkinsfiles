@@ -31,6 +31,26 @@ import * as engine from './engine.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Minimum supported Node major version per (platform, arch) on Jenkins agents.
+// e.g. Alpine ARM64 agents on Jenkins ship Node 18+ (no Node 16 agent exists).
+const MIN_NODE_VERSION = {
+  'alpine:arm64': 18,
+};
+
+function getMinNodeMajor(platform, arch) {
+  const key = `${platform}:${normArchKey(arch)}`;
+  return MIN_NODE_VERSION[key] || 0;
+}
+
+function filterNodeVersionsForPlatform(nodeVersions, platform, arch) {
+  const minMajor = getMinNodeMajor(platform, arch);
+  if (!minMajor) return nodeVersions;
+  return nodeVersions.filter((v) => {
+    const major = parseInt(String(v).split('.')[0], 10);
+    return major >= minMajor;
+  });
+}
+
 // EDIT FOR YOUR JENKINS — the ONE deployment-specific thing (CONVENTIONS §4).
 // The "default"/oldest-compatible label per (platform, arch) for the boringssl/N-API
 // node build — ported from the legacy getPrebuildTagsBoringSSL's glibc-floor picks
@@ -40,7 +60,11 @@ const JENKINS_LABELS = {
   'linux:x64': 'centos7',
   'linux:arm64': 'qe-grav2-amzn2',
   'alpine:x64': 'alpine',
-  'alpine:arm64': 'alpine-arm64',
+  'alpine:arm64': (version) => {
+    if (!version) return 'alpine-node-18-arm64';
+    const major = parseInt(String(version).split('.')[0], 10);
+    return `alpine-node-${major}-arm64`;
+  },
   'macos:x64': 'macos',
   'macos:arm64': 'm1',
   'windows:x64': 'windows',
@@ -99,7 +123,15 @@ const PLATFORM_FAMILIES = {
   ubuntu22: { platform: 'linux', x64: [], arm64: ['qe-ubuntu22-arm64'] },
   ubuntu24: { platform: 'linux', x64: [], arm64: ['qe-ubuntu24-arm64'] },
   rhel9: { platform: 'linux', x64: [], arm64: ['qe-rhel9-arm64'] },
-  alpine: { platform: 'alpine', x64: ['alpine'], arm64: ['alpine-arm64'] },
+  alpine: {
+    platform: 'alpine',
+    x64: ['alpine'],
+    arm64: (nodeVersion) => {
+      if (!nodeVersion) return ['alpine-node-18-arm64', 'alpine-node-20-arm64', 'alpine-node-22-arm64'];
+      const major = parseInt(String(nodeVersion).split('.')[0], 10);
+      return [`alpine-node-${major}-arm64`];
+    },
+  },
   macos: { platform: 'macos', x64: ['macos'], arm64: ['m1'] },
   windows: { platform: 'windows', x64: ['windows'], arm64: [] },
 };
@@ -110,6 +142,14 @@ function normArchKey(arch) {
   return arch === 'aarch64' ? 'arm64' : arch === 'x86_64' ? 'x64' : arch;
 }
 
+function getFamilyLabels(fam, akey, nodeVersion) {
+  const val = fam[akey];
+  if (typeof val === 'function') {
+    return val(nodeVersion);
+  }
+  return val || [];
+}
+
 /** Resolve a PLATFORMS token to its abstract platform. Accepts an abstract platform
  * (linux/alpine/macos/windows), a family name (amzn2), or a raw agent label
  * (qe-grav2-amzn2, m1). Returns null if unrecognized. */
@@ -117,9 +157,11 @@ function platformTokenToAbstract(token) {
   const t = token.toLowerCase();
   if (ABSTRACT_PLATFORMS.has(t)) return t;
   if (PLATFORM_FAMILIES[t]) return PLATFORM_FAMILIES[t].platform;
+  if (t.startsWith('alpine-node-') || t.startsWith('alpine-')) return 'alpine';
   for (const fam of Object.values(PLATFORM_FAMILIES)) {
     for (const akey of ['x64', 'arm64']) {
-      if ((fam[akey] || []).some((lbl) => lbl.toLowerCase() === t)) return fam.platform;
+      const labels = getFamilyLabels(fam, akey, null);
+      if (labels.some((lbl) => lbl.toLowerCase() === t)) return fam.platform;
     }
   }
   return null;
@@ -127,10 +169,10 @@ function platformTokenToAbstract(token) {
 
 /** Concrete agent labels for a (platform, arch) validate/test cell. `requested` is the
  * lowercased PLATFORMS list (empty = no filter -> every label on this cell). */
-function checkLabels(platform, arch, requested) {
+function checkLabels(platform, arch, requested, nodeVersion) {
   const akey = normArchKey(arch);
   const famsHere = Object.entries(PLATFORM_FAMILIES).filter(([, f]) => f.platform === platform);
-  const allHere = famsHere.flatMap(([, f]) => f[akey] || []);
+  const allHere = famsHere.flatMap(([, f]) => getFamilyLabels(f, akey, nodeVersion));
   let chosen;
   if (!requested.length) {
     chosen = [...allHere];
@@ -141,8 +183,10 @@ function checkLabels(platform, arch, requested) {
       if (t === platform) {
         chosen.push(...allHere);
       } else if (PLATFORM_FAMILIES[t] && PLATFORM_FAMILIES[t].platform === platform) {
-        chosen.push(...(PLATFORM_FAMILIES[t][akey] || []));
+        chosen.push(...getFamilyLabels(PLATFORM_FAMILIES[t], akey, nodeVersion));
       } else if (allHereLc.has(t)) {
+        chosen.push(...allHere.filter((l) => l.toLowerCase() === t));
+      } else if (t.startsWith('alpine-node-') || t.startsWith('alpine-')) {
         chosen.push(...allHere.filter((l) => l.toLowerCase() === t));
       }
     }
@@ -150,13 +194,18 @@ function checkLabels(platform, arch, requested) {
   return [...new Set(chosen)];
 }
 
-function jenkinsLabel(platform, arch) {
-  const label = JENKINS_LABELS[`${platform}:${arch}`];
-  if (!label) {
-    process.stderr.write(`WARNING: no Jenkins label for (${platform}, ${arch}); using '${platform}'\n`);
-    return platform;
+function jenkinsLabel(platform, arch, nodeVersion) {
+  const akey = normArchKey(arch);
+  const key = `${platform}:${akey}`;
+  const labelDef = JENKINS_LABELS[key];
+  if (typeof labelDef === 'function') {
+    return labelDef(nodeVersion);
   }
-  return label;
+  if (labelDef) {
+    return labelDef;
+  }
+  process.stderr.write(`WARNING: no Jenkins label for (${platform}, ${arch}); using '${platform}'\n`);
+  return platform;
 }
 
 /** The Electron<->Node ABI floor entry for a given Electron major version. */
@@ -305,12 +354,14 @@ function buildJobsFromPlan(plan, cfg) {
       // single oldest configured node_versions entry (ground-truthed against
       // getPrebuildTagsBoringSSL, which always collapses to this regardless of any
       // node-major cutoff — N-API makes it ABI-compatible with every newer major too).
-      const representative = nodeVersions.length ? [...nodeVersions].sort(compareVersions)[0] : undefined;
+      // Filter out node versions below the platform floor (e.g. Node 16 on alpine:arm64).
+      const validVersions = filterNodeVersionsForPlatform(nodeVersions, platform, arch);
+      const representative = validVersions.length ? [...validVersions].sort(compareVersions)[0] : undefined;
       const env = { CBCI_BUILD_PLATFORM: platform, CBCI_BUILD_ARCH: arch, CBCI_BUILD_RUNTIME: 'node' };
       if (libc) env.CBCI_BUILD_LIBC = libc;
       if (representative) env.CBCI_BUILD_NODE_VERSION = representative;
       jobs.push({
-        label: jenkinsLabel(platform, arch),
+        label: jenkinsLabel(platform, arch, representative),
         platform, arch, runtime: 'node',
         node_version: representative,
         stash_key: `prebuild-${platform}-${arch}-node`,
@@ -326,9 +377,9 @@ function buildJobsFromPlan(plan, cfg) {
     for (const { floor, versions, representative } of buckets) {
       let label;
       if (platform === 'linux' || platform === 'alpine') {
-        label = floor.linuxLabel[normArchKey(arch)] || jenkinsLabel(platform, arch);
+        label = floor.linuxLabel[normArchKey(arch)] || jenkinsLabel(platform, arch, floor.nodeVersion);
       } else {
-        label = jenkinsLabel(platform, arch);
+        label = jenkinsLabel(platform, arch, floor.nodeVersion);
       }
       const env = {
         CBCI_BUILD_PLATFORM: platform,
@@ -358,7 +409,14 @@ function buildJobsFromPlan(plan, cfg) {
 function checkJobs(units, requested) {
   const jobs = [];
   for (const u of units) {
-    for (const label of checkLabels(u.platform, u.arch, requested)) {
+    if (u.runtime === 'node' && u.version) {
+      const minMajor = getMinNodeMajor(u.platform, u.arch);
+      const major = parseInt(String(u.version).split('.')[0], 10);
+      if (minMajor && major < minMajor) {
+        continue; // Skip node versions below minimum floor for this platform
+      }
+    }
+    for (const label of checkLabels(u.platform, u.arch, requested, u.version)) {
       const env = {
         CBCI_TEST_RUNTIME: u.runtime,
         CBCI_TEST_VERSION: u.version,

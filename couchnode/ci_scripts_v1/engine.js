@@ -441,7 +441,9 @@ export function buildPlan(cfg) {
       const libc = libcMap[platform]; // undefined for macos/windows
 
       for (const runtime of runtimes) {
-        if (isUnsupportedCombo(support, platform, arch, runtime)) continue;
+        if (isUnsupportedCombo(support, platform, arch, runtime)) {
+          continue;
+        }
 
         const versions = runtime === 'electron' ? electronVersions : nodeVersions;
         if (runtime === 'electron' && versions.length === 0) continue; // nothing declared to build
