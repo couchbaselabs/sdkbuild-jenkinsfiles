@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 #
-# bootstrap.ps1 — Windows PowerShell mirror of bootstrap.sh.
+# bootstrap.ps1 - Windows PowerShell mirror of bootstrap.sh.
 #
 # Windows Jenkins agents have no bash, so the consumer pipeline curls THIS by name
 # on Windows and runs it with `powershell -ExecutionPolicy Bypass -File bootstrap.ps1`.
@@ -9,7 +9,7 @@
 #   2. Fetch the fixed manifest (engine.js, jenkins.js, tasks.sh, tasks.ps1,
 #      ci-config.yaml, package.json, package-lock.json) at that ref.
 #   3. Verify what was fetched (sha256) before anything runs.
-#   4. Materialize node_modules (npm ci) — engine.js's one pinned runtime
+#   4. Materialize node_modules (npm ci) - engine.js's one pinned runtime
 #      dependency (`yaml`) must be installed before `node engine.js` works.
 #
 # Keep the expected hashes below IN SYNC with bootstrap.sh (one table per bootstrapper).
@@ -38,7 +38,7 @@ $CBCI_BASE_URL = if ($env:CBCI_BASE_URL) {
 $CBCI_DEST = if ($env:CBCI_DEST) { $env:CBCI_DEST } else { '.' }
 
 # The fixed manifest (must match bootstrap.sh's CBCI_MANIFEST). bootstrap.ps1 itself
-# is excluded — it is already present.
+# is excluded - it is already present.
 $CBCI_MANIFEST = @(
     'engine.js'
     'jenkins.js'
@@ -54,7 +54,7 @@ $CBCI_EXPECTED = @{
     'engine.js'         = '031c15e58cd69b6d0a6c6465c88ffdf4a02357529d414d6b01ff03111d08dbae'
     'jenkins.js'        = '17c99909ff1566afeb1ce853885485f30467b8bd7bc4a31125f2ee177942e306'
     'tasks.sh'          = '1712f970e923fde9a8e0dcb92da37a2e6a9ab16ec5843321b37ca460aa8c485a'
-    'tasks.ps1'         = 'af24d5a43f3ccbb778194e5a969f9a1fd9d8b75d8958145848984818f8e928f9'
+    'tasks.ps1'         = '5de9348d032ab6d5f05e5a25467127df890b8df0b4c9e09b2ba3cfae08921d4e'
     'ci-config.yaml'    = '41a5d7fe9a47049296b626e358edc118ea880d4fa4ad2877c130a6f554e60557'
     'package.json'      = '490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'
@@ -85,12 +85,12 @@ function Get-ManifestFile([string]$url, [string]$out) {
     Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $out
 }
 
-# npm ci (not npm install) — reproducible from package-lock.json, matching exactly
+# npm ci (not npm install) - reproducible from package-lock.json, matching exactly
 # what the checksum above verified. Skippable via CBCI_SKIP_NPM_INSTALL for a
 # consumer that already vendors node_modules another way.
 function Install-Dependencies {
     if ($env:CBCI_SKIP_NPM_INSTALL -eq 'true') {
-        Write-Log 'CBCI_SKIP_NPM_INSTALL=true — skipping npm ci'
+        Write-Log 'CBCI_SKIP_NPM_INSTALL=true - skipping npm ci'
         return
     }
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {

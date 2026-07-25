@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 #
-# tasks.ps1 — Windows task executors for the Couchbase Node.js SDK (couchnode).
+# tasks.ps1 - Windows task executors for the Couchbase Node.js SDK (couchnode).
 # Mirrors tasks.sh stage-for-stage; see that file's header for the shared design.
 #
 # Windows-specific deviations from tasks.sh, both ground-truthed against the legacy
@@ -12,7 +12,7 @@
 #     never a strip step).
 #   - The legacy pipeline computes `buildType = (BUILD_TYPE != "Debug") ? "Release" :
 #     BUILD_TYPE` on Windows (a RelWithDebInfo config default gets forced to Release)
-#     AND deliberately never exports CN_BUILD_CONFIG on Windows at all — cmake-js's own
+#     AND deliberately never exports CN_BUILD_CONFIG on Windows at all - cmake-js's own
 #     default on the Visual Studio (multi-config) generator already lands in a
 #     build/Release folder, so this only affects where we go looking for the compiled
 #     .node afterward, never what gets passed to the build.
@@ -64,7 +64,7 @@ function Node-Platform() { (& $NODE_BIN -p 'process.platform').Trim() }
 function Node-Arch() { (& $NODE_BIN -p 'process.arch').Trim() }
 function Node-Major() {
     # split out from the cast: `[int](...).Trim()` is ambiguous in PowerShell (the cast
-    # can bind before .Trim() runs, calling .Trim() on an int) — do it in two steps.
+    # can bind before .Trim() runs, calling .Trim() on an int) - do it in two steps.
     $v = (& $NODE_BIN -p 'process.versions.node.split(".")[0]').Trim()
     return [int]$v
 }
@@ -108,7 +108,7 @@ function Task-Sdist {
     Log 'configuring C++ core + baking CPM cache (deps/couchbase-cxx-cache)'
     # --configure is unconditional; --set-cpm-cache must stay conditional on
     # CN_SET_CPM_CACHE (from build.set_cpm_cache) rather than hardcoded, or the config
-    # knob would be unenforceable — see tasks.sh's Task-Sdist for the full reasoning.
+    # knob would be unenforceable - see tasks.sh's Task-Sdist for the full reasoning.
     $prebuildArgs = @('run', 'prebuild', '--', '--configure')
     if ($env:CN_SET_CPM_CACHE -eq 'ON' -or -not $env:CN_SET_CPM_CACHE) {
         $prebuildArgs += '--set-cpm-cache'
@@ -121,7 +121,7 @@ function Task-Sdist {
     Get-ChildItem *.tgz | Format-Table -AutoSize
 }
 
-# Copy the .pdb debug symbols (no strip on Windows — ground-truthed, see file header),
+# Copy the .pdb debug symbols (no strip on Windows - ground-truthed, see file header),
 # then rename the release binary into place under prebuilds/.
 function Task-PrebuildRepair([string]$built, [string]$filename) {
     if (-not (Test-Path $built)) { Die "prebuild-repair: built binary not found: $built" }
@@ -136,7 +136,7 @@ function Task-PrebuildRepair([string]$built, [string]$filename) {
         Copy-Item $pdb "prebuildsDebug/$filename-debug.pdb" -Force
         Log "prebuild-repair: copied debug symbols -> prebuildsDebug/$filename-debug.pdb"
     } else {
-        Log "WARNING: prebuild-repair: no .pdb found next to $built (Debug/RelWithDebInfo config?) — no debug artifact produced"
+        Log "WARNING: prebuild-repair: no .pdb found next to $built (Debug/RelWithDebInfo config?) - no debug artifact produced"
     }
     Log "prebuild-repair: $filename.node ready (prebuilds/)"
 }
@@ -144,7 +144,7 @@ function Task-PrebuildRepair([string]$built, [string]$filename) {
 function Task-Prebuild {
     Set-Location $PROJECT_ROOT
 
-    # Self-sufficient build FROM the packed sdist tarball — see tasks.sh's
+    # Self-sufficient build FROM the packed sdist tarball - see tasks.sh's
     # task_prebuild for the full reasoning (package-lock.json isn't packed so this
     # must be `npm install` not `npm ci`; --ignore-scripts skips install.js building
     # against the ambient runtime before we set the real target).
@@ -160,7 +160,7 @@ function Task-Prebuild {
     Import-EnvPairs $buildEnv
     # Capture the CONFIGURED build type before clearing it: still needed below to
     # decide the Debug/Release output-folder lookup, even though (ground-truthed) the
-    # legacy pipeline never exports CN_BUILD_CONFIG itself on Windows — cmake-js's own
+    # legacy pipeline never exports CN_BUILD_CONFIG itself on Windows - cmake-js's own
     # Visual Studio (multi-config) generator default already lands in build/Release.
     $configuredBuildType = if ($env:CN_BUILD_CONFIG) { $env:CN_BUILD_CONFIG } else { 'RelWithDebInfo' }
     [Environment]::SetEnvironmentVariable('CN_BUILD_CONFIG', $null, 'Process')
@@ -178,7 +178,7 @@ function Task-Prebuild {
     Invoke-Checked $NPM_BIN @('run', 'prebuild')
 
     # Ground-truthed Windows quirk: RelWithDebInfo (or anything but Debug) is forced to
-    # the Release output folder — see file header.
+    # the Release output folder - see file header.
     $buildConfig = if ($configuredBuildType -eq 'Debug') { 'Debug' } else { 'Release' }
     $built = "build/$buildConfig/couchbase_impl.node"
     if (-not (Test-Path $built)) { Die "prebuild: expected binary not found: $built" }
@@ -324,7 +324,8 @@ function Main([string[]]$argv) {
         $logDir = Split-Path -Parent $env:CBCI_LOG_FILE
         if ($logDir) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
         $env:CBCI_LOG_TEEING = '1'
-        & pwsh -File $PSCommandPath @argv 2>&1 | Tee-Object -FilePath $env:CBCI_LOG_FILE
+        $psExe = if ($PSVersionTable.PSEdition -eq 'Core') { 'pwsh' } else { 'powershell' }
+        & $psExe -ExecutionPolicy Bypass -File $PSCommandPath @argv 2>&1 | Tee-Object -FilePath $env:CBCI_LOG_FILE
         exit $LASTEXITCODE
     }
 
