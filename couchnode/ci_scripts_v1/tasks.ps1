@@ -73,6 +73,44 @@ function Pkg-Version() {
     (& $NODE_BIN -p "require('$pkgPath').version").Trim()
 }
 
+function Get-TarExe {
+    if (Get-Command tar.exe -ErrorAction SilentlyContinue) { return 'tar.exe' }
+    if (Get-Command tar -ErrorAction SilentlyContinue) { return 'tar' }
+    if ($env:SystemRoot) {
+        $sys32Tar = Join-Path $env:SystemRoot 'System32\tar.exe'
+        if (Test-Path $sys32Tar) { return $sys32Tar }
+    }
+    $gitTar = 'C:\Program Files\Git\usr\bin\tar.exe'
+    if (Test-Path $gitTar) { return $gitTar }
+    $gitTarX86 = 'C:\Program Files (x86)\Git\usr\bin\tar.exe'
+    if (Test-Path $gitTarX86) { return $gitTarX86 }
+    return $null
+}
+
+function Unpack-Tarball([string]$tgzPath) {
+    $tarBin = Get-TarExe
+    if ($tarBin) {
+        Invoke-Checked $tarBin @('-xzf', $tgzPath, '--strip-components=1')
+        return
+    }
+    Log "tar executable not found on PATH or standard system directories; using node fallback"
+    & $NODE_BIN -e "
+const fs = require('fs');
+const path = require('path');
+const execDir = path.dirname(process.execPath);
+const candidate1 = path.join(execDir, 'node_modules/npm/node_modules/tar');
+const candidate2 = path.join(execDir, '../lib/node_modules/npm/node_modules/tar');
+const npmTar = fs.existsSync(candidate1) ? candidate1 : (fs.existsSync(candidate2) ? candidate2 : null);
+if (npmTar) {
+    require(npmTar).x({ file: process.argv[1], strip: 1, sync: true });
+} else {
+    console.error('ERROR: Cannot locate tar.exe or npm bundled tar module');
+    process.exit(1);
+}
+" $tgzPath
+    if ($LASTEXITCODE -ne 0) { Die "failed to unpack $tgzPath" }
+}
+
 # --- stages --------------------------------------------------------------
 
 function Task-DisplayInfo {
@@ -151,7 +189,7 @@ function Task-Prebuild {
     $sdistTgz = Get-ChildItem './*.tgz' -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $sdistTgz) { Die "prebuild: no *.tgz found under $PROJECT_ROOT (unstash the sdist first?)" }
     Log "prebuild: unpacking $($sdistTgz.Name)"
-    Invoke-Checked 'tar' @('-xzf', $sdistTgz.FullName, '--strip-components=1')
+    Unpack-Tarball $sdistTgz.FullName
     Log 'prebuild: restoring devDependencies (npm install --ignore-scripts)'
     Invoke-Checked $NPM_BIN @('install', '--ignore-scripts')
 
