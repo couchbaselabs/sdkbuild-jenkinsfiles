@@ -26,11 +26,12 @@ const CONFIG_FILENAME = 'ci-config.yaml';
 // Promoted override vars (empty = use file). Map 1:1 to Jenkins params / GHA inputs.
 export const PROMOTED_VARS = [
   'PLATFORMS', 'ARCHES', 'NODE_VERSIONS', 'ELECTRON_VERSIONS', 'RUNTIMES',
-  'USE_OPENSSL', 'OPENSSL_VERSION',
+  'USE_OPENSSL', 'OPENSSL_VERSION', 'INSTALL_TYPES',
 ];
 
 const VALID_RUNTIMES = ['node', 'electron'];
 const VALID_PLATFORMS = ['linux', 'alpine', 'macos', 'windows'];
+const VALID_INSTALL_TYPES = ['prebuild', 'sdist'];
 
 // ---------------------------------------------------------------------------
 // Config loading + merge
@@ -141,6 +142,26 @@ export function narrowToPlatforms(cfg, platforms) {
 function applyPromotedVars(cfg) {
   const support = cfg.support || (cfg.support = {});
   const build = cfg.build || (cfg.build = {});
+
+  // INSTALL_TYPES — narrows validate/test's install_type axis. ci-config declares the
+  // full CAPABILITY (["prebuild", "sdist"]); this picks what a given RUN exercises, and
+  // the consumers default it to 'prebuild' so neither stage compiles anything. Mirrors
+  // Python's identically-named promoted var (engine.py's INSTALL_TYPES block).
+  const installTypes = (process.env.INSTALL_TYPES || '').trim();
+  if (installTypes) {
+    const chosen = [];
+    for (const t of parseList(installTypes).map((v) => v.toLowerCase())) {
+      if (!VALID_INSTALL_TYPES.includes(t)) {
+        process.stderr.write(`WARNING: unsupported install type '${t}' (expected prebuild|sdist); ignoring\n`);
+      } else if (!chosen.includes(t)) {
+        chosen.push(t);
+      }
+    }
+    if (chosen.length) {
+      const test = cfg.test || (cfg.test = {});
+      test.install_types = chosen;
+    }
+  }
 
   const nodeVersions = (process.env.NODE_VERSIONS || '').trim();
   if (nodeVersions) {

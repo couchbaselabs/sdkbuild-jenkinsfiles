@@ -31,24 +31,121 @@ import * as engine from './engine.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Minimum supported Node major version per (platform, arch) on Jenkins agents.
-// e.g. Alpine ARM64 agents on Jenkins ship Node 18+ (no Node 16 agent exists).
-const MIN_NODE_VERSION = {
-  'alpine:arm64': 18,
-};
+// Alpine ARM64 has no general-purpose agent: the fleet is one pinned-Node box per major.
+// This list is the SINGLE source of truth for which ones exist — both the label range
+// table and PLATFORM_FAMILIES.alpine.arm64 derive from it, so no code path can mint a
+// label like `alpine-node-16-arm64` that no agent answers. Legacy encoded the same window
+// inline as `major >= 18 && major <= 22` (setBuildTags).
+const ALPINE_ARM64_NODE_MAJORS = [18, 20, 22];
+const alpineArm64Label = (major) => `alpine-node-${major}-arm64`;
 
-function getMinNodeMajor(platform, arch) {
-  const key = `${platform}:${normArchKey(arch)}`;
-  return MIN_NODE_VERSION[key] || 0;
+/** The alpine arm64 agent for this Node version, or [] when no such agent exists. */
+function alpineArm64Labels(nodeVersion) {
+  if (!nodeVersion) return ALPINE_ARM64_NODE_MAJORS.map(alpineArm64Label);
+  const major = parseInt(String(nodeVersion).split('.')[0], 10);
+  return ALPINE_ARM64_NODE_MAJORS.includes(major) ? [alpineArm64Label(major)] : [];
 }
 
+// Node major-version range supported by each Jenkins AGENT LABEL. Ported from the
+// legacy pipeline's setBuildTags() exclusions — the glibc >= 2.28 floor that Node 18+
+// needs, which centos7/amzn2/Graviton agents don't have (legacy lines ~1815-1828), plus
+// alpine-arm64's 18..22 window (legacy `major >= 18 && major <= 22`).
+//
+// Keyed on LABEL, not (platform, arch), because one abstract platform+arch spans agents
+// with DIFFERENT floors: linux:x64 covers almalinux8 (all versions) AND centos7/amzn2
+// (Node 16 only). A (platform, arch) key cannot express that, and `max` cannot be
+// expressed by a min-only table.
+//
+// DELIBERATELY Jenkins-only (this is the adapter — CONVENTIONS §4): these are facts
+// about OUR agent fleet's distros, not about the SDK. GHA's runner images have entirely
+// different floors, so gha.js will need its OWN table (or none at all — ubuntu-latest
+// et al. carry no comparable glibc gap). engine.js must never learn about labels.
+const LABEL_NODE_MAJORS = {
+  // glibc < 2.28 -> Node 18+ will not run
+  centos7: { max: 17 },
+  amzn2: { max: 17 },
+  'qe-grav2-amzn2': { max: 17 },
+  'qe-grav3-amzn2': { max: 17 },
+  'qe-grav4-amzn2': { max: 17 },
+  // each alpine arm64 agent runs exactly the Node major it is pinned to
+  ...Object.fromEntries(
+    ALPINE_ARM64_NODE_MAJORS.map((m) => [alpineArm64Label(m), { min: m, max: m }]),
+  ),
+};
+
+/** Does agent `label` support this Node version? Unlisted labels support everything. */
+function labelSupportsNodeVersion(label, version) {
+  const range = LABEL_NODE_MAJORS[label];
+  if (!range || !version) return true;
+  const major = parseInt(String(version).split('.')[0], 10);
+  if (Number.isNaN(major)) return true;
+  if (range.min !== undefined && major < range.min) return false;
+  if (range.max !== undefined && major > range.max) return false;
+  return true;
+}
+
+/** The Node major window a BUILD on (platform, arch) must stay inside.
+ *
+ * Normally the build label is fixed (centos7, m1, windows...) so the window is just that
+ * label's range. Alpine arm64 is the exception: its label is DERIVED from the version
+ * (one pinned agent per major), so no label can be resolved before a version is picked —
+ * there the window is the union over every label the family offers for this arch, and
+ * jenkinsLabel() resolves the concrete agent afterwards from the chosen representative. */
+function buildNodeWindow(platform, arch) {
+  const akey = normArchKey(arch);
+  const labelDef = JENKINS_LABELS[`${platform}:${akey}`];
+  if (typeof labelDef !== 'function') {
+    return LABEL_NODE_MAJORS[labelDef] || {};
+  }
+  const labels = Object.values(PLATFORM_FAMILIES)
+    .filter((f) => f.platform === platform)
+    .flatMap((f) => getFamilyLabels(f, akey, null));
+  const mins = [];
+  const maxes = [];
+  for (const label of labels) {
+    const range = LABEL_NODE_MAJORS[label];
+    if (!range) return {}; // an unconstrained agent exists -> no window at all
+    if (range.min !== undefined) mins.push(range.min);
+    if (range.max !== undefined) maxes.push(range.max);
+  }
+  const window = {};
+  if (mins.length === labels.length && mins.length) window.min = Math.min(...mins);
+  if (maxes.length === labels.length && maxes.length) window.max = Math.max(...maxes);
+  return window;
+}
+
+/** Narrow `nodeVersions` to those a BUILD on (platform, arch) may pick as its driver Node.
+ *
+ * FLOOR ONLY, deliberately. Ground-truthed against getPrebuildTagsBoringSSL, which has
+ * exactly two cases: `prebuildVersions` = the globally OLDEST configured version (used for
+ * centos7/grav2/macos/windows), and `prebuildAlpineArmVersions` = the oldest version
+ * >= 18 (alpine arm64, whose agents start at Node 18). Neither applies a ceiling.
+ *
+ * A ceiling would be wrong here: on the validate/test side a `max` means "skip this cell",
+ * but a build has only ONE floor agent, so an over-max representative isn't a cell to drop
+ * — it's a misconfiguration. `warnBuildDriverNode` reports it instead of silently emitting
+ * a job with no pinned version. */
 function filterNodeVersionsForPlatform(nodeVersions, platform, arch) {
-  const minMajor = getMinNodeMajor(platform, arch);
-  if (!minMajor) return nodeVersions;
+  const { min } = buildNodeWindow(platform, arch);
+  if (min === undefined) return nodeVersions;
   return nodeVersions.filter((v) => {
     const major = parseInt(String(v).split('.')[0], 10);
-    return major >= minMajor;
+    return Number.isNaN(major) ? true : major >= min;
   });
+}
+
+/** Warn when a build's chosen driver Node exceeds what its floor agent can run — e.g.
+ * NODE_VERSIONS='20.15.1 22.14.0' pins Node 20 on centos7 (glibc < 2.28), which cannot
+ * start it. Legacy had the same latent hole silently; surface it instead. */
+function warnBuildDriverNode(label, version) {
+  if (version && !labelSupportsNodeVersion(label, version)) {
+    const r = LABEL_NODE_MAJORS[label];
+    process.stderr.write(
+      `WARNING: build driver Node ${version} is outside agent '${label}''s supported range ` +
+      `(${r.min ?? '*'}..${r.max ?? '*'}) — configure a node_versions entry that '${label}' ` +
+      `can run, or the prebuild job will fail to install Node\n`
+    );
+  }
 }
 
 // EDIT FOR YOUR JENKINS — the ONE deployment-specific thing (CONVENTIONS §4).
@@ -60,11 +157,9 @@ const JENKINS_LABELS = {
   'linux:x64': 'centos7',
   'linux:arm64': 'qe-grav2-amzn2',
   'alpine:x64': 'alpine',
-  'alpine:arm64': (version) => {
-    if (!version) return 'alpine-node-18-arm64';
-    const major = parseInt(String(version).split('.')[0], 10);
-    return `alpine-node-${major}-arm64`;
-  },
+  // version-derived: one pinned-Node agent per major (see ALPINE_ARM64_NODE_MAJORS).
+  // Falls back to the lowest existing agent when no version is known yet.
+  'alpine:arm64': (version) => alpineArm64Labels(version)[0] || alpineArm64Label(ALPINE_ARM64_NODE_MAJORS[0]),
   'macos:x64': 'macos',
   'macos:arm64': 'm1',
   'windows:x64': 'windows',
@@ -119,19 +214,14 @@ const PLATFORM_FAMILIES = {
   almalinux8: { platform: 'linux', x64: ['almalinux8'], arm64: [] },
   centos7: { platform: 'linux', x64: ['centos7'], arm64: [] },
   amzn2: { platform: 'linux', x64: ['amzn2'], arm64: ['qe-grav2-amzn2', 'qe-grav3-amzn2', 'qe-grav4-amzn2'] },
-  ubuntu20: { platform: 'linux', x64: [], arm64: ['qe-ubuntu20-arm64'] },
+  // ubuntu20 DOES have an x64 agent (it is also JENKINS_SDIST_LABEL). Legacy setBuildTags
+  // excludes x64 only for ubuntu22/rhel9/ubuntu24 — ubuntu20 was swept in with them here
+  // by mistake, silently dropping 4 validate + 4 test cells the legacy pipeline runs.
+  ubuntu20: { platform: 'linux', x64: ['ubuntu20'], arm64: ['qe-ubuntu20-arm64'] },
   ubuntu22: { platform: 'linux', x64: [], arm64: ['qe-ubuntu22-arm64'] },
   ubuntu24: { platform: 'linux', x64: [], arm64: ['qe-ubuntu24-arm64'] },
   rhel9: { platform: 'linux', x64: [], arm64: ['qe-rhel9-arm64'] },
-  alpine: {
-    platform: 'alpine',
-    x64: ['alpine'],
-    arm64: (nodeVersion) => {
-      if (!nodeVersion) return ['alpine-node-18-arm64', 'alpine-node-20-arm64', 'alpine-node-22-arm64'];
-      const major = parseInt(String(nodeVersion).split('.')[0], 10);
-      return [`alpine-node-${major}-arm64`];
-    },
-  },
+  alpine: { platform: 'alpine', x64: ['alpine'], arm64: alpineArm64Labels },
   macos: { platform: 'macos', x64: ['macos'], arm64: ['m1'] },
   windows: { platform: 'windows', x64: ['windows'], arm64: [] },
 };
@@ -360,8 +450,10 @@ function buildJobsFromPlan(plan, cfg) {
       const env = { CBCI_BUILD_PLATFORM: platform, CBCI_BUILD_ARCH: arch, CBCI_BUILD_RUNTIME: 'node' };
       if (libc) env.CBCI_BUILD_LIBC = libc;
       if (representative) env.CBCI_BUILD_NODE_VERSION = representative;
+      const buildLabel = jenkinsLabel(platform, arch, representative);
+      warnBuildDriverNode(buildLabel, representative);
       jobs.push({
-        label: jenkinsLabel(platform, arch, representative),
+        label: buildLabel,
         platform, arch, runtime: 'node',
         node_version: representative,
         stash_key: `prebuild-${platform}-${arch}-node`,
@@ -409,14 +501,14 @@ function buildJobsFromPlan(plan, cfg) {
 function checkJobs(units, requested) {
   const jobs = [];
   for (const u of units) {
-    if (u.runtime === 'node' && u.version) {
-      const minMajor = getMinNodeMajor(u.platform, u.arch);
-      const major = parseInt(String(u.version).split('.')[0], 10);
-      if (minMajor && major < minMajor) {
-        continue; // Skip node versions below minimum floor for this platform
-      }
-    }
     for (const label of checkLabels(u.platform, u.arch, requested, u.version)) {
+      // Per-AGENT filter, not per-(platform,arch): one neutral linux/x64 cell expands to
+      // almalinux8 (every Node) AND centos7/amzn2 (Node <18 only — glibc < 2.28). Dropping
+      // the unsupported pairs here is what keeps validate/test off cells that would fail
+      // to even start Node. See LABEL_NODE_MAJORS.
+      if (u.runtime === 'node' && !labelSupportsNodeVersion(label, u.version)) {
+        continue;
+      }
       const env = {
         CBCI_TEST_RUNTIME: u.runtime,
         CBCI_TEST_VERSION: u.version,

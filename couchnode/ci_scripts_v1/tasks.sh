@@ -299,6 +299,38 @@ task_validate() {
 # means test/harness.js falls back to the mock, ground-truthed against
 # test/harness.js + test/jcbmock.js). require_java is a real dependency: jcbmock.js
 # spawns `java` directly (child_process.spawn('java', ...)) to run the mock jar.
+#
+# NOTHING IS COMPILED HERE. `test` consumes the prebuild the `prebuild` stage already
+# produced — same contract as `validate`. The mechanism is ported verbatim from the
+# legacy pipeline's test stage:
+#   1. write couchbase_local_prebuilds into .npmrc, so npm re-exports it to lifecycle
+#      scripts as npm_config_couchbase_local_prebuilds (scripts/install.js reads exactly
+#      that name via getLocalPrebuild()). It must be visible to `npm run install`, not
+#      merely set at dependency-install time — hence .npmrc rather than a shell export.
+#   2. `npm ci --ignore-scripts` — deps only; the package's own install.js never runs.
+#   3. `npm run install` — install.js sees the local-prebuilds hint and COPIES the .node
+#      into build/Release instead of invoking cmake-js.
+# Step 3 is verified, not trusted: install.js's installPrebuild() falls back to
+# prebuilds.buildBinary() when it cannot resolve a prebuild, so a missing/mismatched .node
+# would silently turn into a full source build — slow, and GREEN. The post-condition check
+# below turns that into a hard failure.
+_test_prebuild_dir() {
+    local dir="${PROJECT_ROOT}/prebuilds"
+    [[ -d "${dir}" ]] || die "test: no prebuilds/ under ${PROJECT_ROOT} — the prebuild stage must run (or its artifact be copied) first"
+    compgen -G "${dir}/*.node" >/dev/null \
+        || die "test: prebuilds/ exists but holds no *.node — nothing for scripts/install.js to resolve"
+    printf '%s\n' "${dir}"
+}
+
+# Fail loudly if `npm run install` compiled (or produced nothing) instead of copying the
+# prebuild. build/Release is install.js's own destination for the resolved binary.
+_assert_prebuild_installed() {
+    local rel="${PROJECT_ROOT}/build/Release"
+    compgen -G "${rel}/*.node" >/dev/null \
+        || die "test: no *.node in build/Release after 'npm run install' — the prebuild was not resolved"
+    log "test: prebuild installed:"; ls -alh "${rel}"/*.node
+}
+
 task_test() {
     cd "${PROJECT_ROOT}"
 
@@ -307,8 +339,25 @@ task_test() {
             || die "test: ci-config requires java (CouchbaseMock.jar backend) but 'java' is not on PATH"
     fi
 
-    log "installing dependencies (npm ci)"
-    "${NPM_BIN}" ci
+    local prebuild_dir
+    prebuild_dir="$(_test_prebuild_dir)"
+    log "test: using local prebuilds from ${prebuild_dir} (no compilation)"
+    # Replace rather than append: the vendor may retry `test` in the SAME workspace
+    # (scripted-build-pipeline.groovy wraps it in retryWithBackoff), and a blind >> would
+    # stack a duplicate key every attempt. `|| true` because grep -v exits 1 when it
+    # filters out every line, which -e would treat as fatal.
+    if [[ -f .npmrc ]]; then
+        { grep -v '^couchbase_local_prebuilds=' .npmrc || true; } >.npmrc.cbci
+        mv .npmrc.cbci .npmrc
+    fi
+    echo "couchbase_local_prebuilds=${prebuild_dir}" >>.npmrc
+
+    log "installing dependencies (npm ci --ignore-scripts)"
+    "${NPM_BIN}" ci --ignore-scripts
+
+    log "installing the prebuilt binary (npm run install)"
+    "${NPM_BIN}" run install
+    _assert_prebuild_installed
 
     local -a cmds=()
     local line
