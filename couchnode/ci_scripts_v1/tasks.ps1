@@ -316,7 +316,7 @@ function Task-Validate {
     Log "validate: all install types passed ($env:CBCI_VALIDATE_INSTALL_TYPES)"
 }
 
-# --- test: NOTHING IS COMPILED HERE — `test` consumes the prebuild the `prebuild` stage
+# --- test: NOTHING IS COMPILED HERE - `test` consumes the prebuild the `prebuild` stage
 # already produced, same contract as `validate`. See tasks.sh's task_test header for the
 # full rationale; the mechanism is identical (ported from the legacy pipeline):
 # .npmrc couchbase_local_prebuilds -> `npm ci --ignore-scripts` -> `npm run install`,
@@ -334,19 +334,19 @@ function Task-Test {
 
     $prebuildDir = Join-Path $PROJECT_ROOT 'prebuilds'
     if (-not (Test-Path $prebuildDir)) {
-        Die "test: no prebuilds/ under $PROJECT_ROOT — the prebuild stage must run (or its artifact be copied) first"
+        Die "test: no prebuilds/ under $PROJECT_ROOT - the prebuild stage must run (or its artifact be copied) first"
     }
     if (-not (Get-ChildItem $prebuildDir -Filter *.node -ErrorAction SilentlyContinue)) {
-        Die 'test: prebuilds/ exists but holds no *.node — nothing for scripts/install.js to resolve'
+        Die 'test: prebuilds/ exists but holds no *.node - nothing for scripts/install.js to resolve'
     }
     Log "test: using local prebuilds from $prebuildDir (no compilation)"
-    # npm re-exports .npmrc keys to lifecycle scripts as npm_config_* — which is the name
+    # npm re-exports .npmrc keys to lifecycle scripts as npm_config_* - which is the name
     # scripts/install.js's getLocalPrebuild() reads. Must be set for `npm run install`.
     # Replace rather than append: the vendor may retry `test` in the SAME workspace, and a
     # blind append would stack a duplicate key every attempt.
     # NOTE: @(...) around BOTH the assignment and the concatenation is load-bearing.
     # PowerShell unwraps a single-element array on assignment, so a one-line .npmrc would
-    # make $kept a plain String — and `$kept + "..."` would then be STRING concatenation,
+    # make $kept a plain String - and `$kept + "..."` would then be STRING concatenation,
     # writing one corrupt line (merging any pre-existing key, e.g. registry=, into ours).
     $npmrc = Join-Path $PROJECT_ROOT '.npmrc'
     $kept = @()
@@ -362,7 +362,7 @@ function Task-Test {
     Invoke-Checked $NPM_BIN @('run', 'install')
     $installed = Get-ChildItem (Join-Path $PROJECT_ROOT 'build\Release') -Filter *.node -ErrorAction SilentlyContinue
     if (-not $installed) {
-        Die "test: no *.node in build\Release after 'npm run install' — the prebuild was not resolved"
+        Die "test: no *.node in build\Release after 'npm run install' - the prebuild was not resolved"
     }
     Log 'test: prebuild installed:'; $installed | Format-Table -AutoSize
 
