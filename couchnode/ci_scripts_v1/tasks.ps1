@@ -346,7 +346,7 @@ function Task-Test {
     }
     # Defense-in-depth: remove non-Win32 prebuilds if multiple platform artifacts were copied
     Get-ChildItem $prebuildDir -Filter *.node -ErrorAction SilentlyContinue | ForEach-Object {
-        if ($_.Name -match '-darwin-' -or $_.Name -match '-linux-' -or $_.Name -match '-alpine-') {
+        if ($_.Name -notmatch '-win32-') {
             Log "test: removing non-Windows prebuild $($_.Name) from prebuilds/"
             Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
         }

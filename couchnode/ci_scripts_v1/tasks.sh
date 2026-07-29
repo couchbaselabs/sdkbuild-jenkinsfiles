@@ -324,10 +324,10 @@ _test_prebuild_dir() {
         [[ -f "${f}" ]] || continue
         f_base="$(basename "${f}")"
         case "${target_plat}" in
-            win32)  [[ "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
-            darwin) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
-            linux)  [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
-            alpine) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* ]] && rm -f "${f}" ;;
+            win32)            [[ "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
+            darwin)           [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
+            linux)            [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
+            alpine|linuxmusl) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* && "${f_base}" != *"-linuxmusl-"* ]] && rm -f "${f}" ;;
         esac
     done
     compgen -G "${dir}/*.node" >/dev/null \

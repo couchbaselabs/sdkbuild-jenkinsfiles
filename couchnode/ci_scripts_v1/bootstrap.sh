@@ -75,8 +75,8 @@ get_expected_hash() {
     case "${name}" in
         "engine.js")          echo "0a9ef2b11c25fe28e4ee197bd1ae169f83c95d56792c9266fa31be9dc74886b1" ;;
         "jenkins.js")         echo "428f941b79ba165530257b25b4c9f8b579d5910bd3ef904bf42172c6adc3f6ef" ;;
-        "tasks.sh")           echo "d8d52e470abc17e1783fb61a4cc54bb390a6ca95582c521533e075fe8adebff3" ;;
-        "tasks.ps1")          echo "e4353a8ceef9f7d2e6bedca30821074aa752272a1571930f9437eda17d5e64e9" ;;
+        "tasks.sh")           echo "c1486412c1d51d811b9044548a7dd0d2fd863ed53ac7a14eb9914e8e3e96eaee" ;;
+        "tasks.ps1")          echo "b15fb9a28f42680d578892513a5a24fd8d249eb9673f984a8a0f50a16caaac3b" ;;
         "ci-config.yaml")     echo "41a5d7fe9a47049296b626e358edc118ea880d4fa4ad2877c130a6f554e60557" ;;
         "package.json")       echo "490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4" ;;
         "package-lock.json")  echo "8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372" ;;
