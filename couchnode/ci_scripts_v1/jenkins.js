@@ -512,6 +512,7 @@ function checkJobs(units, requested) {
       const env = {
         CBCI_TEST_RUNTIME: u.runtime,
         CBCI_TEST_VERSION: u.version,
+        CBCI_TEST_PLATFORM: u.platform,
         CBCI_INSTALL_TYPE: u.install_type,
       };
       const job = { label };

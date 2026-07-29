@@ -314,11 +314,20 @@ task_validate() {
 # prebuilds.buildBinary() when it cannot resolve a prebuild, so a missing/mismatched .node
 # would silently turn into a full source build — slow, and GREEN. The post-condition check
 # below turns that into a hard failure.
+_target_node_platform() {
+    local plat="${CBCI_BUILD_PLATFORM:-${CBCI_TEST_PLATFORM:-${CBCI_PLATFORM:-}}}"
+    if [[ "${plat}" == "alpine" ]]; then
+        echo "linuxmusl"
+        return
+    fi
+    _node_platform
+}
+
 _test_prebuild_dir() {
     local dir="${PROJECT_ROOT}/prebuilds"
     [[ -d "${dir}" ]] || die "test: no prebuilds/ under ${PROJECT_ROOT} — the prebuild stage must run (or its artifact be copied) first"
     # Defense-in-depth: remove .node files for other platforms if multiple platform artifacts were copied
-    local target_plat; target_plat="$(_node_platform "${CBCI_BUILD_PLATFORM:-${CBCI_PLATFORM:-$(uname -s)}}")"
+    local target_plat; target_plat="$(_target_node_platform)"
     local f f_base
     for f in "${dir}"/*.node; do
         [[ -f "${f}" ]] || continue
@@ -327,7 +336,7 @@ _test_prebuild_dir() {
             win32)            [[ "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
             darwin)           [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
             linux)            [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linuxmusl-"* ]] && rm -f "${f}" ;;
-            alpine|linuxmusl) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* && "${f_base}" != *"-linuxmusl-"* ]] && rm -f "${f}" ;;
+            alpine|linuxmusl) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || ( "${f_base}" == *"-linux-"* && "${f_base}" != *"-linuxmusl-"* ) ]] && rm -f "${f}" ;;
         esac
     done
     compgen -G "${dir}/*.node" >/dev/null \
