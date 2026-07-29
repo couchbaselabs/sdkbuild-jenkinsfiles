@@ -355,9 +355,16 @@ task_test() {
     log "installing dependencies (npm ci --ignore-scripts)"
     "${NPM_BIN}" ci --ignore-scripts
 
+    log "installing mocha-multi-reporters for test reporting"
+    "${NPM_BIN}" install --no-save mocha-multi-reporters || true
+
     log "installing the prebuilt binary (npm run install)"
     "${NPM_BIN}" run install
     _assert_prebuild_installed
+
+    if [[ -n "${CBCI_JUNIT_DIR:-}" ]]; then
+        mkdir -p "${CBCI_JUNIT_DIR}"
+    fi
 
     local -a cmds=()
     local line
@@ -368,9 +375,21 @@ task_test() {
 
     local cmd rc=0
     for cmd in "${cmds[@]}"; do
-        log "test: run: ${cmd}"
-        eval "${cmd}" || rc=$?
+        local run_cmd="${cmd}"
+        if [[ "${cmd}" == *"npm run test"* || "${cmd}" == *"mocha"* ]]; then
+            if [[ "${cmd}" != *"-R"* && "${cmd}" != *"--reporter"* ]]; then
+                run_cmd="${cmd} -- -R mocha-multi-reporters"
+            fi
+        fi
+        log "test: run: ${run_cmd}"
+        eval "${run_cmd}" || rc=$?
     done
+
+    if [[ -f xunit.xml && -n "${CBCI_JUNIT_DIR:-}" ]]; then
+        mv -f xunit.xml "${CBCI_JUNIT_DIR}/xunit.xml"
+        log "test: moved xunit.xml -> ${CBCI_JUNIT_DIR}/xunit.xml"
+    fi
+
     [[ "${rc}" -eq 0 ]] || die "test: mocha failed (rc=${rc})"
     log "test: OK"
 }

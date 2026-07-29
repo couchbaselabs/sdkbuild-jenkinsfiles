@@ -358,6 +358,9 @@ function Task-Test {
     Log 'installing dependencies (npm ci --ignore-scripts)'
     Invoke-Checked $NPM_BIN @('ci', '--ignore-scripts')
 
+    Log 'installing mocha-multi-reporters for test reporting'
+    try { & $NPM_BIN install --no-save mocha-multi-reporters } catch { Log 'WARNING: failed to install mocha-multi-reporters' }
+
     Log 'installing the prebuilt binary (npm run install)'
     Invoke-Checked $NPM_BIN @('run', 'install')
     $installed = Get-ChildItem (Join-Path $PROJECT_ROOT 'build\Release') -Filter *.node -ErrorAction SilentlyContinue
@@ -366,14 +369,28 @@ function Task-Test {
     }
     Log 'test: prebuild installed:'; $installed | Format-Table -AutoSize
 
+    if ($env:CBCI_JUNIT_DIR) {
+        New-Item -ItemType Directory -Force -Path $env:CBCI_JUNIT_DIR | Out-Null
+    }
+
     $cmds = & $NODE_BIN $ENGINE test-cmds
     if (-not $cmds) { Die 'test: no test commands configured' }
 
     foreach ($cmd in $cmds) {
-        Log "test: run: $cmd"
-        Invoke-Expression $cmd
+        $runCmd = $cmd
+        if (($cmd -like '*npm run test*' -or $cmd -like '*mocha*') -and $cmd -notlike '*-R*' -and $cmd -notlike '*--reporter*') {
+            $runCmd = "$cmd -- -R mocha-multi-reporters"
+        }
+        Log "test: run: $runCmd"
+        Invoke-Expression $runCmd
         if ($LASTEXITCODE -ne 0) { Die "test: mocha failed (rc=$LASTEXITCODE)" }
     }
+
+    if ((Test-Path 'xunit.xml') -and $env:CBCI_JUNIT_DIR) {
+        Move-Item 'xunit.xml' (Join-Path $env:CBCI_JUNIT_DIR 'xunit.xml') -Force
+        Log "test: moved xunit.xml -> $env:CBCI_JUNIT_DIR/xunit.xml"
+    }
+
     Log 'test: OK'
 }
 
