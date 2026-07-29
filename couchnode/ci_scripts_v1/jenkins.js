@@ -526,6 +526,114 @@ function checkJobs(units, requested) {
 }
 
 const JENKINS_SDIST_LABEL = 'ubuntu20'; // native build node (cmake + C++ toolchain)
+const JENKINS_INTEGRATION_LABEL = 'sdkqe-rockylinux9';
+const INTEGRATION_BUILD_PLATFORM = 'linux';
+const INTEGRATION_BUILD_ARCH = 'x64';
+const INTEGRATION_BUILD_LIBC = 'manylinux';
+
+function _cbdynTopology(serverVersion) {
+  const version = String(serverVersion).split('-')[0];
+  if (version >= '7.0') {
+    return ['kv,index,n1ql', 'kv,index,n1ql,eventing', 'kv,index,n1ql,fts,cbas'];
+  }
+  if (version >= '6.0') {
+    return ['kv,index,n1ql', 'kv,index,n1ql', 'kv,index,n1ql,fts,cbas'];
+  }
+  return ['kv,index,n1ql', 'kv,index,n1ql', 'kv,index,n1ql,fts'];
+}
+
+function _resolveServerVersions(spec) {
+  const pin = (process.env.SERVER_VERSIONS || '').trim();
+  if (pin) {
+    const versions = pin.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    process.stderr.write(`[integration-tags] SERVER_VERSIONS pin: ${JSON.stringify(versions)}\n`);
+    return versions;
+  }
+
+  const groups = spec.server_versions || [];
+  let versions = [];
+  if (spec.version_subset !== false) {
+    versions = groups
+      .map((group) => {
+        if (!group || !group.length) return null;
+        const idx = Math.floor(Math.random() * group.length);
+        return group[idx];
+      })
+      .filter(Boolean);
+  } else {
+    versions = groups.flat().filter(Boolean);
+  }
+  process.stderr.write(`[integration-tags] resolved server versions: ${JSON.stringify(versions)}\n`);
+  return versions;
+}
+
+function _resolveIntegrationNodeVersions(nodeVers) {
+  const envOverride = (process.env.NODE_VERSIONS || '').trim();
+  if (envOverride) {
+    const versions = envOverride.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+    process.stderr.write(`[integration-tags] NODE_VERSIONS override: testing ${JSON.stringify(versions)}\n`);
+    return versions;
+  }
+  if (!nodeVers || nodeVers.length <= 1) {
+    return nodeVers || [];
+  }
+  const ordered = [...nodeVers].sort(compareVersions);
+  const min = ordered[0];
+  const max = ordered[ordered.length - 1];
+  const chosen = Math.random() < 0.5 ? min : max;
+  process.stderr.write(
+    `[integration-tags] no NODE_VERSIONS override; randomly testing one version: ${chosen} (min=${min}, max=${max})\n`
+  );
+  return [chosen];
+}
+
+export function integrationTags(configPath = null) {
+  const cfg = engine.loadConfig(configPath);
+  const spec = cfg.raw.test?.integration || {};
+  const nodeVers = _resolveIntegrationNodeVersions(cfg.raw.support?.node_versions || []);
+  const serverVersions = _resolveServerVersions(spec);
+
+  const buildJobs = [];
+  for (const v of nodeVers) {
+    buildJobs.push({
+      label: JENKINS_SDIST_LABEL,
+      version: v,
+      arch: INTEGRATION_BUILD_ARCH,
+      platform: INTEGRATION_BUILD_PLATFORM,
+      env: {
+        CBCI_BUILD_PLATFORM: INTEGRATION_BUILD_PLATFORM,
+        CBCI_BUILD_ARCH: INTEGRATION_BUILD_ARCH,
+        CBCI_BUILD_LIBC: INTEGRATION_BUILD_LIBC,
+        CBCI_BUILD_NODE_VERSION: v,
+      },
+    });
+  }
+
+  const testCells = [];
+  for (const v of nodeVers) {
+    for (const serverVersion of serverVersions) {
+      testCells.push({
+        label: JENKINS_INTEGRATION_LABEL,
+        version: v,
+        arch: INTEGRATION_BUILD_ARCH,
+        server_version: serverVersion,
+        num_nodes: spec.num_nodes || 3,
+        node_topology: _cbdynTopology(serverVersion),
+        ram_quota: spec.ram_quota || 2048,
+        storage_mode: spec.storage_mode || 'plasma',
+        buckets: spec.buckets || ['default'],
+        sample_buckets: spec.sample_buckets || [],
+        developer_preview: Boolean(spec.developer_preview),
+        env: {
+          CBCI_TEST_CLUSTER: 'realserver',
+          CBCI_TEST_VERSION: v,
+        },
+      });
+    }
+  }
+
+  return { build: buildJobs, test: testCells };
+}
 
 /** Full pipeline: build the neutral plan (narrowed to the requested platforms) and
  * translate it into the Jenkins job plan the groovy consumes. */
@@ -556,7 +664,7 @@ export function tags(configPath) {
 // ---------------------------------------------------------------------------
 
 function usage() {
-  process.stderr.write('usage: jenkins.js [--config <path>] tags\n');
+  process.stderr.write('usage: jenkins.js [--config <path>] <tags|integration-tags>\n');
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -568,6 +676,10 @@ export function main(argv = process.argv.slice(2)) {
   const cmd = positionals[0];
   if (cmd === 'tags') {
     console.log(JSON.stringify(tags(values.config)));
+    return 0;
+  }
+  if (cmd === 'integration-tags') {
+    console.log(JSON.stringify(integrationTags(values.config)));
     return 0;
   }
   usage();

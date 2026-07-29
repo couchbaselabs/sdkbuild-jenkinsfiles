@@ -317,6 +317,19 @@ task_validate() {
 _test_prebuild_dir() {
     local dir="${PROJECT_ROOT}/prebuilds"
     [[ -d "${dir}" ]] || die "test: no prebuilds/ under ${PROJECT_ROOT} — the prebuild stage must run (or its artifact be copied) first"
+    # Defense-in-depth: remove .node files for other platforms if multiple platform artifacts were copied
+    local target_plat; target_plat="$(_node_platform "${CBCI_BUILD_PLATFORM:-${CBCI_PLATFORM:-$(uname -s)}}")"
+    local f f_base
+    for f in "${dir}"/*.node; do
+        [[ -f "${f}" ]] || continue
+        f_base="$(basename "${f}")"
+        case "${target_plat}" in
+            win32)  [[ "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
+            darwin) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-linux-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
+            linux)  [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-alpine-"* ]] && rm -f "${f}" ;;
+            alpine) [[ "${f_base}" == *"-win32-"* || "${f_base}" == *"-darwin-"* || "${f_base}" == *"-linux-"* ]] && rm -f "${f}" ;;
+        esac
+    done
     compgen -G "${dir}/*.node" >/dev/null \
         || die "test: prebuilds/ exists but holds no *.node — nothing for scripts/install.js to resolve"
     printf '%s\n' "${dir}"
@@ -334,9 +347,17 @@ _assert_prebuild_installed() {
 task_test() {
     cd "${PROJECT_ROOT}"
 
-    if [[ "$("${NODE_BIN}" "${ENGINE}" requires-java)" == "true" ]]; then
-        command -v java >/dev/null 2>&1 \
-            || die "test: ci-config requires java (CouchbaseMock.jar backend) but 'java' is not on PATH"
+    if [[ -n "${CBCI_TEST_HOST:-}" && -z "${CNCSTR:-}" ]]; then
+        export CNCSTR="couchbase://${CBCI_TEST_HOST}"
+        export CNUSER="${CNUSER:-Administrator}"
+        export CNPASS="${CNPASS:-password}"
+    fi
+
+    if [[ "${CBCI_TEST_CLUSTER:-mock}" != "realserver" && -z "${CNCSTR:-}" ]]; then
+        if [[ "$("${NODE_BIN}" "${ENGINE}" requires-java)" == "true" ]]; then
+            command -v java >/dev/null 2>&1 \
+                || die "test: ci-config requires java (CouchbaseMock.jar backend) but 'java' is not on PATH"
+        fi
     fi
 
     local prebuild_dir

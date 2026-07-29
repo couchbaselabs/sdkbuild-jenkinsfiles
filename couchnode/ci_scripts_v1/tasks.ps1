@@ -325,16 +325,31 @@ function Task-Validate {
 function Task-Test {
     Set-Location $PROJECT_ROOT
 
-    $requiresJava = (& $NODE_BIN $ENGINE requires-java).Trim()
-    if ($requiresJava -eq 'true') {
-        if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
-            Die "test: ci-config requires java (CouchbaseMock.jar backend) but 'java' is not on PATH"
+    if ($env:CBCI_TEST_HOST -and -not $env:CNCSTR) {
+        $env:CNCSTR = "couchbase://$env:CBCI_TEST_HOST"
+        if (-not $env:CNUSER) { $env:CNUSER = 'Administrator' }
+        if (-not $env:CNPASS) { $env:CNPASS = 'password' }
+    }
+
+    if ($env:CBCI_TEST_CLUSTER -ne 'realserver' -and -not $env:CNCSTR) {
+        $requiresJava = (& $NODE_BIN $ENGINE requires-java).Trim()
+        if ($requiresJava -eq 'true') {
+            if (-not (Get-Command java -ErrorAction SilentlyContinue)) {
+                Die "test: ci-config requires java (CouchbaseMock.jar backend) but 'java' is not on PATH"
+            }
         }
     }
 
     $prebuildDir = Join-Path $PROJECT_ROOT 'prebuilds'
     if (-not (Test-Path $prebuildDir)) {
         Die "test: no prebuilds/ under $PROJECT_ROOT - the prebuild stage must run (or its artifact be copied) first"
+    }
+    # Defense-in-depth: remove non-Win32 prebuilds if multiple platform artifacts were copied
+    Get-ChildItem $prebuildDir -Filter *.node -ErrorAction SilentlyContinue | ForEach-Object {
+        if ($_.Name -match '-darwin-' -or $_.Name -match '-linux-' -or $_.Name -match '-alpine-') {
+            Log "test: removing non-Windows prebuild $($_.Name) from prebuilds/"
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        }
     }
     if (-not (Get-ChildItem $prebuildDir -Filter *.node -ErrorAction SilentlyContinue)) {
         Die 'test: prebuilds/ exists but holds no *.node - nothing for scripts/install.js to resolve'
