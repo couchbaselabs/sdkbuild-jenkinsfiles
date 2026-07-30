@@ -206,8 +206,17 @@ task_prebuild() {
     "${NPM_BIN}" run prebuild
 
     local build_config="${CN_BUILD_CONFIG:-RelWithDebInfo}"
-    local built="build/${build_config}/couchbase_impl.node"
-    [[ -f "${built}" ]] || die "prebuild: expected binary not found: ${built}"
+    local built=""
+    if [[ -f "build/${build_config}/couchbase_impl.node" ]]; then
+        built="build/${build_config}/couchbase_impl.node"
+    elif [[ -f "build/Release/couchbase_impl.node" ]]; then
+        built="build/Release/couchbase_impl.node"
+    elif [[ -f "build/couchbase_impl.node" ]]; then
+        built="build/couchbase_impl.node"
+    else
+        built="$(find build -name "couchbase_impl.node" 2>/dev/null | head -1 || true)"
+    fi
+    [[ -n "${built}" && -f "${built}" ]] || die "prebuild: expected binary not found: build/${build_config}/couchbase_impl.node"
 
     # Filename convention ported from the legacy pipeline's getPrebuildFileName():
     #   couchbase-v<version>-{napi|electron}-v<abi>-<nodePlatform>-<nodeArch>-<ssl>.node

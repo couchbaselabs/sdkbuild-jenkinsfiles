@@ -243,6 +243,14 @@ function Task-Prebuild {
     # the Release output folder - see file header.
     $buildConfig = if ($configuredBuildType -eq 'Debug') { 'Debug' } else { 'Release' }
     $built = "build/$buildConfig/couchbase_impl.node"
+    if (-not (Test-Path $built)) {
+        if (Test-Path "build/Release/couchbase_impl.node") {
+            $built = "build/Release/couchbase_impl.node"
+        } else {
+            $found = Get-ChildItem -Path build -Filter 'couchbase_impl.node' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) { $built = $found.FullName }
+        }
+    }
     if (-not (Test-Path $built)) { Die "prebuild: expected binary not found: $built" }
 
     $version = Pkg-Version
