@@ -17,7 +17,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd -P)"
-ENGINE="${SCRIPT_DIR}/engine.js"
+ENGINE="${SCRIPT_DIR}/engine.mjs"
 NODE_BIN="${CBCI_NODE:-node}"
 NPM_BIN="${CBCI_NPM:-npm}"
 

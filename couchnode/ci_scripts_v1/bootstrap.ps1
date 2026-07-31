@@ -40,8 +40,8 @@ $CBCI_DEST = if ($env:CBCI_DEST) { $env:CBCI_DEST } else { '.' }
 # The fixed manifest (must match bootstrap.sh's CBCI_MANIFEST). bootstrap.ps1 itself
 # is excluded - it is already present.
 $CBCI_MANIFEST = @(
-    'engine.js'
-    'jenkins.js'
+    'engine.mjs'
+    'jenkins.mjs'
     'tasks.sh'
     'tasks.ps1'
     'ci-config.yaml'
@@ -51,10 +51,10 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.js'         = '0a9ef2b11c25fe28e4ee197bd1ae169f83c95d56792c9266fa31be9dc74886b1'
-    'jenkins.js'        = '7dacde16755fda69f2fd1f3bb068fe27c817eb13e07d064bf833e47cbc62f866'
-    'tasks.sh'          = '218cff5dc09b256b5c6bd85ff11a3e30e4023c73d9fc59f78314bd0dfcfaac4e'
-    'tasks.ps1'         = '8dc0f50e25efbb71656436432d42ea33fd4c2f7a197060e68ba5df562590730c'
+    'engine.mjs'        = '0a9ef2b11c25fe28e4ee197bd1ae169f83c95d56792c9266fa31be9dc74886b1'
+    'jenkins.mjs'       = '143e490ebaa2257abe296f9dc43dd4424d91e680e281cfe70e74302a463234cd'
+    'tasks.sh'          = '333baa647b9be224b0053b6c819e8b56ead8399e4d8acfa2cd57588eae5aea1e'
+    'tasks.ps1'         = 'cb6cb6b521908173ced33bba73b29c06dfd5a2bf1cc2e71822effcea2cd6cd98'
     'ci-config.yaml'    = '41a5d7fe9a47049296b626e358edc118ea880d4fa4ad2877c130a6f554e60557'
     'package.json'      = '490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'

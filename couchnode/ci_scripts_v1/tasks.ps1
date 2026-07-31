@@ -23,7 +23,7 @@
 $ErrorActionPreference = 'Stop'
 
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$ENGINE = Join-Path $SCRIPT_DIR 'engine.js'
+$ENGINE = Join-Path $SCRIPT_DIR 'engine.mjs'
 $NODE_BIN = if ($env:CBCI_NODE) { $env:CBCI_NODE } else { 'node' }
 $NPM_BIN = if ($env:CBCI_NPM) { $env:CBCI_NPM } else { 'npm' }
 $PROJECT_ROOT = if ($env:CBCI_PROJECT_ROOT) { $env:CBCI_PROJECT_ROOT } else { (Get-Location).Path }
