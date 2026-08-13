@@ -16,6 +16,7 @@
 
 import { parseArgs } from 'node:util';
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { parse as parseYaml } from 'yaml';
@@ -239,6 +240,89 @@ function applyPromotedVars(cfg) {
   return cfg;
 }
 
+function isCommitAncestor(commitSha, projectRoot) {
+  const cwd = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
+  try {
+    const catRes = spawnSync('git', ['cat-file', '-e', `${commitSha}^{commit}`], { cwd, stdio: 'ignore' });
+    if (catRes.status !== 0) {
+      return null;
+    }
+    const res = spawnSync('git', ['merge-base', '--is-ancestor', commitSha, 'HEAD'], { cwd, stdio: 'ignore' });
+    return res.status === 0;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function evalVersionEntry(entry, keyName, projectRoot) {
+  if (typeof entry === 'string') return entry.trim();
+  if (!entry || typeof entry !== 'object') return null;
+  const version = String(entry.version || '').trim();
+  if (!version) return null;
+
+  if (entry.min_commit) {
+    const minCommit = String(entry.min_commit).trim();
+    const isAnc = isCommitAncestor(minCommit, projectRoot);
+    if (isAnc === false) {
+      process.stderr.write(`[engine] ${keyName}: omitting '${version}' (min_commit '${minCommit.slice(0, 7)}' is not in HEAD history)\n`);
+      return null;
+    }
+  }
+
+  if (entry.drop_commit) {
+    const dropCommit = String(entry.drop_commit).trim();
+    const isAnc = isCommitAncestor(dropCommit, projectRoot);
+    if (isAnc === true) {
+      process.stderr.write(`[engine] ${keyName}: omitting '${version}' (drop_commit '${dropCommit.slice(0, 7)}' is in HEAD history)\n`);
+      return null;
+    }
+  }
+
+  return version;
+}
+
+export function resolveCommitGatedVersions(cfg, projectRoot) {
+  const support = cfg.support;
+  if (support && typeof support === 'object') {
+    for (const key of ['python_versions', 'node_versions', 'electron_versions']) {
+      if (Array.isArray(support[key])) {
+        const resolved = [];
+        for (const item of support[key]) {
+          const v = evalVersionEntry(item, key, projectRoot);
+          if (v && !resolved.includes(v)) {
+            resolved.push(v);
+          }
+        }
+        support[key] = resolved;
+      }
+    }
+  }
+
+  const build = cfg.build;
+  if (build && typeof build === 'object' && 'abi3' in build) {
+    const abi3Val = build.abi3;
+    if (abi3Val && typeof abi3Val === 'object') {
+      let enabled = Boolean(abi3Val.enabled ?? true);
+      if (abi3Val.min_commit) {
+        const minCommit = String(abi3Val.min_commit).trim();
+        if (isCommitAncestor(minCommit, projectRoot) === false) {
+          process.stderr.write(`[engine] build.abi3: disabling abi3 (min_commit '${minCommit.slice(0, 7)}' is not in HEAD history)\n`);
+          enabled = false;
+        }
+      }
+      if (abi3Val.drop_commit) {
+        const dropCommit = String(abi3Val.drop_commit).trim();
+        if (isCommitAncestor(dropCommit, projectRoot) === true) {
+          process.stderr.write(`[engine] build.abi3: disabling abi3 (drop_commit '${dropCommit.slice(0, 7)}' is in HEAD history)\n`);
+          enabled = false;
+        }
+      }
+      build.abi3 = enabled;
+    }
+  }
+  return cfg;
+}
+
 /** Load + merge config with precedence: file < CBCI_CONFIG_OVERRIDE < promoted vars.
  *
  * Config path precedence: explicit arg > CBCI_CONFIG_FILE env > ci-config.yaml
@@ -249,6 +333,7 @@ export function loadConfig(configPath) {
     || process.env.CBCI_CONFIG_FILE
     || join(__dirname, CONFIG_FILENAME);
   let cfg = loadYamlFile(resolvePath(path));
+  cfg = resolveCommitGatedVersions(cfg);
   cfg = applyConfigOverride(cfg);
   cfg = applyPromotedVars(cfg);
   return new Config(cfg);

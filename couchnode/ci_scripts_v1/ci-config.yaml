@@ -16,7 +16,11 @@ support:
   # Node ships prebuilt N-API binaries always. A prebuild is ABI-stable across every
   # Node major version sharing the same napi_version — so node_versions/electron_versions
   # drive TEST fan-out only, never build fan-out (see build.napi_version below).
-  node_versions: ["16.20.2", "18.20.4", "20.15.1", "22.14.0"]
+  node_versions:
+    - "16.20.2"
+    - "18.20.4"
+    - "20.15.1"
+    - { version: "22.14.0", min_commit: "8350f7c7eb4674f553072a4790d5a88a4a2e970c" }
   electron_versions: []   # populated per-run; empty = electron runtime not exercised
 
   runtimes: ["node", "electron"]
@@ -74,8 +78,8 @@ test:
   # (cbdyncluster on Jenkins) — deferred to the later Node.js integration-pipeline phase.
   integration:
     server_versions:
-      - ["6.6-release", "7.0-release", "7.1-release"]
-      - ["7.2-release", "7.6-stable"]
+      - ["7.0-stable", "7.1-stable"]
+      - ["7.2-stable", "7.6-stable"]
       - ["8.0-stable"]
     version_subset: true
     num_nodes: 3
