@@ -1,28 +1,25 @@
 #!/usr/bin/env node
-// jenkins.js — the Jenkins ADAPTER for the Couchbase Node.js SDK (couchnode) CI-core.
+// jenkins.mjs - the Jenkins ADAPTER for the Couchbase Node.js SDK (couchnode) CI-core.
 //
-// Translates the vendor-NEUTRAL plan from `engine.js` into Jenkins jobs, attaching the
-// ONE deployment-specific thing the core deliberately does not know: runner agent
-// labels (../CONVENTIONS.md §4). The neutral core (engine.js / tasks.sh) never carries
-// a label; this file is the sole place they live for Jenkins. engine.js must NEVER
-// import this module (core can't depend on an adapter).
+// Translates the vendor-NEUTRAL plan from `engine.mjs` into Jenkins jobs, attaching the
+// ONE deployment-specific thing the core deliberately does not know: runner agent labels
+// (../CONVENTIONS.md). The neutral core (engine.mjs / tasks.sh) never carries a label;
+// this file is the sole place they live for Jenkins. engine.mjs must NEVER import this
+// module (core cannot depend on an adapter).
 //
-// UNLIKE Python's jenkins.py: Node's legacy pipeline builds NATIVELY on distro-labeled
-// agents (centos7, almalinux8, alpine, qe-grav2-amzn2, ...) — there is no manylinux-
-// style on-demand container image. So this adapter has no `image`/`tasks.sh image`
-// concept; a build job is just "run tasks.sh prebuild on the right label".
+// Builds run NATIVELY on distro-labeled agents (centos7, almalinux8, alpine,
+// qe-grav2-amzn2, ...) with no on-demand container image, so this adapter has no `image`
+// concept: a build job is just "run tasks.sh prebuild on the right label".
 //
-// Electron is genuinely different from Node here, confirmed against the legacy
-// pipeline's own comment: Node prebuilds are N-API (ABI-stable across every configured
-// node_version — ONE build per (platform,arch,ssl)), but Electron prebuilds are NOT
-// N-API ("we don't have the N-API luxury" — legacy getPrebuildTagsElectron) — they are
-// classic NODE_MODULE_VERSION ABI, keyed by which Node version Electron bundles. So one
-// neutral electron build UNIT from engine.js can expand into MULTIPLE Jenkins build
-// jobs here — one per distinct ABI floor actually required by the configured
-// electron_versions (see `_electronBuildBuckets`).
+// Electron is genuinely different from Node here. Node prebuilds are N-API, ABI-stable
+// across every configured node_version, so ONE build covers a (platform, arch, ssl).
+// Electron prebuilds are classic NODE_MODULE_VERSION ABI, keyed by which Node version
+// Electron bundles. So one neutral electron build UNIT from engine.mjs can expand into
+// MULTIPLE Jenkins build jobs, one per distinct ABI floor the configured
+// electron_versions actually require (see `electronBuildBuckets`).
 //
 // CLI:
-//     node jenkins.js tags     # emit the Jenkins job plan (JSON) the groovy consumes
+//     node jenkins.mjs tags     # emit the Jenkins job plan (JSON) the groovy consumes
 
 import { parseArgs } from 'node:util';
 import { dirname, join } from 'node:path';
@@ -32,10 +29,9 @@ import * as engine from './engine.mjs';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Alpine ARM64 has no general-purpose agent: the fleet is one pinned-Node box per major.
-// This list is the SINGLE source of truth for which ones exist — both the label range
+// This list is the SINGLE source of truth for which ones exist: both the label range
 // table and PLATFORM_FAMILIES.alpine.arm64 derive from it, so no code path can mint a
-// label like `alpine-node-16-arm64` that no agent answers. Legacy encoded the same window
-// inline as `major >= 18 && major <= 22` (setBuildTags).
+// label like `alpine-node-16-arm64` that no agent answers.
 const ALPINE_ARM64_NODE_MAJORS = [18, 20, 22];
 const alpineArm64Label = (major) => `alpine-node-${major}-arm64`;
 
@@ -46,20 +42,19 @@ function alpineArm64Labels(nodeVersion) {
   return ALPINE_ARM64_NODE_MAJORS.includes(major) ? [alpineArm64Label(major)] : [];
 }
 
-// Node major-version range supported by each Jenkins AGENT LABEL. Ported from the
-// legacy pipeline's setBuildTags() exclusions — the glibc >= 2.28 floor that Node 18+
-// needs, which centos7/amzn2/Graviton agents don't have (legacy lines ~1815-1828), plus
-// alpine-arm64's 18..22 window (legacy `major >= 18 && major <= 22`).
+// Node major-version range supported by each Jenkins AGENT LABEL: the glibc >= 2.28 floor
+// Node 18+ needs, which centos7/amzn2/Graviton agents lack, plus alpine-arm64's 18..22
+// window.
 //
 // Keyed on LABEL, not (platform, arch), because one abstract platform+arch spans agents
 // with DIFFERENT floors: linux:x64 covers almalinux8 (all versions) AND centos7/amzn2
 // (Node 16 only). A (platform, arch) key cannot express that, and `max` cannot be
 // expressed by a min-only table.
 //
-// DELIBERATELY Jenkins-only (this is the adapter — CONVENTIONS §4): these are facts
+// DELIBERATELY Jenkins-only, since this is the adapter (CONVENTIONS.md): these are facts
 // about OUR agent fleet's distros, not about the SDK. GHA's runner images have entirely
-// different floors, so gha.js will need its OWN table (or none at all — ubuntu-latest
-// et al. carry no comparable glibc gap). engine.js must never learn about labels.
+// different floors, so gha.mjs will need its OWN table, or none at all since ubuntu-latest
+// and friends carry no comparable glibc gap. engine.mjs must never learn about labels.
 const LABEL_NODE_MAJORS = {
   // glibc < 2.28 -> Node 18+ will not run
   centos7: { max: 17 },
@@ -88,9 +83,9 @@ function labelSupportsNodeVersion(label, version) {
  *
  * Normally the build label is fixed (centos7, m1, windows...) so the window is just that
  * label's range. Alpine arm64 is the exception: its label is DERIVED from the version
- * (one pinned agent per major), so no label can be resolved before a version is picked —
- * there the window is the union over every label the family offers for this arch, and
- * jenkinsLabel() resolves the concrete agent afterwards from the chosen representative. */
+ * (one pinned agent per major), so no label resolves before a version is picked. There the
+ * window is the union over every label the family offers for this arch, and jenkinsLabel()
+ * resolves the concrete agent afterwards from the chosen representative. */
 function buildNodeWindow(platform, arch) {
   const akey = normArchKey(arch);
   const labelDef = JENKINS_LABELS[`${platform}:${akey}`];
@@ -116,43 +111,54 @@ function buildNodeWindow(platform, arch) {
 
 /** Narrow `nodeVersions` to those a BUILD on (platform, arch) may pick as its driver Node.
  *
- * FLOOR ONLY, deliberately. Ground-truthed against getPrebuildTagsBoringSSL, which has
- * exactly two cases: `prebuildVersions` = the globally OLDEST configured version (used for
- * centos7/grav2/macos/windows), and `prebuildAlpineArmVersions` = the oldest version
- * >= 18 (alpine arm64, whose agents start at Node 18). Neither applies a ceiling.
+ * FLOOR ONLY, deliberately. There are exactly two cases: the globally OLDEST configured
+ * version (centos7/grav2/macos/windows), and the oldest version >= 18 for alpine arm64,
+ * whose agents start at Node 18. Neither applies a ceiling.
  *
  * A ceiling would be wrong here: on the validate/test side a `max` means "skip this cell",
- * but a build has only ONE floor agent, so an over-max representative isn't a cell to drop
- * — it's a misconfiguration. `warnBuildDriverNode` reports it instead of silently emitting
+ * but a build has only ONE floor agent, so an over-max representative is a misconfiguration
+ * rather than a cell to drop. `warnBuildDriverNode` reports it instead of silently emitting
  * a job with no pinned version. */
 function filterNodeVersionsForPlatform(nodeVersions, platform, arch) {
   const { min } = buildNodeWindow(platform, arch);
   if (min === undefined) return nodeVersions;
-  return nodeVersions.filter((v) => {
+  const kept = [];
+  const dropped = [];
+  for (const v of nodeVersions) {
     const major = parseInt(String(v).split('.')[0], 10);
-    return Number.isNaN(major) ? true : major >= min;
-  });
+    (Number.isNaN(major) || major >= min ? kept : dropped).push(v);
+  }
+  // Say what was narrowed. Silent truncation reads as "we considered everything" when the
+  // driver pick was in fact taken from a smaller list, and the pick is the ONE thing that
+  // decides which agent compiles the prebuild.
+  if (dropped.length) {
+    process.stderr.write(
+      `[jenkins] ${platform}:${arch} build driver: ignoring node_versions `
+      + `[${dropped.join(', ')}] (below this platform's agent floor, Node ${min}) - `
+      + `choosing from [${kept.join(', ') || 'nothing left'}]\n`
+    );
+  }
+  return kept;
 }
 
-/** Warn when a build's chosen driver Node exceeds what its floor agent can run — e.g.
- * NODE_VERSIONS='20.15.1 22.14.0' pins Node 20 on centos7 (glibc < 2.28), which cannot
- * start it. Legacy had the same latent hole silently; surface it instead. */
+/** Warn when a build's chosen driver Node exceeds what its floor agent can run: say
+ * NODE_VERSIONS='20.15.1 22.14.0' pinning Node 20 on centos7 (glibc < 2.28), which cannot
+ * start it. */
 function warnBuildDriverNode(label, version) {
   if (version && !labelSupportsNodeVersion(label, version)) {
     const r = LABEL_NODE_MAJORS[label];
     process.stderr.write(
       `WARNING: build driver Node ${version} is outside agent '${label}''s supported range ` +
-      `(${r.min ?? '*'}..${r.max ?? '*'}) — configure a node_versions entry that '${label}' ` +
+      `(${r.min ?? '*'}..${r.max ?? '*'}); configure a node_versions entry that '${label}' ` +
       `can run, or the prebuild job will fail to install Node\n`
     );
   }
 }
 
-// EDIT FOR YOUR JENKINS — the ONE deployment-specific thing (CONVENTIONS §4).
-// The "default"/oldest-compatible label per (platform, arch) for the boringssl/N-API
-// node build — ported from the legacy getPrebuildTagsBoringSSL's glibc-floor picks
-// (centos7 = oldest x64 glibc; qe-grav2-amzn2 = oldest aarch64 glibc). macOS/Windows
-// build natively on their own arch-specific agent (no floor concept).
+// EDIT FOR YOUR JENKINS: the ONE deployment-specific thing (CONVENTIONS.md).
+// The oldest-compatible label per (platform, arch) for the boringssl/N-API node build.
+// centos7 is the oldest x64 glibc; qe-grav2-amzn2 the oldest aarch64. macOS/Windows build
+// natively on their own arch-specific agent, with no floor concept.
 const JENKINS_LABELS = {
   'linux:x64': 'centos7',
   'linux:arm64': 'qe-grav2-amzn2',
@@ -165,29 +171,21 @@ const JENKINS_LABELS = {
   'windows:x64': 'windows',
 };
 
-// Electron<->Node ABI compat table — REPLACES the legacy pipeline's hardcoded
-// `getElectronNodeVersion()` if/else (duplicated independently 3x, one cutoff, no
-// room for future Electron generations). Ascending by maxElectronMajor; the first
-// entry whose maxElectronMajor >= the target Electron major wins. Ported verbatim
-// from the one confirmed real cutoff (Electron 23): below it, Electron bundles a
-// Node ABI compatible with Node 16 (built against 16.16.0); at/above it, Node 18
-// (built against 18.16.0). Each floor also carries the linux glibc-floor label picks,
-// ported from getPrebuildTagsElectron (centos7/almalinux8 x64, qe-grav2-amzn2/
-// qe-ubuntu20-arm64 arm64) — Electron >= 23 needs glibc >= 2.28, which centos7/amzn2
-// don't have, hence the almalinux8/qe-ubuntu20-arm64 floor bump.
+// Electron/Node ABI compat table. Ascending by maxElectronMajor; the first entry whose
+// maxElectronMajor >= the target Electron major wins. Electron 23 is the one real cutoff:
+// below it Electron bundles a Node ABI compatible with Node 16 (built against 16.16.0),
+// at or above it Node 18 (built against 18.16.0). Each floor also carries the linux
+// glibc-floor label picks: Electron >= 23 needs glibc >= 2.28, which centos7/amzn2 lack,
+// hence the almalinux8 / qe-ubuntu20-arm64 bump.
 //
-// Simplification vs. the legacy pipeline (documented, not silently dropped): the
-// legacy code additionally deduplicates by the ACTUAL Electron ABI number (a live
-// `node -p "require('node-abi').getAbi(v,'electron')"` shell-out per version). This
-// table buckets by MAJOR VERSION instead, which is coarser (never wrong — a coarser
-// bucket just builds one extra prebuild, it doesn't ship an incompatible one — but
-// could produce more buckets than the live ABI lookup would). Revisit if/when a
-// dependency on the `node-abi` package is acceptable at tag-generation time.
+// Bucketing is by MAJOR VERSION rather than the actual Electron ABI number, which would
+// need a live `node -p "require('node-abi').getAbi(v,'electron')"` per version. Major is
+// coarser but never wrong: an extra bucket builds one extra prebuild, it does not ship an
+// incompatible one. Revisit if a dependency on `node-abi` becomes acceptable at
+// tag-generation time.
 //
-// `nodeVersion` here is a LABEL/BUCKETING key only (which floor a build lands on) —
-// ground-truthed against the legacy pipeline's own build invocation (line ~296-298:
-// `envs.add("CN_PREBUILD_RUNTIME_VERSION=${electronVersion}")`), the value actually
-// passed to cmake-js is the real Electron version being built (see
+// `nodeVersion` here is a LABEL/BUCKETING key only, deciding which floor a build lands on.
+// The value actually passed to cmake-js is the real Electron version being built (see
 // `electronBuildBuckets`'s `representative`), never this Node version string.
 const ELECTRON_NODE_ABI_TABLE = [
   {
@@ -202,21 +200,19 @@ const ELECTRON_NODE_ABI_TABLE = [
   },
 ];
 
-// Platform FAMILIES — the validate/test fan-out. A PLATFORMS token is a family the user
-// lists (the historical distro names); each fans out to an abstract platform + the
-// concrete agent labels PER ARCH. Ported from the legacy setBuildTags() arch remap.
-// ubuntu22/ubuntu24/rhel9 are arm64-only (no x64 agent exists for those families —
-// JSCBC-1726 for ubuntu24's x64 gap specifically). A label edit here is a CI-core
-// change (this file is sha256-pinned): the cost of keeping the map in one unit-tested
-// place instead of 3 independently-drifting groovy copies.
+// Platform FAMILIES: the validate/test fan-out. A PLATFORMS token is a family the user
+// lists (a distro name); each fans out to an abstract platform plus the concrete agent
+// labels PER ARCH. ubuntu22/ubuntu24/rhel9 are arm64-only, since no x64 agent exists for
+// those families (JSCBC-1726 covers ubuntu24's x64 gap). Editing a label here is a CI-core
+// change, since this file is sha256-pinned; that is the cost of keeping the map in one
+// unit-tested place instead of several independently-drifting groovy copies.
 const PLATFORM_FAMILIES = {
   //  family          abstract    x64 labels        arm64 labels
   almalinux8: { platform: 'linux', x64: ['almalinux8'], arm64: [] },
   centos7: { platform: 'linux', x64: ['centos7'], arm64: [] },
   amzn2: { platform: 'linux', x64: ['amzn2'], arm64: ['qe-grav2-amzn2', 'qe-grav3-amzn2', 'qe-grav4-amzn2'] },
-  // ubuntu20 DOES have an x64 agent (it is also JENKINS_SDIST_LABEL). Legacy setBuildTags
-  // excludes x64 only for ubuntu22/rhel9/ubuntu24 — ubuntu20 was swept in with them here
-  // by mistake, silently dropping 4 validate + 4 test cells the legacy pipeline runs.
+  // ubuntu20 DOES have an x64 agent; it is also JENKINS_SDIST_LABEL. Only
+  // ubuntu22/rhel9/ubuntu24 lack one.
   ubuntu20: { platform: 'linux', x64: ['ubuntu20'], arm64: ['qe-ubuntu20-arm64'] },
   ubuntu22: { platform: 'linux', x64: [], arm64: ['qe-ubuntu22-arm64'] },
   ubuntu24: { platform: 'linux', x64: [], arm64: ['qe-ubuntu24-arm64'] },
@@ -303,13 +299,8 @@ function electronFloorFor(electronMajor) {
   return ELECTRON_NODE_ABI_TABLE.find((e) => electronMajor <= e.maxElectronMajor);
 }
 
-/** Group configured electron_versions by which ABI floor they need (dedup so each
- * distinct floor becomes exactly ONE build job, mirroring the legacy pipeline's own
- * "collapse to one binary per floor" trick — see ELECTRON_NODE_ABI_TABLE's docstring
- * for the coarser-than-legacy caveat). Returns floors in table order, each with the
- * list of configured versions it covers (informational, for the job's env/logging). */
-/** Numeric ascending compare of two "x.y.z" version strings (no semver prerelease
- * handling needed here — electron_versions are always plain release versions). */
+/** Numeric ascending compare of two "x.y.z" version strings. No semver prerelease
+ * handling is needed: electron_versions are always plain release versions. */
 function compareVersions(a, b) {
   const at = String(a).split('.').map(Number);
   const bt = String(b).split('.').map(Number);
@@ -320,6 +311,9 @@ function compareVersions(a, b) {
   return 0;
 }
 
+/** Group configured electron_versions by the ABI floor each needs, so every distinct floor
+ * becomes exactly ONE build job. Returns floors in table order, each with the list of
+ * configured versions it covers (informational, for the job's env and logging). */
 function electronBuildBuckets(electronVersions) {
   const byFloorIdx = new Map();
   for (const v of electronVersions) {
@@ -330,11 +324,9 @@ function electronBuildBuckets(electronVersions) {
     if (!byFloorIdx.has(idx)) byFloorIdx.set(idx, { floor, versions: [] });
     byFloorIdx.get(idx).versions.push(v);
   }
-  // Representative version = the lowest in the bucket (mirrors the legacy
-  // pipeline's own pbTags dedup, which keys each bucket by the FIRST electron
-  // version it encounters for that floor — see getPrebuildTagsElectron). This is
-  // the ACTUAL version cmake-js builds against (CN_PREBUILD_RUNTIME_VERSION); the
-  // floor's nodeVersion string is a bucketing/label key only, never a build input.
+  // Representative version = the lowest in the bucket. This is the ACTUAL version cmake-js
+  // builds against (CN_PREBUILD_RUNTIME_VERSION); the floor's nodeVersion string is a
+  // bucketing/label key only, never a build input.
   return [...byFloorIdx.keys()].sort((a, b) => a - b).map((idx) => {
     const entry = byFloorIdx.get(idx);
     const versions = [...entry.versions].sort(compareVersions);
@@ -342,18 +334,16 @@ function electronBuildBuckets(electronVersions) {
   });
 }
 
-// Node<->OpenSSL ABI floor table — ground-truthed against the legacy pipeline's
-// getPrebuildTagsOpenSSL(): ONLY applies when build.ssl == 'openssl'. BoringSSL builds
-// never fan out by node_versions (getPrebuildTagsBoringSSL always collapses to ONE
-// build using the single oldest configured node_versions entry, regardless of any
-// cutoff) — this table is the OpenSSL-specific exception: pre-18 and 18+ Node link
-// against different OpenSSL majors (1.1 vs 3), so each side of that cutoff needs its
-// own prebuild. Same shape as ELECTRON_NODE_ABI_TABLE; macOS/Windows keep their direct
-// label but still split into two jobs, exactly like the electron case.
+// Node/OpenSSL ABI floor table. ONLY applies when build.ssl == 'openssl'. BoringSSL builds
+// never fan out by node_versions; they collapse to ONE build using the single oldest
+// configured entry. This table is the OpenSSL-specific exception: pre-18 and 18+ Node link
+// against different OpenSSL majors (1.1 vs 3), so each side of that cutoff needs its own
+// prebuild. Same shape as ELECTRON_NODE_ABI_TABLE; macOS/Windows keep their direct label
+// but still split into two jobs, exactly like the electron case.
 const OPENSSL_NODE_FLOOR_TABLE = [
-  // `id` (not `maxNodeMajor`) is what jobs carry — Infinity doesn't survive
-  // JSON.stringify (becomes `null`), which would make the groovy consumer's job JSON
-  // useless for identifying the top-open-ended floor.
+  // Jobs carry `id`, not `maxNodeMajor`: Infinity does not survive JSON.stringify (it
+  // becomes `null`), which would leave the groovy consumer unable to identify the
+  // top-open-ended floor.
   { id: '<18', maxNodeMajor: 17, linuxLabel: { x64: 'centos7', arm64: 'qe-grav2-amzn2' } },
   { id: '18+', maxNodeMajor: Infinity, linuxLabel: { x64: 'almalinux8', arm64: 'qe-ubuntu20-arm64' } },
 ];
@@ -401,9 +391,8 @@ function abstractPlatforms(tokens) {
 
 /** One build job per NODE unit; the electron units each expand into one job PER
  * required ABI floor bucket, using electron_versions from the (already narrowed)
- * config. Stash keys are disambiguated by everything that can collide on a shared
- * label (mirrors Python's lesson: linux/alpine sharing a docker label) — here,
- * platform + arch + runtime + (for electron) the floor's node-version-string. */
+ * config. Stash keys are disambiguated by everything that can collide on a shared label:
+ * platform + arch + runtime + (for electron) the floor's node-version string. */
 function buildJobsFromPlan(plan, cfg) {
   const jobs = [];
   const electronVersions = cfg.raw.support?.electron_versions || [];
@@ -414,8 +403,8 @@ function buildJobsFromPlan(plan, cfg) {
     const { platform, arch, libc } = u;
     if (u.runtime === 'node') {
       if (ssl === 'openssl') {
-        // OpenSSL: fan out by the Node-18 ABI floor (see OPENSSL_NODE_FLOOR_TABLE) —
-        // one job per floor actually required by the configured node_versions.
+        // OpenSSL: fan out by the Node-18 ABI floor (see OPENSSL_NODE_FLOOR_TABLE), one
+        // job per floor actually required by the configured node_versions.
         for (const { floor, versions, representative } of opensslBuildBuckets(nodeVersions)) {
           let label;
           if (platform === 'linux' || platform === 'alpine') {
@@ -440,16 +429,25 @@ function buildJobsFromPlan(plan, cfg) {
         continue;
       }
 
-      // BoringSSL (the default): ONE job per (platform, arch), representative = the
-      // single oldest configured node_versions entry (ground-truthed against
-      // getPrebuildTagsBoringSSL, which always collapses to this regardless of any
-      // node-major cutoff — N-API makes it ABI-compatible with every newer major too).
-      // Filter out node versions below the platform floor (e.g. Node 16 on alpine:arm64).
+      // BoringSSL (the default): ONE job per (platform, arch), with representative = the
+      // single oldest configured node_versions entry. N-API makes that binary
+      // ABI-compatible with every newer major, so no node-major cutoff applies. Filter out
+      // versions below the platform floor (e.g. Node 16 on alpine:arm64).
       const validVersions = filterNodeVersionsForPlatform(nodeVersions, platform, arch);
       const representative = validVersions.length ? [...validVersions].sort(compareVersions)[0] : undefined;
+      // No representative means no driver Node to install. Emitting the job anyway hands
+      // groovy a null `node_version` and the failure surfaces as an unexplained installNode
+      // error on the agent; name the cause here instead, where the config is in hand.
+      if (!representative) {
+        throw new Error(
+          `no usable build driver Node for ${platform}:${arch} - every configured `
+          + `node_versions entry [${nodeVersions.join(', ') || 'none'}] is below that `
+          + `platform's agent floor (Node ${buildNodeWindow(platform, arch).min}). `
+          + 'Add a NODE_VERSIONS entry that floor can run, or drop the platform.');
+      }
       const env = { CBCI_BUILD_PLATFORM: platform, CBCI_BUILD_ARCH: arch, CBCI_BUILD_RUNTIME: 'node' };
       if (libc) env.CBCI_BUILD_LIBC = libc;
-      if (representative) env.CBCI_BUILD_NODE_VERSION = representative;
+      env.CBCI_BUILD_NODE_VERSION = representative;
       const buildLabel = jenkinsLabel(platform, arch, representative);
       warnBuildDriverNode(buildLabel, representative);
       jobs.push({
@@ -494,8 +492,8 @@ function buildJobsFromPlan(plan, cfg) {
   return jobs;
 }
 
-/** validate/test cells: PLATFORMS filters the fan-out exactly like Python's
- * _check_jobs — a distro family (amzn2) selects its labels for this cell's arch, so
+/** validate/test cells: PLATFORMS filters the fan-out. A distro family (amzn2)
+ * selects its labels for this cell's arch, so
  * listing amzn2 tests its x64 box AND its Graviton boxes. Empty PLATFORMS = every
  * label on the cell's platform. */
 function checkJobs(units, requested) {
@@ -503,7 +501,7 @@ function checkJobs(units, requested) {
   for (const u of units) {
     for (const label of checkLabels(u.platform, u.arch, requested, u.version)) {
       // Per-AGENT filter, not per-(platform,arch): one neutral linux/x64 cell expands to
-      // almalinux8 (every Node) AND centos7/amzn2 (Node <18 only — glibc < 2.28). Dropping
+      // almalinux8 (every Node) AND centos7/amzn2 (Node <18 only, glibc < 2.28). Dropping
       // the unsupported pairs here is what keeps validate/test off cells that would fail
       // to even start Node. See LABEL_NODE_MAJORS.
       if (u.runtime === 'node' && !labelSupportsNodeVersion(label, u.version)) {
@@ -636,10 +634,10 @@ export function integrationTags(configPath = null) {
   return { build: buildJobs, test: testCells };
 }
 
-/** Full pipeline: build the neutral plan (narrowed to the requested platforms) and
- * translate it into the Jenkins job plan the groovy consumes. */
-export function tags(configPath) {
-  const requested = requestedTokens();
+/** Load the config with PLATFORMS withheld (it speaks Jenkins label vocabulary, which the
+ * neutral engine must never see), narrow it to the requested platforms, and build the
+ * plan. */
+function narrowedPlan(configPath, requested) {
   const abstract = abstractPlatforms(requested);
   const saved = process.env.PLATFORMS;
   delete process.env.PLATFORMS;
@@ -650,7 +648,28 @@ export function tags(configPath) {
     if (saved !== undefined) process.env.PLATFORMS = saved;
   }
   if (abstract.size) engine.narrowToPlatforms(cfg, abstract);
-  const plan = engine.buildPlan(cfg);
+  return { cfg, plan: engine.buildPlan(cfg) };
+}
+
+/** Post-publish verification: one cell per (label, arch, node version, install type),
+ * installing the PUBLISHED package from the registry by name.
+ *
+ * Built from the VALIDATE units rather than a second matrix, so what gets verified after
+ * publish is the same shape that was checked before it. Electron is dropped: its prebuilds
+ * go to the snapshots bucket and never reach npm, so there is nothing on the registry for
+ * a verify cell to install. */
+export function verifyTags(configPath) {
+  const requested = requestedTokens();
+  const { plan } = narrowedPlan(configPath, requested);
+  const units = plan.validate.units.filter((u) => u.runtime === 'node');
+  return { verify: checkJobs(units, requested) };
+}
+
+/** Full pipeline: build the neutral plan (narrowed to the requested platforms) and
+ * translate it into the Jenkins job plan the groovy consumes. */
+export function tags(configPath) {
+  const requested = requestedTokens();
+  const { cfg, plan } = narrowedPlan(configPath, requested);
 
   return {
     sdist: { label: JENKINS_SDIST_LABEL, stage: 'sdist', env: {} },
@@ -665,7 +684,7 @@ export function tags(configPath) {
 // ---------------------------------------------------------------------------
 
 function usage() {
-  process.stderr.write('usage: jenkins.js [--config <path>] <tags|integration-tags>\n');
+  process.stderr.write('usage: jenkins.mjs [--config <path>] <tags|integration-tags|verify-tags>\n');
 }
 
 export function main(argv = process.argv.slice(2)) {
@@ -675,13 +694,25 @@ export function main(argv = process.argv.slice(2)) {
     allowPositionals: true,
   });
   const cmd = positionals[0];
-  if (cmd === 'tags') {
-    console.log(JSON.stringify(tags(values.config)));
-    return 0;
-  }
-  if (cmd === 'integration-tags') {
-    console.log(JSON.stringify(integrationTags(values.config)));
-    return 0;
+  // A plan that cannot be built is a CONFIG problem, not a crash: report it the way
+  // engine.mjs reports its own fatal checks, so the groovy log shows the cause rather
+  // than a stack trace with the message buried in it.
+  try {
+    if (cmd === 'tags') {
+      console.log(JSON.stringify(tags(values.config)));
+      return 0;
+    }
+    if (cmd === 'integration-tags') {
+      console.log(JSON.stringify(integrationTags(values.config)));
+      return 0;
+    }
+    if (cmd === 'verify-tags') {
+      console.log(JSON.stringify(verifyTags(values.config)));
+      return 0;
+    }
+  } catch (err) {
+    process.stderr.write(`ERROR: ${err.message}\n`);
+    return 1;
   }
   usage();
   return 1;

@@ -3,19 +3,13 @@
 # tasks.ps1 - Windows task executors for the Couchbase Node.js SDK (couchnode).
 # Mirrors tasks.sh stage-for-stage; see that file's header for the shared design.
 #
-# Windows-specific deviations from tasks.sh, both ground-truthed against the legacy
-# pipeline (scripted-build-pipeline.groovy) and the real couchnode scripts, not
-# guessed:
-#   - No strip toolchain (objcopy/xcrun) assumed on Windows. The debug artifact is the
-#     compiler-emitted .pdb, copied as-is (ground-truthed: legacy's windows branch of
-#     the "parse prebuild" stage just does `copy couchbase_impl.pdb ...prebuildsDebug\`,
-#     never a strip step).
-#   - The legacy pipeline computes `buildType = (BUILD_TYPE != "Debug") ? "Release" :
-#     BUILD_TYPE` on Windows (a RelWithDebInfo config default gets forced to Release)
-#     AND deliberately never exports CN_BUILD_CONFIG on Windows at all - cmake-js's own
-#     default on the Visual Studio (multi-config) generator already lands in a
-#     build/Release folder, so this only affects where we go looking for the compiled
-#     .node afterward, never what gets passed to the build.
+# Two Windows-specific deviations from tasks.sh:
+#   - No strip toolchain (objcopy/xcrun) is assumed on Windows. The debug artifact is the
+#     compiler-emitted .pdb, copied as-is, with no strip step.
+#   - CN_BUILD_CONFIG is deliberately NOT exported on Windows. cmake-js's default on the
+#     Visual Studio (multi-config) generator already lands in build/Release, so the
+#     configured build type only decides where to look for the compiled .node afterward,
+#     never what gets passed to the build.
 
 # Force TLS 1.2 on PowerShell 5.1 / .NET Framework on older Windows Server agents
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -41,7 +35,7 @@ function Invoke-Checked([string]$exe, [string[]]$exeArgs) {
     if ($LASTEXITCODE -ne 0) { Die "'$exe $($exeArgs -join ' ')' exited $LASTEXITCODE" }
 }
 
-# Parse a space-joined `KEY=VALUE KEY2=VALUE2` line (engine.js's emitPairs format)
+# Parse a space-joined `KEY=VALUE KEY2=VALUE2` line (engine.mjs's emitPairs format)
 # into the current process environment.
 function Import-EnvPairs([string]$line) {
     if ([string]::IsNullOrWhiteSpace($line)) { return }
@@ -51,7 +45,7 @@ function Import-EnvPairs([string]$line) {
         }
     }
 }
-# Parse newline-separated `KEY=VALUE` lines (engine.js's emitLines format).
+# Parse newline-separated `KEY=VALUE` lines (engine.mjs's emitLines format).
 function Import-EnvLines([string[]]$lines) {
     foreach ($line in $lines) {
         if ($line -match '^([^=]+)=(.*)$') {
@@ -220,10 +214,9 @@ function Task-Prebuild {
     $buildEnv = & $NODE_BIN $ENGINE build-env prebuild
     Log "prebuild build-env: $buildEnv"
     Import-EnvPairs $buildEnv
-    # Capture the CONFIGURED build type before clearing it: still needed below to
-    # decide the Debug/Release output-folder lookup, even though (ground-truthed) the
-    # legacy pipeline never exports CN_BUILD_CONFIG itself on Windows - cmake-js's own
-    # Visual Studio (multi-config) generator default already lands in build/Release.
+    # Capture the CONFIGURED build type before clearing it: it still decides the
+    # Debug/Release output-folder lookup below, even though CN_BUILD_CONFIG is never
+    # exported on Windows. See the file header.
     $configuredBuildType = if ($env:CN_BUILD_CONFIG) { $env:CN_BUILD_CONFIG } else { 'RelWithDebInfo' }
     [Environment]::SetEnvironmentVariable('CN_BUILD_CONFIG', $null, 'Process')
 
@@ -281,7 +274,29 @@ function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
     Push-Location $tmp
     try {
         Invoke-Checked $NPM_BIN @('init', '-y')
-        if ($itype -eq 'prebuild') {
+        # Registry mode (release-verify): install the PUBLISHED package by name, so what is
+        # exercised is what a consumer actually gets. The install types keep their meaning:
+        # 'prebuild' lets npm resolve the optionalDependencies, '--omit=optional' withholds
+        # them and forces the from-source fallback.
+        if ($env:CBCI_PACKAGING_INDEX) {
+            if (-not $env:CBCI_VERSION) { Die "validate: CBCI_VERSION required when CBCI_PACKAGING_INDEX is set" }
+            $spec = "$($env:CBCI_VALIDATE_PACKAGE_NAME)@$($env:CBCI_VERSION)"
+            if ($itype -eq 'prebuild') {
+                Invoke-Checked $NPM_BIN @('install', '--save', $spec)
+            } elseif ($itype -eq 'sdist') {
+                Invoke-Checked $NPM_BIN @('install', '--save', '--omit=optional', $spec)
+            } else {
+                Die "validate: unknown install_type: $itype (prebuild|sdist)"
+            }
+            # Join-String is absent on PowerShell 5.1, so the listing is collapsed with -join.
+            $listing = (& $NPM_BIN @('list', '--depth=1') 2>&1) -join "`n"
+            Write-Host $listing
+            # An --omit=optional install that still resolved a platform package would be
+            # testing the prebuild path twice and reporting the source path as covered.
+            if ($itype -eq 'sdist' -and $listing -match "@$($env:CBCI_VALIDATE_PACKAGE_NAME)/") {
+                Die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
+            }
+        } elseif ($itype -eq 'prebuild') {
             $prebuildDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
             New-Item -ItemType Directory -Force -Path $prebuildDir | Out-Null
             $prebuilt = Get-ChildItem (Join-Path $PROJECT_ROOT 'prebuilds') -Filter *.node -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -295,12 +310,60 @@ function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
         } else {
             Die "validate: unknown install_type: $itype (prebuild|sdist)"
         }
-        $importName = $env:CBCI_VALIDATE_IMPORT
-        & $NODE_BIN -e "
-const pkg = require(process.env.CBCI_VALIDATE_IMPORT);
-if (typeof pkg.connect !== 'function') { console.error('[validate] couchbase module missing connect()'); process.exit(1); }
-console.log('[validate] required ' + process.env.CBCI_VALIDATE_IMPORT + ' OK, connect() present');
-"
+        # LITERAL here-string (@' ... '@): nothing inside is expanded, so the JS may use $
+        # and backticks freely. Mirrors tasks.sh's _validate_smoke_js - keep the two in step.
+        # On failure it names the cause instead of leaving you with the SDK's own message,
+        # which reports only what the loader WANTED: resolvePrebuild() throws "Could not find
+        # native build for platform=..., arch=..., runtime=..., sslType=..." after swallowing
+        # the real error, and never says what was actually present. A failed validate never
+        # reaches archiving, so this in-process look is the only one anyone gets.
+        $smokeScript = @'
+const fs = require('fs');
+const path = require('path');
+
+function dumpAddons() {
+  const facts = [`node ${process.versions.node}`, `Node-API ${process.versions.napi}`,
+    `${process.platform}/${process.arch}`, `ssl=${process.env.CBCI_VALIDATE_SSL || '?'}`];
+  console.error(`[validate] load failed on ${facts.join(', ')}`);
+
+  const found = [];
+  const walk = (dir) => {
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.node')) found.push(p);
+    }
+  };
+  walk('node_modules');
+
+  if (!found.length) {
+    console.error('[validate]   shipped: NO .node addon anywhere under node_modules/ '
+      + '(the prebuild never landed, or a source build was expected and did not produce one)');
+    return;
+  }
+  // The loader matches on the FILENAME's tokens, so the name is the diagnosis:
+  //   couchbase-v<pkg>-<runtime>-v<abi>-<platform>-<arch>-<ssl>.node
+  // A mismatch in any one of them (openssl3 vs boringssl, arch) presents as "no native
+  // build found", identical to nothing having shipped at all.
+  for (const p of found) console.error(`[validate]   shipped: ${p}`);
+}
+
+const mod = process.env.CBCI_VALIDATE_IMPORT;
+try {
+  const pkg = require(mod);
+  if (typeof pkg.connect !== 'function') {
+    console.error('[validate] couchbase module missing connect()');
+    process.exit(1);
+  }
+  console.log(`[validate] required ${mod} OK, connect() present`);
+} catch (err) {
+  dumpAddons();
+  throw err;
+}
+'@
+        & $NODE_BIN -e $smokeScript
         if ($LASTEXITCODE -ne 0) { Die "validate: smoke check failed for $itype" }
     } finally {
         Pop-Location
@@ -314,11 +377,18 @@ function Task-Validate {
     Import-EnvPairs $out
     if ($env:CBCI_INSTALL_TYPE) { $env:CBCI_VALIDATE_INSTALL_TYPES = $env:CBCI_INSTALL_TYPE }
 
-    $sdistTgz = Get-ChildItem (Join-Path $PROJECT_ROOT '*.tgz') -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $sdistTgz) { Die "validate: no *.tgz found under $PROJECT_ROOT (build sdist first?)" }
+    # Registry mode installs by name from the index, so there is no local artifact to find.
+    $sdistPath = ''
+    if (-not $env:CBCI_PACKAGING_INDEX) {
+        $sdistTgz = Get-ChildItem (Join-Path $PROJECT_ROOT '*.tgz') -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $sdistTgz) { Die "validate: no *.tgz found under $PROJECT_ROOT (build sdist first?)" }
+        $sdistPath = $sdistTgz.FullName
+    } else {
+        Log "validate: registry mode, index=$($env:CBCI_PACKAGING_INDEX) version=$($env:CBCI_VERSION)"
+    }
 
     foreach ($itype in ($env:CBCI_VALIDATE_INSTALL_TYPES -split ',')) {
-        Invoke-ValidateOne $itype $sdistTgz.FullName
+        Invoke-ValidateOne $itype $sdistPath
         Log "validate: $itype OK"
     }
     Log "validate: all install types passed ($env:CBCI_VALIDATE_INSTALL_TYPES)"
@@ -326,7 +396,7 @@ function Task-Validate {
 
 # --- test: NOTHING IS COMPILED HERE - `test` consumes the prebuild the `prebuild` stage
 # already produced, same contract as `validate`. See tasks.sh's task_test header for the
-# full rationale; the mechanism is identical (ported from the legacy pipeline):
+# full rationale; the mechanism is identical:
 # .npmrc couchbase_local_prebuilds -> `npm ci --ignore-scripts` -> `npm run install`,
 # with a post-condition check because scripts/install.js SILENTLY falls back to
 # prebuilds.buildBinary() when it cannot resolve a prebuild.

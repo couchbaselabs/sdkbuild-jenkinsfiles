@@ -1,4 +1,4 @@
-# ci-config.yaml — COUCHNODE (Couchbase Node.js SDK) defaults & support matrix.
+# ci-config.yaml - COUCHNODE (Couchbase Node.js SDK) defaults and support matrix.
 #
 # Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
 # Override at runtime via promoted vars (PLATFORMS/ARCHES/NODE_VERSIONS/
@@ -7,15 +7,16 @@
 #
 # IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
 # (qe-docker, m1, windows) and container images live in the vendor ADAPTER
-# (jenkins.js), not here. See ../CONVENTIONS.md.
+# (jenkins.mjs), not here. See ../CONVENTIONS.md.
 
 project: COUCHNODE
 
 # --- support matrix ----------------------------------------------------------
 support:
   # Node ships prebuilt N-API binaries always. A prebuild is ABI-stable across every
-  # Node major version sharing the same napi_version — so node_versions/electron_versions
-  # drive TEST fan-out only, never build fan-out (see build.napi_version below).
+  # Node major version sharing the same napi_version, so node_versions and
+  # electron_versions drive TEST fan-out only, never build fan-out (see
+  # build.napi_version below).
   node_versions:
     - "16.20.2"
     - "18.20.4"
@@ -27,14 +28,13 @@ support:
 
   architectures: ["x64", "arm64"]
 
-  # Which abstract platforms are supported per arch. platform ∈
-  # {linux, alpine, macos, windows}; linux/alpine both need a libc flavor (see build.libc).
+  # Which abstract platforms are supported per arch. A platform is one of linux,
+  # alpine, macos, windows. linux and alpine both need a libc flavor (see build.libc).
   platforms:
     x64:   ["linux", "alpine", "macos", "windows"]
     arm64: ["linux", "alpine", "macos"]
 
-  # Alpine+arm64+electron is unsupported today (carried forward from the legacy
-  # pipeline's own documented gap, JSCBC-1268) — not solved in this phase.
+  # Alpine + arm64 + electron is unsupported (JSCBC-1268).
   unsupported:
     - { platform: "alpine", arch: "arm64", runtime: "electron" }
 
@@ -47,18 +47,16 @@ build:
                             # into the sdist tarball before it's built into prebuilds
   verbose_makefile: false
 
-  # napi_version: the N-API level the C++ addon targets. Informational/documentation
-  # only — it is HARDCODED at compile time (CMakeLists.txt: `-DNAPI_VERSION=6`), not an
-  # env-driven build input, so tasks.sh has nothing to pass for it. It stays in config to
-  # justify (and let validateConfig assert) the "ONE build serves every node_versions
-  # entry" claim: bumping the compiled floor is a deliberate source-code change, not a
-  # per-run knob.
+  # napi_version: the N-API level the C++ addon targets. Informational only, since it is
+  # HARDCODED at compile time (CMakeLists.txt: `-DNAPI_VERSION=6`) rather than env-driven,
+  # so tasks.sh has nothing to pass for it. It stays in config so validateConfig can
+  # assert the "ONE build serves every node_versions entry" claim. Bumping the compiled
+  # floor is a deliberate source-code change, not a per-run knob.
   napi_version: 6
 
-  # libc flavors per platform — drives build-unit keys and image selection (Node's
-  # analog of Python's manylinux/musllinux split).
+  # libc flavors per platform. Drives build-unit keys and image selection.
   libc:
-    linux: manylinux         # oldest-glibc floor picked by jenkins.js's family table
+    linux: manylinux         # oldest-glibc floor picked by jenkins.mjs's family table
     alpine: musllinux
 
 # --- test defaults -----------------------------------------------------------
@@ -69,13 +67,12 @@ test:
 
   mocha:
     cmd: "npm run test"
-    # CouchbaseMock.jar needs a `java` runtime on the test agent — tasks.sh/tasks.ps1
+    # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1
     # check for it before falling back to a real cluster via CNCSTR.
     require_java: true
 
-  # Neutral real-cluster spec, mirrors Python's test.integration shape (see
-  # ci-config.yaml in couchbase-sdk-ci/python/). Provisioning stays adapter/groovy-only
-  # (cbdyncluster on Jenkins) — deferred to the later Node.js integration-pipeline phase.
+  # Neutral real-cluster spec. Provisioning stays adapter/groovy-only (cbdyncluster on
+  # Jenkins) and is not implemented yet.
   integration:
     server_versions:
       - ["7.0-stable", "7.1-stable"]

@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
 #
-# bootstrap.sh — the ONLY file a consumer pipeline curls by name.
+# bootstrap.sh - the ONLY file a consumer pipeline curls by name.
 #
 # Responsibilities:
 #   1. Pin the CI-core ref (tag/sha) the rest of the manifest is fetched from.
-#   2. Fetch the fixed manifest (engine.js, jenkins.js, tasks.sh, tasks.ps1,
+#   2. Fetch the fixed manifest (engine.mjs, jenkins.mjs, tasks.sh, tasks.ps1,
 #      ci-config.yaml, package.json, package-lock.json) at that ref.
 #   3. Verify what was fetched before anything runs.
-#   4. Materialize node_modules (engine.js has one pinned runtime dependency,
-#      the `yaml` npm package — unlike Python's engine.py, this core is not
-#      stdlib-only, so `npm ci` here is required before `node engine.js` works).
+#   4. Materialize node_modules. engine.mjs has one pinned runtime dependency, the
+#      `yaml` npm package, so `npm ci` must run here before `node engine.mjs` works.
 #
 # Consumer usage:
 #   curl -fsSL <pinned-ref>/couchnode/bootstrap.sh -o bootstrap.sh
 #   ./bootstrap.sh
 #   ./tasks.sh <stage> ...
 #
-# NOTE (Phase 1 scaffold): mirrors couchbase-sdk-ci/python/bootstrap.sh's own stated
-# caveat — this fetches over plain HTTPS from a pinned ref; auth is deferred. The
-# checksum table below MUST be regenerated (`shasum -a 256 <file>`) whenever any
-# manifest file changes — see the sibling table in bootstrap.ps1, which must stay
-# in sync with this one.
+# NOTE: auth is not implemented yet, so this fetches over plain HTTPS from a pinned ref.
+# The checksum table below MUST be regenerated (`shasum -a 256 <file>`) whenever any
+# manifest file changes; see the sibling table in bootstrap.ps1, which must stay in sync
+# with this one.
 
 set -euo pipefail
 
@@ -37,7 +35,7 @@ CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbaselabs/
 # Where the manifest is written. Consumers run ./tasks.sh from here.
 CBCI_DEST="${CBCI_DEST:-.}"
 
-# The fixed manifest. bootstrap.sh itself is excluded — it is already present.
+# The fixed manifest. bootstrap.sh itself is excluded, since it is already present.
 # Growth happens *inside* these files, not as new files (../CONVENTIONS.md).
 CBCI_MANIFEST=(
     "engine.mjs"
@@ -73,20 +71,21 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.mjs")         echo "5f63b7b494de9c824a3bbe420eb890c47ca2f03d99cb999b9e6b93f085db66c8" ;;
-        "jenkins.mjs")        echo "143e490ebaa2257abe296f9dc43dd4424d91e680e281cfe70e74302a463234cd" ;;
-        "tasks.sh")           echo "333baa647b9be224b0053b6c819e8b56ead8399e4d8acfa2cd57588eae5aea1e" ;;
-        "tasks.ps1")          echo "cb6cb6b521908173ced33bba73b29c06dfd5a2bf1cc2e71822effcea2cd6cd98" ;;
-        "ci-config.yaml")     echo "c82ca58525d7940377270d80148e5aa40a6852f97bd728a05d382e95662ea0a0" ;;
+        "engine.mjs")         echo "4396ecc05dede2550dc1a84e44c88c26f467a96d43ee76da54e584637c91879c" ;;
+        "jenkins.mjs")        echo "40f3b8558cf9ba5d6fd2068b37b8cc6752c4f67baff4c452156f0754c2305c62" ;;
+        "tasks.sh")           echo "72bbf629db746f2229b59b9c0cc90e8dbc6c5cda400e490d130d6e664466f75a" ;;
+        "tasks.ps1")          echo "69af9ddc5da20354465135831fb0f7f560a860339fd3599a2a698f73f01a1a0f" ;;
+        "ci-config.yaml")     echo "966518a006a14679bf8f7f475f8d3930f1b19ae3ce62578bb9448f8b36333ab9" ;;
         "package.json")       echo "490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4" ;;
         "package-lock.json")  echo "8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372" ;;
         *)                    echo "" ;;
     esac
 }
 
-# Fetch ${url} -> ${out}, preferring curl but falling back to wget. Mirrors
-# couchbase-sdk-ci/python/bootstrap.sh's http_get (same libnghttp2-on-some-agents
-# rationale) — kept identical rather than re-derived.
+# Fetch ${url} -> ${out}, preferring curl but falling back to wget: some linux build
+# agents ship a curl whose libcurl cannot resolve a shared dep (`libnghttp2.so.14`), which
+# makes curl exit 127 BEFORE any network I/O. wget links differently and usually still
+# works, so one broken fetcher does not doom the node.
 http_get() {
     local url="$1" out="$2"
     if command -v curl >/dev/null 2>&1 && curl -fsSL "${url}" -o "${out}"; then
@@ -131,15 +130,15 @@ verify_manifest() {
     [[ "${missing}" -eq 0 ]] || exit 1
 }
 
-# npm ci (not npm install) — reproducible from package-lock.json, matching exactly
+# npm ci, not npm install: reproducible from package-lock.json, matching exactly
 # what the checksum above verified. Skippable via CBCI_SKIP_NPM_INSTALL for a
 # consumer that already vendors node_modules another way.
 install_dependencies() {
     if [[ "${CBCI_SKIP_NPM_INSTALL:-false}" == "true" ]]; then
-        log "CBCI_SKIP_NPM_INSTALL=true — skipping npm ci"
+        log "CBCI_SKIP_NPM_INSTALL=true, skipping npm ci"
         return 0
     fi
-    command -v npm >/dev/null 2>&1 || die "npm not found on PATH (required to install engine.js's 'yaml' dependency)"
+    command -v npm >/dev/null 2>&1 || die "npm not found on PATH (required to install engine.mjs's 'yaml' dependency)"
     log "installing dependencies (npm ci)"
     (cd "${CBCI_DEST}" && npm ci --omit=dev)
 }

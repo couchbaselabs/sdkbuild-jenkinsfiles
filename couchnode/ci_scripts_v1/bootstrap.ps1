@@ -6,11 +6,11 @@
 # on Windows and runs it with `powershell -ExecutionPolicy Bypass -File bootstrap.ps1`.
 # Responsibilities are identical to bootstrap.sh:
 #   1. Pin the CI-core ref (env CBCI_REF) the rest of the manifest is fetched from.
-#   2. Fetch the fixed manifest (engine.js, jenkins.js, tasks.sh, tasks.ps1,
+#   2. Fetch the fixed manifest (engine.mjs, jenkins.mjs, tasks.sh, tasks.ps1,
 #      ci-config.yaml, package.json, package-lock.json) at that ref.
 #   3. Verify what was fetched (sha256) before anything runs.
-#   4. Materialize node_modules (npm ci) - engine.js's one pinned runtime
-#      dependency (`yaml`) must be installed before `node engine.js` works.
+#   4. Materialize node_modules (npm ci) - engine.mjs's one pinned runtime
+#      dependency (`yaml`) must be installed before `node engine.mjs` works.
 #
 # Keep the expected hashes below IN SYNC with bootstrap.sh (one table per bootstrapper).
 
@@ -51,11 +51,11 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.mjs'        = '5f63b7b494de9c824a3bbe420eb890c47ca2f03d99cb999b9e6b93f085db66c8'
-    'jenkins.mjs'       = '143e490ebaa2257abe296f9dc43dd4424d91e680e281cfe70e74302a463234cd'
-    'tasks.sh'          = '333baa647b9be224b0053b6c819e8b56ead8399e4d8acfa2cd57588eae5aea1e'
-    'tasks.ps1'         = 'cb6cb6b521908173ced33bba73b29c06dfd5a2bf1cc2e71822effcea2cd6cd98'
-    'ci-config.yaml'    = 'c82ca58525d7940377270d80148e5aa40a6852f97bd728a05d382e95662ea0a0'
+    'engine.mjs'        = '4396ecc05dede2550dc1a84e44c88c26f467a96d43ee76da54e584637c91879c'
+    'jenkins.mjs'       = '40f3b8558cf9ba5d6fd2068b37b8cc6752c4f67baff4c452156f0754c2305c62'
+    'tasks.sh'          = '72bbf629db746f2229b59b9c0cc90e8dbc6c5cda400e490d130d6e664466f75a'
+    'tasks.ps1'         = '69af9ddc5da20354465135831fb0f7f560a860339fd3599a2a698f73f01a1a0f'
+    'ci-config.yaml'    = '966518a006a14679bf8f7f475f8d3930f1b19ae3ce62578bb9448f8b36333ab9'
     'package.json'      = '490e8f0a45c7c24b8f80f303202673c182154e3fa89884b32b24408825e727c4'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'
 }
@@ -94,7 +94,7 @@ function Install-Dependencies {
         return
     }
     if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Log "ERROR: npm not found on PATH (required to install engine.js's 'yaml' dependency)"
+        Write-Log "ERROR: npm not found on PATH (required to install engine.mjs's 'yaml' dependency)"
         exit 1
     }
     Write-Log 'installing dependencies (npm ci)'
