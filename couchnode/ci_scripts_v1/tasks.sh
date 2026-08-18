@@ -32,7 +32,7 @@ die() { echo "[tasks] ERROR: $*" >&2; exit 1; }
 load_project_env() {
     local out
     out="$("${NODE_BIN}" "${ENGINE}" project-env)" || die "failed to resolve project env"
-    # shellcheck disable=SC2086  # intentional word-split of KEY=VALUE pairs
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
     export ${out}
 }
 
@@ -81,7 +81,7 @@ task_sdist() {
     local build_env
     build_env="$("${NODE_BIN}" "${ENGINE}" build-env sdist)" || die "failed to resolve sdist build-env"
     log "sdist build-env: ${build_env}"
-    # shellcheck disable=SC2086  # intentional word-split of KEY=VALUE pairs
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
     export ${build_env}
 
     log "configuring C++ core + baking CPM cache (deps/couchbase-cxx-cache)"
@@ -153,7 +153,14 @@ task__prebuild_repair() {
     # HERE, at the source, rather than discovering a broken split downstream.
     local pre_size post_size
     pre_size="$(gunzip -c "prebuildsDebug/${filename}-debug.tar.gz" | wc -c)"
-    post_size="$([[ "${uname_s}" == "Darwin" ]] && stat -f%z "${target}" || stat -c%s "${target}")"
+    # if/else, not `A && B || C`: with the latter a failing BSD stat falls through to the
+    # GNU one, which cannot work on the same host, leaving post_size empty and the size
+    # assertion below silently satisfied.
+    if [[ "${uname_s}" == "Darwin" ]]; then
+        post_size="$(stat -f%z "${target}")"
+    else
+        post_size="$(stat -c%s "${target}")"
+    fi
     (( post_size < pre_size )) \
         || log "WARNING: prebuild-repair: stripped size (${post_size}) not smaller than the tarred pre-strip copy (${pre_size}); tar overhead may explain a small gap, but investigate if this persists"
     if [[ "${uname_s}" == "Linux" ]]; then
@@ -189,7 +196,7 @@ task_prebuild() {
     local build_env
     build_env="$("${NODE_BIN}" "${ENGINE}" build-env prebuild)" || die "failed to resolve prebuild build-env"
     log "prebuild build-env: ${build_env}"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2163
     export ${build_env}
 
     local select_env
@@ -370,7 +377,7 @@ task_validate() {
     cd "${PROJECT_ROOT}"
     local out
     out="$("${NODE_BIN}" "${ENGINE}" validate-env)" || die "failed to resolve validate-env"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2163
     export ${out}
     [[ -n "${CBCI_INSTALL_TYPE:-}" ]] && CBCI_VALIDATE_INSTALL_TYPES="${CBCI_INSTALL_TYPE}"
 
@@ -557,7 +564,7 @@ task_package() {
     cd "${PROJECT_ROOT}"
     local out
     out="$("${NODE_BIN}" "${ENGINE}" publish-env)" || die "failed to resolve publish-env"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2163
     export ${out}
 
     local pkg_name; pkg_name="$("${NODE_BIN}" -p "require('${PROJECT_ROOT}/package.json').name")"
@@ -705,7 +712,7 @@ task_publish() {
     cd "${PROJECT_ROOT}"
     local out
     out="$("${NODE_BIN}" "${ENGINE}" publish-env)" || die "failed to resolve publish-env"
-    # shellcheck disable=SC2086
+    # shellcheck disable=SC2086,SC2163
     export ${out}
 
     if [[ "${CBCI_PUBLISH_NPM}" != "true" ]]; then

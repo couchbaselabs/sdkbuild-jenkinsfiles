@@ -2,7 +2,7 @@
   "name": "@couchbase/sdk-ci-nodejs",
   "version": "0.1.0",
   "private": true,
-  "description": "CI-core for the Couchbase Node.js SDK (couchnode) — neutral engine + Jenkins adapter + task executors. Shares no code with couchbase-sdk-ci/python/, only the pattern (see ../CONVENTIONS.md).",
+  "description": "CI-core for the Couchbase Node.js SDK (couchnode): neutral engine + Jenkins adapter + task executors. Shares no code with couchbase-sdk-ci/python/, only the pattern (see ../CONVENTIONS.md).",
   "type": "module",
   "engines": {
     "node": ">=18"
