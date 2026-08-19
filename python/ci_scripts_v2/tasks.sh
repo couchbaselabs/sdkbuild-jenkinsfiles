@@ -388,9 +388,11 @@ _so_debug_info_state() {
 _repair_diag() {
     local debug_wh="$1" stem="$2" built_wheel="$3" repaired_so="$4" py="$5"
     # A SUBDIR of the debug wheelhouse, not the wheelhouse itself. The wheel stage stashes
-    # `wheelhouse/dist_debug/*.whl` (non-recursive), so a kept pre-repair wheel sitting flat
-    # beside the debug wheels would be stashed and archived as a release artifact by the next
-    # attempt that succeeds - an unrepaired, linux_x86_64-tagged wheel in the shipped set.
+    # `wheelhouse/dist_debug/*`, which is FLAT: diagnostics one level down stay out of the
+    # published symbol set, while a kept pre-repair wheel sitting beside the debug wheels
+    # would be archived and uploaded as a release artifact by the next attempt that
+    # succeeds. Pre-repair means unstripped, and on linux it also still carries the build's
+    # raw linux_<arch> tag instead of the manylinux/musllinux one auditwheel assigns.
     local diag_dir="${debug_wh}/repair-diag"
     mkdir -p "${diag_dir}" || true
     local out="${diag_dir}/${stem}.repair-diag.txt"
@@ -410,6 +412,10 @@ _repair_diag() {
         readelf -h "${repaired_so}" 2>&1 || true
         echo "-- readelf -S"
         readelf -S "${repaired_so}" 2>&1 || true
+        # Build ID is the FIRST key gdb resolves separate symbols by, ahead of the
+        # debuglink, so its absence changes how symbols have to be delivered.
+        echo "-- readelf -n"
+        readelf -n "${repaired_so}" 2>&1 || true
     } >"${out}" 2>&1 || true
 
     # Pre-repair comparison, best-effort: a failure to unpack the built wheel must not
@@ -532,6 +538,10 @@ task__wheel_repair() {
     local py; py="$(_hook_python)"
     local debug_wh="${CBCI_DEBUG_WHEELHOUSE:-wheelhouse/dist_debug}"
     mkdir -p "${debug_wh}" "${dest_dir}"
+    # A retry re-runs this hook in the SAME workspace, so a failed attempt's diagnostics
+    # would otherwise be archived next to a green build. Safe to clear: only a FAILING
+    # invocation writes here, and that aborts the whole cibuildwheel run.
+    rm -rf "${debug_wh}/repair-diag"
     # Absolute: the strip step runs from inside the unpacked tree, where a relative
     # wheelhouse path would resolve somewhere else entirely.
     local debug_wh_abs; debug_wh_abs="$(cd "${debug_wh}" && pwd)"
@@ -584,8 +594,20 @@ task__wheel_repair() {
         fi
     fi
 
-    # DEBUG wheel = the tree packed BEFORE stripping (full symbols).
-    "${py}" -m wheel pack "${root}" -d "${debug_wh}"
+    # DEBUG wheel = the tree packed BEFORE stripping (full symbols). The `0debug` build tag
+    # is the only thing that tells the two wheels apart: name, version and platform tags are
+    # otherwise identical, so an installed debug wheel would be indistinguishable from the
+    # shipped one. `wheel pack` records the tag in the tree's WHEEL and LEAVES IT THERE, so
+    # it has to come back out before the release wheel is packed from this same tree.
+    "${py}" -m wheel pack "${root}" -d "${debug_wh}" \
+        --build-number "${CBCI_DEBUG_WHEEL_BUILD_TAG:-0debug}"
+    local -a wheel_metas=( "${root}"/*.dist-info/WHEEL )
+    local wheel_meta="${wheel_metas[0]}"
+    [[ -f "${wheel_meta}" ]] || die "_wheel_repair: no .dist-info/WHEEL under ${root}"
+    grep -v '^Build: ' "${wheel_meta}" >"${wheel_meta}.tmp" && mv "${wheel_meta}.tmp" "${wheel_meta}"
+    if grep -q '^Build: ' "${wheel_meta}"; then
+        die "_wheel_repair: build tag survived in WHEEL, the release wheel would inherit it"
+    fi
 
     # Strip the .so in place, then RELEASE wheel = the SAME tree repacked.
     if [[ "$(uname -s)" == "Linux" ]]; then
@@ -609,6 +631,11 @@ task__wheel_repair() {
         ( cd "${so_dir}" && xcrun strip -Sx "${so_file}" )
     fi
     "${py}" -m wheel pack "${root}" -d "${dest_dir}"
+    # The release wheel must land under the repaired wheel's exact name. Packaging drift
+    # here (an inherited build tag, a rewritten local version) changes what ships and what
+    # PyPI receives, and would otherwise only surface at upload.
+    [[ -f "${dest_dir}/${wheel_stem}.whl" ]] \
+        || die "_wheel_repair: release wheel is not ${wheel_stem}.whl (dest_dir has: $(ls "${dest_dir}"))"
 
     # Post-strip integrity: the RELEASE .so must be smaller, carry NO .debug_info, and
     # (Linux) keep a .gnu_debuglink back to the debug file. Fail the BUILD at the source
