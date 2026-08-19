@@ -352,6 +352,96 @@ _so_size() {
     if [[ "$(uname -s)" == "Darwin" ]]; then stat -f%z "$1"; else stat -c%s "$1"; fi
 }
 
+# Debug-info state of an ELF: 0 = present, 1 = definitively absent, 2 = readelf could not
+# read the file (state UNKNOWN, error text echoed on stderr).
+#
+# The three are distinct on purpose. Collapsing them the obvious way,
+#     readelf -S "${so}" 2>/dev/null | grep -q '\.debug_info'
+# misreports two of them as the third: readelf's own error is discarded by 2>/dev/null, and
+# under `set -o pipefail` a `grep -q` that exits on match can SIGPIPE readelf into rc 141,
+# so a SUCCESSFUL match fails the pipeline. Both surface as "no debug info", which points
+# the investigation at the compiler flags instead of the tool or the ELF.
+#
+# Matches .zdebug_info too: --compress-debug-sections=zlib-gnu renames the section, and a
+# zlib-gnu build has debug info by any useful definition.
+_so_debug_info_state() {
+    local so="$1" sections
+    sections="$(readelf -S "${so}" 2>&1)" || {
+        printf '%s\n' "${sections}" >&2
+        return 2
+    }
+    grep -q '\.z\?debug_info' <<<"${sections}"
+}
+
+# Dump everything needed to diagnose a failed debug-symbol split, then keep going: the
+# caller dies immediately after, and this is the only chance to preserve evidence.
+#
+# Lands in the debug wheelhouse because on linux that is the WRITABLE bind mount to the
+# host (/cbci-debug); a container-local path dies with the container, and the wheel stage
+# stashes nothing when it fails, so anything written elsewhere is unrecoverable without a
+# full rebuild.
+#
+# Records the extension BEFORE repair as well as after. That comparison is the one that
+# splits the two live hypotheses apart: sections present pre-repair but missing post-repair
+# means auditwheel/patchelf dropped them, missing in both means the build never emitted
+# them. Unpacking a second ~100MB+ wheel is why this runs only on the failure path.
+_repair_diag() {
+    local debug_wh="$1" stem="$2" built_wheel="$3" repaired_so="$4" py="$5"
+    # A SUBDIR of the debug wheelhouse, not the wheelhouse itself. The wheel stage stashes
+    # `wheelhouse/dist_debug/*.whl` (non-recursive), so a kept pre-repair wheel sitting flat
+    # beside the debug wheels would be stashed and archived as a release artifact by the next
+    # attempt that succeeds - an unrepaired, linux_x86_64-tagged wheel in the shipped set.
+    local diag_dir="${debug_wh}/repair-diag"
+    mkdir -p "${diag_dir}" || true
+    local out="${diag_dir}/${stem}.repair-diag.txt"
+    log "writing repair diagnostics to ${out}"
+
+    {
+        echo "=== _wheel_repair diagnostics: ${stem}"
+        echo "--- host"
+        uname -a || true
+        readelf --version 2>&1 | head -2 || true
+        echo "--- build env"
+        env | grep -E "^(CBCI_|PYCBC_|AUDITWHEEL_)" | sort || true
+        echo "--- post-repair extension: ${repaired_so}"
+        ls -l "${repaired_so}" || true
+        command -v file >/dev/null 2>&1 && file "${repaired_so}"
+        echo "-- readelf -h"
+        readelf -h "${repaired_so}" 2>&1 || true
+        echo "-- readelf -S"
+        readelf -S "${repaired_so}" 2>&1 || true
+    } >"${out}" 2>&1 || true
+
+    # Pre-repair comparison, best-effort: a failure to unpack the built wheel must not
+    # replace the caller's real error with this one.
+    {
+        echo "--- pre-repair extension (from ${built_wheel})"
+        local pre_dir pre_root pre_dir_so pre_file
+        if pre_dir="$(mktemp -d)" \
+            && "${py}" -m wheel unpack "${built_wheel}" -d "${pre_dir}" >/dev/null 2>&1 \
+            && pre_root="$(find "${pre_dir}" -mindepth 1 -maxdepth 1 -type d | head -1)" \
+            && read -r pre_dir_so pre_file <<<"$(locate_core_so "${pre_root}")" \
+            && [[ -n "${pre_file}" && -f "${pre_dir_so}/${pre_file}" ]]; then
+            ls -l "${pre_dir_so}/${pre_file}"
+            echo "-- readelf -S"
+            readelf -S "${pre_dir_so}/${pre_file}" 2>&1
+        else
+            echo "(could not unpack/locate the pre-repair extension)"
+        fi
+        [[ -n "${pre_dir:-}" ]] && rm -rf "${pre_dir}"
+    } >>"${out}" 2>&1 || true
+
+    # The wheel itself, so the next investigation is a readelf away rather than a 15-minute
+    # rebuild away. Opt out where the agent is tight on disk.
+    if [[ "${CBCI_REPAIR_DIAG_KEEP_WHEEL:-true}" == "true" ]]; then
+        if cp -f "${built_wheel}" "${diag_dir}/" 2>/dev/null; then
+            log "kept the pre-repair wheel in ${diag_dir}"
+        else
+            log "WARNING: could not keep the pre-repair wheel in ${diag_dir}"
+        fi
+    fi
+}
+
 # Build OpenSSL from source into $2.
 build_openssl() {
     local version="$1" dir="$2"
@@ -483,8 +573,15 @@ task__wheel_repair() {
     # from this pre-strip tree, so this transitively asserts it retains symbols.
     pre_size="$(_so_size "${so_path}")"
     if [[ "$(uname -s)" == "Linux" ]]; then
-        readelf -S "${so_path}" 2>/dev/null | grep -q '\.debug_info' \
-            || die "_wheel_repair: debug .so has no .debug_info, nothing to split (build missing -g/RelWithDebInfo?)"
+        local dbg_state=0
+        _so_debug_info_state "${so_path}" || dbg_state=$?
+        if (( dbg_state != 0 )); then
+            _repair_diag "${debug_wh_abs}" "${wheel_stem}" "${wheel}" "${so_path}" "${py}"
+            if (( dbg_state == 2 )); then
+                die "_wheel_repair: readelf could not read ${so_path}, so the debug-info check is INCONCLUSIVE (not a verdict on the build); see repair-diag/${wheel_stem}.repair-diag.txt in the debug wheelhouse"
+            fi
+            die "_wheel_repair: no .debug_info in the extension AFTER repair, nothing to split; repair-diag/${wheel_stem}.repair-diag.txt in the debug wheelhouse has the pre- vs post-repair sections (both missing = build missing -g/RelWithDebInfo, post-repair only = auditwheel/patchelf dropped them)"
+        fi
     fi
 
     # DEBUG wheel = the tree packed BEFORE stripping (full symbols).
@@ -520,8 +617,18 @@ task__wheel_repair() {
     (( post_size < pre_size )) \
         || die "_wheel_repair: strip did not shrink the .so (pre=${pre_size} post=${post_size})"
     if [[ "$(uname -s)" == "Linux" ]]; then
-        ! readelf -S "${so_path}" 2>/dev/null | grep -q '\.debug_info' \
-            || die "_wheel_repair: release .so still carries .debug_info, strip failed"
+        # Assert on the DEFINITIVELY-ABSENT state (1), not on "not present": a readelf
+        # failure (2) means the strip was never verified, and the negated-pipeline spelling
+        # would report that as a pass.
+        local rel_state=0
+        _so_debug_info_state "${so_path}" || rel_state=$?
+        if (( rel_state != 1 )); then
+            _repair_diag "${debug_wh_abs}" "${wheel_stem}" "${wheel}" "${so_path}" "${py}"
+            if (( rel_state == 2 )); then
+                die "_wheel_repair: readelf could not read the stripped ${so_path}, strip is UNVERIFIED; see repair-diag/${wheel_stem}.repair-diag.txt in the debug wheelhouse"
+            fi
+            die "_wheel_repair: release .so still carries .debug_info, strip failed"
+        fi
         readelf -x .gnu_debuglink "${so_path}" >/dev/null 2>&1 \
             || die "_wheel_repair: release .so missing .gnu_debuglink, debuglink not added"
         log "strip integrity OK: release .so stripped + debuglink -> ${wheel_stem}.debug (${pre_size} -> ${post_size} bytes)"
