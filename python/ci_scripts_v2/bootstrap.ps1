@@ -46,8 +46,8 @@ $CBCI_MANIFEST = @(
 $CBCI_EXPECTED = @{
     'engine.py'           = '35c00330788ee1997909848c33baf492e917517005f408aec68f6afcc5a9f64c'
     'jenkins.py'          = '3a4f4be98f8c5e31e93551e8766267a24947fd8795551b9abf7faff6b72ec250'
-    'tasks.sh'            = '22764f1d87d5109b26f7af42bbecdd6ecd85be3b93bef0c527108d7794a150b2'
-    'tasks.ps1'           = '6dfd9c6f0a8273870cfa8c6cb8fdc5a19d9685e725c4423238ece3ebbffa4a3c'
+    'tasks.sh'            = '1971fa78f4b857fa816aa297ec5044adeeb94f57acd789946aaccd4350399b1d'
+    'tasks.ps1'           = '0a058c057d6f91ca23ff6cb88cb199d1c6be24bf406959a6808c76789ed5186b'
     'auditwheel_patch.py' = '1e38cfe3a7335fe3c5d5e08a0f53718f38d95b8f7185c1315fec5cddc5ad4bfa'
     'ci-config.yaml'      = '6b3c035f8cc80ffb75dd6006134531e6a31bc6bdb3bb3d29e605ca777512cec9'
 }

@@ -27,6 +27,17 @@ $ProjectRoot = if ($env:CBCI_PROJECT_ROOT) { $env:CBCI_PROJECT_ROOT } else { (Ge
 function Write-Log($msg) { Write-Host "[$(Get-Date -Format o)] [tasks] $msg" }
 function Stop-Task($msg) { Write-Error "[tasks] ERROR: $msg"; exit 1 }
 
+# Suffixes that make a wheel entry a compiled artifact rather than payload. A denylist and
+# not an allowlist of text files: the point is to notice a binary nobody expected, and the
+# Python payload's own suffix set is open ended (.py, .pyi, .typed, .json, ...).
+$WheelBinarySuffixes = @(".pyd", ".pdb", ".exe", ".dll", ".lib", ".exp", ".ilk", ".obj",
+                         ".so", ".dylib", ".a")
+
+# First dot-separated token of a file name. MSVC names the linker .pdb after its target's
+# output name, so this is what pairs "_core.pdb" with "_core.pyd" (or with the tagged
+# "_core.cp311-win_amd64.pyd", where Extension/BaseName would not line up).
+function Get-ModuleToken($name) { return ($name -split '\.')[0] }
+
 # Apply KEY=VALUE facts from engine.py into the process environment so child pythons
 # inherit them. engine's _emit_pairs (project-env / validate-env / build-env) prints
 # ALL pairs on ONE space-separated line, so tokenize on whitespace - iterating the raw
@@ -122,12 +133,132 @@ function Invoke-Wheel {
     & $Python -m cibuildwheel --output-dir wheelhouse/dist $target
 }
 
+# Pin setuptools' build tree to a path that outlives the build. pip builds from its OWN
+# temporary copy of the sdist and deletes it on the way out, so at the default location the
+# compile output, and every .pdb in it, is gone before symbols can be collected.
+# PYCBC_BUILD_BASE is absolute, so build_temp and build_lib derive from it keeping their
+# interpreter-tagged suffixes and stay isolated per python version.
+#
+# An adapter (or a developer) that already set it wins. Only the default is ours to clear, and
+# clearing it matters: build_lib is the directory bdist_wheel packages, so a leftover from an
+# earlier commit in the same workspace would ship inside the wheel.
+function Set-BuildBase {
+    if ($env:PYCBC_BUILD_BASE) {
+        Write-Log "wheel-native: PYCBC_BUILD_BASE=$($env:PYCBC_BUILD_BASE) (preset, left alone)"
+        return
+    }
+    $base = Join-Path $ProjectRoot ".cbci_build"
+    if (Test-Path $base) { Remove-Item -Recurse -Force $base -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path $base | Out-Null
+    $env:PYCBC_BUILD_BASE = $base
+    Write-Log "wheel-native: PYCBC_BUILD_BASE=$base (default, cleared)"
+}
+
+# Move Windows symbols out of a freshly built wheel and prove what is left belongs there.
+# Returns @{ ModuleNames; SymbolsRecovered }.
+#
+# On Windows the compiler puts debug info in a separate .pdb instead of in the binary, so
+# there is no strip step: the release wheel is lean as long as nothing but the extension
+# module reaches the package directory. A .pdb sitting INSIDE the wheel therefore means the
+# build redirected its output too broadly, and it takes every other executable in the build
+# tree along with it.
+#
+# The extension's own .pdb is a wanted artifact in the wrong place, so it moves to dist_debug
+# under the wheel stem - the same name the build-tree collection uses, because a .pdb is bound
+# to one exact binary and the linker names them all after the CMake target. Any other binary
+# is a stray. The wheel is repacked without either one, and a stray also fails the build,
+# since a stray that only warns is a stray that ships. CBCI_WHEEL_ALLOW_STRAYS=true downgrades
+# that to a log line, which is what building an SDK branch predating the fix needs.
+#
+# Repacking goes through `wheel unpack` / `wheel pack` rather than editing the zip so that
+# RECORD is regenerated: a wheel whose RECORD lists a file that is no longer in the archive
+# fails at install time, not here.
+function Invoke-WheelSymbolSplit($vpy, $wheelPath, $distDir, $debugDir) {
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($wheelPath)
+    $work = Join-Path ([System.IO.Path]::GetTempPath()) ("cbci-whl-" + [System.Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Force -Path $work | Out-Null
+    try {
+        # Out-Host, not bare invocation: a native command's stdout inside a function joins that
+        # function's OUTPUT stream, so `wheel` chatter would end up in front of the hashtable
+        # this returns and the caller would read a property off an array.
+        & $vpy -m wheel unpack $wheelPath -d $work | Out-Host
+        if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: could not unpack $stem to inspect its payload" }
+        $roots = @(Get-ChildItem -Path $work -Directory)
+        if ($roots.Count -ne 1) {
+            Stop-Task "wheel-native: expected one unpacked tree for $stem, found $($roots.Count)"
+        }
+        $root = $roots[0].FullName
+
+        # .dist-info holds metadata only; a binary there would be a stray of a different kind
+        # and is not this check's business.
+        $binaries = @(Get-ChildItem -Path $root -Recurse -File |
+            Where-Object { ($WheelBinarySuffixes -contains $_.Extension.ToLower()) -and
+                           ($_.Directory.Name -notlike "*.dist-info") })
+        $modNames = @($binaries | Where-Object { $_.Extension -ieq ".pyd" } |
+            ForEach-Object { Get-ModuleToken $_.Name } | Select-Object -Unique)
+
+        $symbols = @($binaries | Where-Object {
+            ($_.Extension -ieq ".pdb") -and ($modNames -contains (Get-ModuleToken $_.Name)) })
+        $strays = @($binaries | Where-Object {
+            ($_.Extension -ine ".pyd") -and ($symbols -notcontains $_) })
+
+        # More than one extension module would make "<stem>.pdb" ambiguous. Non-fatal, the
+        # same way missing symbols are: the release wheel stands on its own either way.
+        if ($symbols.Count -gt 1) {
+            Write-Log "wheel-native: $($symbols.Count) module .pdb(s) in $stem, cannot name them per wheel stem: $($symbols.Name -join ', ')"
+            $strays += $symbols
+            $symbols = @()
+        }
+
+        $removed = 0
+        if ($symbols.Count -eq 1) {
+            $srcName = $symbols[0].Name
+            $srcMB = [int]($symbols[0].Length / 1MB)
+            $destName = $stem + ".pdb"
+            Move-Item $symbols[0].FullName -Destination (Join-Path $debugDir $destName) -Force
+            Write-Log "wheel-native: symbols $srcName ($srcMB MB) -> $destName, out of the release wheel"
+            $removed++
+        }
+        foreach ($s in $strays) {
+            Write-Log "wheel-native: STRAY $($s.Name) ($([int]($s.Length / 1MB)) MB) has no business in a release wheel, dropping"
+            Remove-Item $s.FullName -Force
+            $removed++
+        }
+
+        if ($removed -eq 0) {
+            Copy-Item $wheelPath -Destination $distDir -Force
+        } else {
+            & $vpy -m wheel pack $root -d $distDir | Out-Host
+            if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: repack of $stem failed" }
+            # The repack must not rename the wheel: validate/test and the release upload all
+            # address it by the name the build advertised.
+            if (-not (Test-Path (Join-Path $distDir ($stem + ".whl")))) {
+                Stop-Task "wheel-native: repack produced something other than $stem.whl (dist has: $(@(Get-ChildItem $distDir).Name -join ', '))"
+            }
+            Write-Log "wheel-native: repacked $stem without $removed file(s)"
+        }
+
+        if ($strays.Count -gt 0) {
+            $what = "wheel-native: $($strays.Count) stray binary(s) in $stem : $($strays.Name -join ', ')"
+            if ($env:CBCI_WHEEL_ALLOW_STRAYS -eq "true") {
+                Write-Log "$what (allowed by CBCI_WHEEL_ALLOW_STRAYS; the wheel was repacked without them)"
+            } else {
+                Stop-Task "$what. The SDK build is redirecting more than the extension module into the package directory. Set CBCI_WHEEL_ALLOW_STRAYS=true to build a branch that predates the fix."
+            }
+        }
+
+        return @{ ModuleNames = $modNames; SymbolsRecovered = ($symbols.Count -eq 1) }
+    } finally {
+        Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
+    }
+}
+
 function Invoke-WheelNative {
     # NATIVE wheel build (no cibuildwheel) - the Jenkins path for Windows. Builds with the
     # on-PATH (cbdep) python + the existing MSVC/cmake/go toolchain env (getEnvStr). Unlike
-    # POSIX, Windows debug info lives in separate .pdb files (not embedded in the .pyd), so
-    # the release wheel is already lean and there is no strip/debug-wheel split - the .pdb
-    # itself is the debug artifact. See engine.py adapter_jenkins_tags.
+    # POSIX, Windows debug info lives in separate .pdb files rather than in the .pyd, so there
+    # is no strip and no debug wheel: the .pdb IS the debug artifact, and the release wheel is
+    # lean once the .pdb is out of it. See engine.py adapter_jenkins_tags.
     Write-Log "wheel-native: building wheel natively (no cibuildwheel)"
 
     # Export the same PYCBC_* knobs the engine resolves (PYCBC_USE_OPENSSL,
@@ -135,6 +266,7 @@ function Invoke-WheelNative {
     $buildEnvLines = & $Python $Engine build-env wheel
     if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: build-env wheel failed" }
     Import-EngineEnvPairs $buildEnvLines
+    Set-BuildBase
 
     & $Python -m pip install --upgrade pip
     & $Python -m pip install wheel
@@ -160,20 +292,19 @@ function Invoke-WheelNative {
     $debugDir = Join-Path $ProjectRoot "wheelhouse\dist_debug"
     New-Item -ItemType Directory -Force -Path $distDir, $debugDir | Out-Null
 
-    $wheels = Get-ChildItem (Join-Path $bdist "*.whl") -ErrorAction SilentlyContinue
-    if (-not $wheels) { Stop-Task "wheel-native: pip produced no wheel in $bdist" }
-    foreach ($w in $wheels) {
-        Write-Log "wheel-native: release wheel $($w.Name)"
-        Copy-Item $w.FullName -Destination $distDir -Force
-    }
+    $wheels = @(Get-ChildItem (Join-Path $bdist "*.whl") -ErrorAction SilentlyContinue)
+    if ($wheels.Count -eq 0) { Stop-Task "wheel-native: pip produced no wheel in $bdist" }
 
-    # Collect the SDK's symbols into dist_debug as raw .pdb files. Each is renamed to the
-    # stem of the wheel it belongs to, because a .pdb is bound to one exact binary by a
-    # signature GUID and the linker names them all after the CMake target. Left unrenamed,
-    # every Python version emits the same "_core.pdb" and the last build to land silently
-    # overwrites the rest, here and again in the release upload.
-    # Missing symbols stay non-fatal: the release wheel stands on its own.
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    # Collect the SDK's symbols into dist_debug as raw .pdb files, each renamed to the stem of
+    # the wheel it belongs to: a .pdb is bound to one exact binary by a signature GUID, and the
+    # linker names them all after the CMake target, so left unrenamed every Python version
+    # emits the same "_core.pdb" and the last build to land silently overwrites the rest, here
+    # and again in the release upload.
+    #
+    # Two places can hold them. Invoke-WheelSymbolSplit takes the one already inside the wheel
+    # (where a build that redirects its output too broadly puts it); the search below covers
+    # the build tree, which is where a correctly configured build leaves it. Neither finding
+    # anything stays non-fatal: the release wheel stands on its own.
     $pdbRoots = @()
     if ($env:PYCBC_BUILD_TEMP) { $pdbRoots += $env:PYCBC_BUILD_TEMP }
     if ($env:PYCBC_BUILD_BASE) { $pdbRoots += $env:PYCBC_BUILD_BASE }
@@ -184,23 +315,24 @@ function Invoke-WheelNative {
 
     $pdbCount = 0
     foreach ($w in $wheels) {
-        # Take the module name from the wheel's own .pyd rather than hardcoding it, so the
-        # match cannot drift if the extension is renamed. MSVC names the linker .pdb after
-        # that same output name, which is what makes this a reliable pairing.
-        $modNames = @()
-        $zip = [System.IO.Compression.ZipFile]::OpenRead($w.FullName)
-        try {
-            foreach ($e in $zip.Entries) {
-                if ($e.Name -like "*.pyd") { $modNames += ($e.Name -split '\.')[0] }
-            }
-        } finally { $zip.Dispose() }
-        $modNames = @($modNames | Select-Object -Unique)
+        Write-Log "wheel-native: release wheel $($w.Name)"
+        # Also the step that lands the wheel in dist, repacked or copied as needed.
+        $payload = Invoke-WheelSymbolSplit -vpy $Python -wheelPath $w.FullName `
+            -distDir $distDir -debugDir $debugDir
+        if ($payload.SymbolsRecovered) {
+            $pdbCount++
+            continue
+        }
+
+        # The module name comes from the wheel's own .pyd rather than being hardcoded, so the
+        # match cannot drift if the extension is renamed.
+        $modNames = $payload.ModuleNames
         if ($modNames.Count -eq 0) {
             Write-Log "wheel-native: $($w.Name) holds no .pyd, no symbols to pair"
             continue
         }
 
-        $pdbMatches = @($pdbFiles | Where-Object { $modNames -contains $_.BaseName } |
+        $pdbMatches = @($pdbFiles | Where-Object { $modNames -contains (Get-ModuleToken $_.Name) } |
                      Sort-Object LastWriteTime -Descending)
         if ($pdbMatches.Count -eq 0) {
             Write-Log "wheel-native: no .pdb matching [$($modNames -join ', ')] for $($w.Name)"

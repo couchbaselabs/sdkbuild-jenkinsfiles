@@ -300,7 +300,16 @@ task_image() {
     # CBCI_{MANYLINUX,MUSLLINUX}_*_IMAGE for the wheel step, so one ref covers build and
     # consume. Otherwise a deterministic local default.
     local image="${CBCI_IMAGE:-couchbase/pycbc-ci-${family}_${arch}:local}"
-    local base_image="quay.io/pypa/${family}_${arch}:${CBCI_BASE_IMAGE_TAG:-latest}"
+
+    # A tag is mutable (`latest` moves whenever pypa publishes); a digest is not. Accept
+    # either through the SAME var, since the caller that wants to reproduce an old build has
+    # a digest and the caller that just wants to build has a tag: a value starting with
+    # sha256: is joined with '@' (digest form), anything else with ':' (tag form).
+    local base_ref="${CBCI_BASE_IMAGE_TAG:-latest}" base_image
+    case "${base_ref}" in
+        sha256:*) base_image="quay.io/pypa/${family}_${arch}@${base_ref}" ;;
+        *)        base_image="quay.io/pypa/${family}_${arch}:${base_ref}" ;;
+    esac
 
     # Empty build context: the Dockerfile COPYs nothing, so don't ship cwd (the SDK
     # checkout) to the daemon. Feed the Dockerfile via stdin (`-f -`).
@@ -313,6 +322,40 @@ task_image() {
         -t "${image}" -f - "${ctx}"
     rmdir "${ctx}"
     log "image ready: ${image}"
+
+    # Record what actually built this unit. Two things here are NOT pinned by the SDK sha:
+    # the base image (`latest` moves) and, on musllinux, the compiler itself, since
+    # `apk add build-base` resolves live against Alpine's repos. So this file does not make
+    # the image reproducible; it makes the image IDENTIFIABLE, which is what a later
+    # investigation needs to decide whether reproducing a release build is even plausible.
+    # base_digest is the actionable line: feed it back as CBCI_BASE_IMAGE_TAG.
+    # Diagnostics must never fail a build, hence the fallbacks.
+    local info_dir="${PROJECT_ROOT}/wheelhouse/build-info"
+    local info="${info_dir}/${family}_${arch}.txt"
+    mkdir -p "${info_dir}"
+
+    # Collected into vars first, NOT inline as `$(docker ... || echo unknown)`: docker prints
+    # an empty line to stdout AND exits non-zero when an image is missing, so the `||` form
+    # yields a two-line "\nunknown" and corrupts the key=value file. `head -1` plus a
+    # :- default normalizes both the empty and the multi-line case.
+    local base_digest image_id compiler
+    base_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' \
+                   "${base_image}" 2>/dev/null | head -1)"
+    image_id="$(docker image inspect --format '{{.Id}}' "${image}" 2>/dev/null | head -1)"
+    compiler="$(docker run --rm --platform "${docker_platform}" "${image}" \
+                sh -c 'gcc --version 2>/dev/null | head -1' 2>/dev/null | head -1)"
+    {
+        echo "family=${family}"
+        echo "arch=${arch}"
+        echo "docker_platform=${docker_platform}"
+        echo "base_image=${base_image}"
+        echo "base_digest=${base_digest:-unknown}"
+        echo "image=${image}"
+        echo "image_id=${image_id:-unknown}"
+        echo "cmake_version_arg=${CBCI_CMAKE_VERSION:-3.31.*}"
+        echo "compiler=${compiler:-unknown}"
+    } > "${info}"
+    while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
 
     # Surface the ref + the matching var name task_wheel reads, so a LOCAL caller can
     # wire build to wheel by hand (in CI the adapter sets CBCI_IMAGE for both steps).
@@ -1158,6 +1201,24 @@ task_docs() {
     log "docs: copying extension ${so_path} -> ${target_so_path}"
     mkdir -p "${target_so_dir}"
     cp "${so_path}" "${target_so_path}"
+
+    # docs/conf.py calls <project>_version.py's get_version(), which reads
+    # <top_package>/_version.py as TEXT (deliberately, so it never imports the package and
+    # thus never loads the extension). That file is generated during the sdist build, so the
+    # checkout unstashed here does not have it and sphinx dies in its config phase.
+    # Take it from the wheel rather than regenerating it: the documented version is then the
+    # version of the artifact being documented, by construction rather than by two
+    # derivations agreeing, and the docs build needs neither a git tree nor CBCI_VERSION.
+    # The top package is the first segment of the extension's path, which covers every
+    # project (couchbase/logic/pycbc_core, couchbase, couchbase_columnar/protocol).
+    local pkg_dir version_src
+    pkg_dir="${rel_so_dir%%/*}"
+    version_src="${root}/${pkg_dir}/_version.py"
+    [[ -f "${version_src}" ]] \
+        || die "docs: ${pkg_dir}/_version.py is not in ${wheel}; the wheel was built without a stamped version"
+    log "docs: version file from the wheel: $(grep -m1 __version__ "${version_src}")"
+    mkdir -p "${PROJECT_ROOT}/${pkg_dir}"
+    cp "${version_src}" "${PROJECT_ROOT}/${pkg_dir}/_version.py"
 
     log "docs: installing sphinx dependencies"
     if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
