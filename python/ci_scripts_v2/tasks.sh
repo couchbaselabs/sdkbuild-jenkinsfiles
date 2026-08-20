@@ -258,6 +258,62 @@ DOCKERFILE
     esac
 }
 
+# Records what actually built one unit, as wheelhouse/build-info/<family>_<arch>.txt.
+# Two inputs here are NOT pinned by the SDK sha: the base image (`latest` moves whenever
+# pypa publishes) and, on musllinux, the compiler itself, since `apk add build-base`
+# resolves live against Alpine's repos. So this file does not make the image reproducible;
+# it makes it IDENTIFIABLE, which is what a later investigation needs in order to decide
+# whether reproducing a release build is even plausible. base_digest is the actionable
+# line: it is recorded in the exact form CBCI_BASE_IMAGE_TAG accepts.
+_record_build_info() {
+    local family="$1" arch="$2" docker_platform="$3" base_image="$4" image="$5"
+    local info_dir="${PROJECT_ROOT}/wheelhouse/build-info"
+    local info="${info_dir}/${family}_${arch}.txt"
+    mkdir -p "${info_dir}"
+
+    # Every capture is `|| var=""`-guarded because of `set -o pipefail` at the top of this
+    # file: an assignment from a pipeline takes the FIRST failing command's status, so an
+    # unguarded `v="$(docker ... | head -1)"` ABORTS THE BUILD instead of yielding "".
+    # `head -1` is still needed on top of the guard: docker writes an empty line to stdout
+    # AND exits non-zero for a missing image, so a raw capture can be multi-line.
+    local base_digest="" image_id="" compiler=""
+
+    # `{{if .RepoDigests}}` rather than a bare `{{index .RepoDigests 0}}`, which is a
+    # template ERROR (not an empty string) on an image carrying no digest.
+    base_digest="$(docker image inspect \
+        --format '{{if .RepoDigests}}{{index .RepoDigests 0}}{{end}}' \
+        "${base_image}" 2>/dev/null | head -1)" || base_digest=""
+    # RepoDigests entries are `repo@sha256:...`; keep only the digest, so the recorded value
+    # is paste-able into CBCI_BASE_IMAGE_TAG as-is. The repo is on the base_image line.
+    base_digest="${base_digest##*@}"
+    if [[ -z "${base_digest}" ]]; then
+        # buildkit pulls the base into ITS OWN cache, so after a fully cached build the base
+        # is usually absent from the image store `docker image inspect` reads. Ask the
+        # registry, which also covers a base that was never pulled locally at all.
+        base_digest="$(docker buildx imagetools inspect \
+            --format '{{.Manifest.Digest}}' "${base_image}" 2>/dev/null | head -1)" \
+            || base_digest=""
+    fi
+
+    image_id="$(docker image inspect --format '{{.Id}}' "${image}" 2>/dev/null | head -1)" \
+        || image_id=""
+    compiler="$(docker run --rm --platform "${docker_platform}" "${image}" \
+        sh -c 'gcc --version 2>/dev/null | head -1' 2>/dev/null | head -1)" || compiler=""
+
+    {
+        echo "family=${family}"
+        echo "arch=${arch}"
+        echo "docker_platform=${docker_platform}"
+        echo "base_image=${base_image}"
+        echo "base_digest=${base_digest:-unknown}"
+        echo "image=${image}"
+        echo "image_id=${image_id:-unknown}"
+        echo "cmake_version_arg=${CBCI_CMAKE_VERSION:-3.31.*}"
+        echo "compiler=${compiler:-unknown}"
+    } > "${info}"
+    while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
+}
+
 task_image() {
     # Build-unit dimensions come from the env the adapter sets per unit (the same
     # CBCI_BUILD_* vars task_wheel reads). macOS/Windows build on the host, so no image.
@@ -323,39 +379,11 @@ task_image() {
     rmdir "${ctx}"
     log "image ready: ${image}"
 
-    # Record what actually built this unit. Two things here are NOT pinned by the SDK sha:
-    # the base image (`latest` moves) and, on musllinux, the compiler itself, since
-    # `apk add build-base` resolves live against Alpine's repos. So this file does not make
-    # the image reproducible; it makes the image IDENTIFIABLE, which is what a later
-    # investigation needs to decide whether reproducing a release build is even plausible.
-    # base_digest is the actionable line: feed it back as CBCI_BASE_IMAGE_TAG.
-    # Diagnostics must never fail a build, hence the fallbacks.
-    local info_dir="${PROJECT_ROOT}/wheelhouse/build-info"
-    local info="${info_dir}/${family}_${arch}.txt"
-    mkdir -p "${info_dir}"
-
-    # Collected into vars first, NOT inline as `$(docker ... || echo unknown)`: docker prints
-    # an empty line to stdout AND exits non-zero when an image is missing, so the `||` form
-    # yields a two-line "\nunknown" and corrupts the key=value file. `head -1` plus a
-    # :- default normalizes both the empty and the multi-line case.
-    local base_digest image_id compiler
-    base_digest="$(docker image inspect --format '{{index .RepoDigests 0}}' \
-                   "${base_image}" 2>/dev/null | head -1)"
-    image_id="$(docker image inspect --format '{{.Id}}' "${image}" 2>/dev/null | head -1)"
-    compiler="$(docker run --rm --platform "${docker_platform}" "${image}" \
-                sh -c 'gcc --version 2>/dev/null | head -1' 2>/dev/null | head -1)"
-    {
-        echo "family=${family}"
-        echo "arch=${arch}"
-        echo "docker_platform=${docker_platform}"
-        echo "base_image=${base_image}"
-        echo "base_digest=${base_digest:-unknown}"
-        echo "image=${image}"
-        echo "image_id=${image_id:-unknown}"
-        echo "cmake_version_arg=${CBCI_CMAKE_VERSION:-3.31.*}"
-        echo "compiler=${compiler:-unknown}"
-    } > "${info}"
-    while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
+    # Diagnostics must NEVER fail a green build, so the recording step is consumed by
+    # `||`: `set -e` does not fire on a command in an `||` list, which makes that a
+    # structural property of the call rather than a discipline inside the helper.
+    _record_build_info "${family}" "${arch}" "${docker_platform}" "${base_image}" "${image}" \
+        || log "build-info: not recorded (non-fatal)"
 
     # Surface the ref + the matching var name task_wheel reads, so a LOCAL caller can
     # wire build to wheel by hand (in CI the adapter sets CBCI_IMAGE for both steps).
