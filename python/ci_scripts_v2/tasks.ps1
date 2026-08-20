@@ -414,7 +414,177 @@ function Invoke-WheelNative {
     }
     Write-Log "wheel-native: collected $pdbCount .pdb file(s) into dist_debug"
 
+    # AFTER the build, because the record hashes the wheels this unit produced. Diagnostics,
+    # so a failure here is swallowed the same way tasks.sh consumes it with `||`.
+    try { Write-BuildInfo $buildEnvLines } catch { Write-Log "build-info: not recorded (non-fatal): $_" }
+
     Remove-Item -Recurse -Force $bdist -ErrorAction SilentlyContinue
+}
+
+# --- build-info ---------------------------------------------------------------
+#
+# Windows half of the permanent build record. tasks.sh writes the POSIX half; the keys shared
+# with it mean the same thing on both sides, and the release packer (tasks.sh
+# build-info-pack) reads either without knowing which wrote it.
+#
+# Why a release needs it: nothing in the SDK sha pins the toolchain here. The AGENT supplies
+# MSVC and the Windows SDK, and the archive holding the only current record of that expires.
+#
+# Written from wheel-native, the verb an adapter picks when it provisions the interpreter
+# itself -- on Windows that is every adapter. Invoke-Wheel (cibuildwheel) is left alone.
+
+# Best-effort probe: a missing tool degrades ONE line to "unknown" and never fails a green
+# build. $ErrorActionPreference is "Stop" at the top of this file, which promotes a native
+# command's stderr to a terminating error, so every probe has to be inside a try.
+function Get-BuildInfoProbe($block) {
+    try {
+        $v = & $block
+        if ($null -eq $v) { return "unknown" }
+        $s = ([string]$v).Trim()
+        if ($s) { return $s }
+        return "unknown"
+    } catch {
+        return "unknown"
+    }
+}
+
+# The MSVC toolset that compiled this wheel. VCToolsVersion is set only inside a developer
+# prompt, and the pipeline does not open one: setuptools locates MSVC through vswhere on its
+# own. So ask vswhere the same question rather than recording "unknown" for a toolchain that
+# is demonstrably present.
+function Get-MsvcToolset {
+    if ($env:VCToolsVersion) { return $env:VCToolsVersion.Trim() }
+    $pf = ${env:ProgramFiles(x86)}
+    if (-not $pf) { return "unknown" }
+    $vswhere = Join-Path $pf "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (-not (Test-Path $vswhere)) { return "unknown" }
+    # Out-Null is NOT used here because the value IS the return: keep the capture explicit.
+    $install = & $vswhere -latest -products * -property installationPath 2>$null |
+        Select-Object -First 1
+    if (-not $install) { return "unknown" }
+    $verFile = Join-Path $install "VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt"
+    if (-not (Test-Path $verFile)) { return "unknown" }
+    return (Get-Content $verFile -TotalCount 1).Trim()
+}
+
+function Get-WindowsSdkVersion {
+    if ($env:WindowsSDKVersion) { return $env:WindowsSDKVersion.Trim().TrimEnd('\') }
+    $pf = ${env:ProgramFiles(x86)}
+    if (-not $pf) { return "unknown" }
+    $inc = Join-Path $pf "Windows Kits\10\Include"
+    if (-not (Test-Path $inc)) { return "unknown" }
+    $dirs = @(Get-ChildItem $inc -Directory -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match '^\d+(\.\d+)+$' })
+    if ($dirs.Count -eq 0) { return "unknown" }
+    # Sorted as a VERSION, not as a string: 10.0.9999 sorts above 10.0.10240 lexically.
+    return ($dirs | Sort-Object { [version]$_.Name } | Select-Object -Last 1).Name
+}
+
+# Records ONE wheel unit, as wheelhouse\build-info\<unit>.txt, matching tasks.sh's format.
+#
+# $buildEnvLines is what the engine handed the build, so abi3 is recorded as the value the
+# BUILD CONSUMED rather than re-derived here. That matters: the Jenkins ABI3 parameter is
+# three-way (auto/true/false) resolved by a commit gate, so without this nothing records
+# which way "auto" fell.
+function Write-BuildInfo($buildEnvLines) {
+    $prefix = if ($env:CBCI_PROJECT_PREFIX) { $env:CBCI_PROJECT_PREFIX } else { "PYCBC" }
+
+    # build-env prints ALL pairs on ONE space-separated line (engine's _emit_pairs), so
+    # tokenize on whitespace exactly like Import-EngineEnvPairs does. Iterating raw lines
+    # would see one token and miss the rest.
+    $abi3 = "false"
+    $abi3Floor = ""
+    foreach ($pair in ((@($buildEnvLines) -join " ") -split '\s+')) {
+        if ($pair -eq "${prefix}_PY_LIMITED_API=ON") { $abi3 = "true" }
+        if ($pair -like "${prefix}_PY_LIMITED_API_VERSION=*") {
+            $abi3Floor = $pair.Split("=", 2)[1]
+        }
+    }
+
+    $platform = if ($env:CBCI_BUILD_PLATFORM) { $env:CBCI_BUILD_PLATFORM } else { "windows" }
+    $arch = if ($env:CBCI_BUILD_ARCH) { $env:CBCI_BUILD_ARCH } else { "x86_64" }
+    $pyver = $env:CBCI_PYTHON_VERSION
+
+    # <platform>_<arch>_<cpXY|abi3>, the same unit key tasks.sh builds. Unique per unit,
+    # which is load-bearing: the adapters union these files from every unit into one
+    # directory, and a name collision there overwrites silently rather than reporting.
+    if ($abi3 -eq "true") {
+        $suffix = "abi3"
+    } elseif ($pyver) {
+        $suffix = "cp" + ($pyver -replace '\.', '')
+    } else {
+        $suffix = "all"
+    }
+    $unit = "${platform}_${arch}_${suffix}"
+
+    $infoDir = Join-Path $ProjectRoot "wheelhouse\build-info"
+    New-Item -ItemType Directory -Force -Path $infoDir | Out-Null
+    $info = Join-Path $infoDir "$unit.txt"
+
+    # CI identity arrives through NEUTRAL vars the adapter sets (Jenkins NODE_NAME and
+    # JOB_NAME #BUILD_NUMBER; GHA runner.name, workflow #run_number, ImageVersion), so this
+    # file speaks no CI's vocabulary. The agent falls back to the machine name, which keeps
+    # the single most investigation-critical field correct even from a bare local run.
+    $agent = if ($env:CBCI_BUILD_AGENT) { $env:CBCI_BUILD_AGENT } else { $env:COMPUTERNAME }
+    if (-not $agent) { $agent = "unknown" }
+    $buildRef = if ($env:CBCI_BUILD_REF) { $env:CBCI_BUILD_REF } else { "unknown" }
+    $runnerImage = if ($env:CBCI_BUILD_IMAGE) { $env:CBCI_BUILD_IMAGE } else { "unknown" }
+
+    # Both shas, because a release is the product of two repos and the release version names
+    # only one of them. The submodule is matched by NAME rather than a hardcoded deps\ path,
+    # so moving it does not silently record "unknown".
+    $sdkSha = Get-BuildInfoProbe { git -C $ProjectRoot rev-parse HEAD 2>$null | Select-Object -First 1 }
+    $cxxSha = Get-BuildInfoProbe {
+        $line = git -C $ProjectRoot submodule status --recursive 2>$null |
+            Where-Object { $_ -match 'cxx-client' } | Select-Object -First 1
+        if ($line) { ($line.Trim() -split '\s+')[0].TrimStart('+', '-', 'U') }
+    }
+
+    $lines = @(
+        "unit=$unit"
+        "platform=$platform"
+        "arch=$arch"
+        "python=$(if ($pyver) { $pyver } elseif ($abi3Floor) { $abi3Floor } else { 'all' })"
+        "abi3=$abi3"
+    )
+    if ($abi3 -eq "true") {
+        $lines += "abi3_floor=$(if ($abi3Floor) { $abi3Floor } else { 'unknown' })"
+    }
+    $lines += @(
+        "agent=$agent"
+        "build=$buildRef"
+        "runner_image=$runnerImage"
+        "sdk_sha=$sdkSha"
+        "cxx_client_sha=$cxxSha"
+        "msvc_toolset=$(Get-BuildInfoProbe { Get-MsvcToolset })"
+        "windows_sdk=$(Get-BuildInfoProbe { Get-WindowsSdkVersion })"
+        "cl=$(Get-BuildInfoProbe { (cl.exe 2>&1 | Select-Object -First 1) })"
+        "runner_os=$([System.Environment]::OSVersion.Version.ToString())"
+        "host_arch=$(if ($env:PROCESSOR_ARCHITECTURE) { $env:PROCESSOR_ARCHITECTURE } else { 'unknown' })"
+        "cmake=$(Get-BuildInfoProbe { ((cmake --version 2>&1 | Select-Object -First 1) -split '\s+')[-1] })"
+    )
+
+    # The wheels this unit produced, with hashes, so a wheel someone downloaded from PyPI can
+    # be matched back to the record of what built it. Indexed rather than repeated keys:
+    # normally there is exactly one (the adapters fan out one python per unit).
+    $dist = Join-Path $ProjectRoot "wheelhouse\dist"
+    $built = @(Get-ChildItem (Join-Path $dist "*.whl") -ErrorAction SilentlyContinue |
+        Sort-Object Name)
+    $lines += "wheel_count=$($built.Count)"
+    for ($i = 0; $i -lt $built.Count; $i++) {
+        $n = $i + 1
+        $lines += "wheel_$n=$($built[$i].Name)"
+        $hash = Get-BuildInfoProbe {
+            (Get-FileHash -Algorithm SHA256 -LiteralPath $built[$i].FullName).Hash.ToLower()
+        }
+        $lines += "wheel_${n}_sha256=$hash"
+    }
+
+    # ASCII + LF, so the file is byte-identical in shape to the ones tasks.sh writes and the
+    # packer does not have to care which platform produced which member.
+    $text = ($lines -join "`n") + "`n"
+    [System.IO.File]::WriteAllText($info, $text, [System.Text.UTF8Encoding]::new($false))
+    foreach ($l in $lines) { Write-Log "  build-info: $l" }
 }
 
 function Invoke-Validate {

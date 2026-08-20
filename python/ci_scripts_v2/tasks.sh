@@ -258,25 +258,108 @@ DOCKERFILE
     esac
 }
 
-# Records what actually built one unit, as wheelhouse/build-info/<family>_<arch>.txt.
-# Two inputs here are NOT pinned by the SDK sha: the base image (`latest` moves whenever
-# pypa publishes) and, on musllinux, the compiler itself, since `apk add build-base`
-# resolves live against Alpine's repos. So this file does not make the image reproducible;
-# it makes it IDENTIFIABLE, which is what a later investigation needs in order to decide
-# whether reproducing a release build is even plausible. base_digest is the actionable
-# line: it is recorded in the exact form CBCI_BASE_IMAGE_TAG accepts.
-_record_build_info() {
-    local family="$1" arch="$2" docker_platform="$3" base_image="$4" image="$5"
-    local info_dir="${PROJECT_ROOT}/wheelhouse/build-info"
-    local info="${info_dir}/${family}_${arch}.txt"
-    mkdir -p "${info_dir}"
+# --- build-info ---------------------------------------------------------------
+#
+# The permanent record of what compiled a release. Every wheel unit writes ONE file, and
+# the release adapter packs the set into a single object that outlives the build archive.
+#
+# It cannot be derived from the SDK sha, which is the whole reason it exists: the container
+# base image moves whenever pypa publishes `latest`, musllinux's compiler resolves live
+# against Alpine's repos (`apk add build-base`), and on the host platforms the AGENT
+# supplies the toolchain -- two agents behind one label have already been observed carrying
+# different macOS SDKs, worth 172 KB of wheel between two builds of the same sha. So these
+# files do not make a build reproducible; they make it IDENTIFIABLE, which is what an
+# investigation needs before it can decide whether reproducing an old release is plausible
+# at all.
+#
+# Two write points, because the two halves are known in different places:
+#   * `image` knows the container facts and leaves a side-car. It is a DOTFILE, so it stays
+#     out of the archived `build-info/*` glob and never reaches the published record.
+#   * the wheel step knows the unit's identity (python, abi3, the wheel produced) and
+#     merges the side-car in.
+# macOS/Windows never run `image`, so there is no side-car and the host toolchain is probed
+# directly. Recording is diagnostics: every call site consumes failure with `||`.
+
+_build_info_dir() { echo "${PROJECT_ROOT}/wheelhouse/build-info"; }
+
+# Fixed name, not keyed on family/arch: the wheel step would have to re-derive the libc ->
+# family mapping to name the file, and it cannot go stale because every build unit opens
+# with a workspace wipe and builds exactly one image.
+_build_info_sidecar() { echo "$(_build_info_dir)/.image.env"; }
+
+# Mirrors bootstrap.sh's get_sha256 tool order (sha256sum / shasum / openssl), and yields
+# "unknown" instead of failing: a missing hash must not fail a green build.
+_sha256_of() {
+    local out=""
+    if command -v sha256sum >/dev/null 2>&1; then
+        out="$(sha256sum "$1" 2>/dev/null | awk '{print $1}')" || out=""
+    elif command -v shasum >/dev/null 2>&1; then
+        out="$(shasum -a 256 "$1" 2>/dev/null | awk '{print $1}')" || out=""
+    elif command -v openssl >/dev/null 2>&1; then
+        out="$(openssl dgst -sha256 "$1" 2>/dev/null | awk '{print $NF}')" || out=""
+    fi
+    echo "${out:-unknown}"
+}
+
+# "cmake version 3.31.6" -> "3.31.6"
+_cmake_version_of() {
+    local v=""
+    v="$(cmake --version 2>/dev/null | head -1)" || v=""
+    v="${v##* }"
+    echo "${v:-unknown}"
+}
+
+# Rejects anything that is not a real content digest, so a docker CLI whose output shape we
+# did not anticipate records "unknown" rather than a plausible-looking wrong value. Not
+# paranoia: on the CI agents `imagetools inspect --format` was accepted and then IGNORED, and
+# `head -1` captured the human-readable "Name: <repo>" line as if it were the digest.
+_is_sha256_digest() {
+    [[ "$1" =~ ^sha256:[0-9a-f]{64}$ ]]
+}
+
+# The build unit this invocation is building: <platform>_<arch>_<cpXY|abi3>.
+#
+# The suffix is not decoration. Under the non-abi3 matrix one platform/arch builds five
+# pythons as five separate units, so a name without it is written five times and only the
+# last survives. It also has to survive REASSEMBLY: the adapters union these files from
+# every unit into one directory (Jenkins copies each unstashed cell's, GHA's
+# download-artifact does it with merge-multiple), and a collision there overwrites silently
+# rather than reporting anything.
+_build_info_unit() {
+    local abi3="$1"
+    local platform="${CBCI_BUILD_PLATFORM:-linux}"
+    # The arch spelling is the ADAPTER's (aarch64 on linux, arm64 on macOS) so the name
+    # matches the unit vocabulary the pipelines and stash names already use. Do not
+    # normalize it here.
+    local arch="${CBCI_BUILD_ARCH:-}"
+    [[ -n "${arch}" ]] || arch="$(uname -m)"
+    local suffix
+    if [[ "${abi3}" == "true" ]]; then
+        suffix="abi3"
+    elif [[ -n "${CBCI_PYTHON_VERSION:-}" ]]; then
+        suffix="cp${CBCI_PYTHON_VERSION//./}"
+    else
+        # No per-unit python and not abi3 means one invocation is building every supported
+        # version (local dev; the CI adapters always fan out one python per unit).
+        suffix="all"
+    fi
+    echo "${platform}_${arch}_${suffix}"
+}
+
+# Container facts for the image just built, as the side-car the wheel step merges in.
+# base_digest is the actionable line: it is recorded in the exact form CBCI_BASE_IMAGE_TAG
+# accepts, so it is paste-able into a reproduction attempt.
+_record_image_info() {
+    local libc="$1" family="$2" arch="$3" docker_platform="$4" base_image="$5" image="$6"
+    local sidecar; sidecar="$(_build_info_sidecar)"
+    mkdir -p "$(_build_info_dir)"
 
     # Every capture is `|| var=""`-guarded because of `set -o pipefail` at the top of this
     # file: an assignment from a pipeline takes the FIRST failing command's status, so an
     # unguarded `v="$(docker ... | head -1)"` ABORTS THE BUILD instead of yielding "".
     # `head -1` is still needed on top of the guard: docker writes an empty line to stdout
     # AND exits non-zero for a missing image, so a raw capture can be multi-line.
-    local base_digest="" image_id="" compiler=""
+    local base_digest="" image_layers="" probe="" compiler="" container_cmake=""
 
     # `{{if .RepoDigests}}` rather than a bare `{{index .RepoDigests 0}}`, which is a
     # template ERROR (not an empty string) on an image carrying no digest.
@@ -286,32 +369,305 @@ _record_build_info() {
     # RepoDigests entries are `repo@sha256:...`; keep only the digest, so the recorded value
     # is paste-able into CBCI_BASE_IMAGE_TAG as-is. The repo is on the base_image line.
     base_digest="${base_digest##*@}"
-    if [[ -z "${base_digest}" ]]; then
-        # buildkit pulls the base into ITS OWN cache, so after a fully cached build the base
-        # is usually absent from the image store `docker image inspect` reads. Ask the
+    if ! _is_sha256_digest "${base_digest}"; then
+        # buildkit resolves the base inside ITS OWN cache, so after a fully cached build the
+        # base is usually absent from the image store `docker image inspect` reads. Ask the
         # registry, which also covers a base that was never pulled locally at all.
-        base_digest="$(docker buildx imagetools inspect \
-            --format '{{.Manifest.Digest}}' "${base_image}" 2>/dev/null | head -1)" \
-            || base_digest=""
+        #
+        # The `Digest:` line of the DEFAULT output is parsed instead of passing --format,
+        # because older buildx accepts --format and ignores it. Both shapes carry this line.
+        base_digest="$(docker buildx imagetools inspect "${base_image}" 2>/dev/null \
+            | awk '/^Digest:/ { print $2; exit }')" || base_digest=""
+        base_digest="${base_digest##*@}"
     fi
+    _is_sha256_digest "${base_digest}" || base_digest=""
 
-    image_id="$(docker image inspect --format '{{.Id}}' "${image}" 2>/dev/null | head -1)" \
-        || image_id=""
-    compiler="$(docker run --rm --platform "${docker_platform}" "${image}" \
-        sh -c 'gcc --version 2>/dev/null | head -1' 2>/dev/null | head -1)" || compiler=""
+    # RootFS.Layers, NOT .Id. An image ID digests the image CONFIG, which docker regenerates
+    # on every build, so two fully cached builds of one Dockerfile get different IDs while
+    # their layers are byte-identical. Layers are content-addressed, so this is the field
+    # that can actually answer "did these two builds compile in the same image?".
+    image_layers="$(docker image inspect \
+        --format '{{join .RootFS.Layers ","}}' "${image}" 2>/dev/null | head -1)" \
+        || image_layers=""
+
+    # ONE container spin-up for both tools, with each answer KEYED on the way out: taking
+    # line 1 and line 2 positionally would silently attribute cmake's banner to the compiler
+    # on an image where gcc is missing.
+    probe="$(docker run --rm --platform "${docker_platform}" "${image}" sh -c \
+        'echo "gcc=$(gcc --version 2>/dev/null | head -1)"; echo "cmake=$(cmake --version 2>/dev/null | head -1)"' \
+        2>/dev/null)" || probe=""
+    compiler="$(printf '%s\n' "${probe}" | sed -n 's/^gcc=//p' | head -1)" || compiler=""
+    container_cmake="$(printf '%s\n' "${probe}" | sed -n 's/^cmake=//p' | head -1)" \
+        || container_cmake=""
+    container_cmake="${container_cmake##* }"
 
     {
+        echo "libc=${libc}"
         echo "family=${family}"
-        echo "arch=${arch}"
         echo "docker_platform=${docker_platform}"
         echo "base_image=${base_image}"
         echo "base_digest=${base_digest:-unknown}"
         echo "image=${image}"
-        echo "image_id=${image_id:-unknown}"
+        echo "image_layers=${image_layers:-unknown}"
         echo "cmake_version_arg=${CBCI_CMAKE_VERSION:-3.31.*}"
+        echo "cmake=${container_cmake:-unknown}"
         echo "compiler=${compiler:-unknown}"
+    } > "${sidecar}"
+    while IFS= read -r info_line; do log "  image-info: ${info_line}"; done < "${sidecar}"
+}
+
+# Replays the side-car `image` left in this workspace. Absent when the wheel step runs with
+# no preceding `image` (a wheel-only rerun against an already-built image), so the record
+# degrades to its identity half and says so rather than failing.
+_emit_image_info() {
+    local sidecar; sidecar="$(_build_info_sidecar)"
+    if [[ -r "${sidecar}" ]]; then
+        cat "${sidecar}"
+    else
+        echo "image_info=unavailable"
+    fi
+}
+
+# Host toolchain on macOS, none of which the SDK sha pins. This is the field set that would
+# have caught the mismatched agent SDKs at build time instead of by wheel-size archaeology.
+_emit_macos_toolchain() {
+    local sdk="" sdk_path="" clang="" xcode="" os=""
+    sdk="$(xcrun --show-sdk-version 2>/dev/null | head -1)" || sdk=""
+    sdk_path="$(xcrun --show-sdk-path 2>/dev/null | head -1)" || sdk_path=""
+    clang="$(cc --version 2>/dev/null | head -1)" || clang=""
+    xcode="$(xcodebuild -version 2>/dev/null | head -1)" || xcode=""
+    os="$(sw_vers -productVersion 2>/dev/null | head -1)" || os=""
+    echo "macos_sdk=${sdk:-unknown}"
+    echo "macos_sdk_path=${sdk_path:-unknown}"
+    echo "macos_deployment_target=${MACOSX_DEPLOYMENT_TARGET:-unset}"
+    echo "clang=${clang:-unknown}"
+    echo "xcode=${xcode:-unknown}"
+    echo "runner_os=${os:-unknown}"
+    # The MACHINE's arch, not the unit's: an x86_64 unit on an arm64 host is a Rosetta
+    # build, a different compiler invocation from the same unit on Intel hardware.
+    echo "host_arch=$(uname -m)"
+    echo "cmake=$(_cmake_version_of)"
+}
+
+# The wheels this unit produced, with hashes, so a wheel someone downloaded from PyPI can be
+# matched back to the record of what built it. Indexed rather than repeated keys: normally
+# there is exactly one (the adapters fan out one python per unit), but a local non-abi3 run
+# builds every version in a single invocation.
+_emit_wheel_identity() {
+    local -a wheels=()
+    while IFS= read -r -d '' f; do wheels+=("${f}"); done \
+        < <(find "${PROJECT_ROOT}/wheelhouse/dist" -maxdepth 1 -name '*.whl' -print0 \
+            2>/dev/null | sort -z)
+    echo "wheel_count=${#wheels[@]}"
+    local i=0 w
+    for w in "${wheels[@]}"; do
+        i=$((i + 1))
+        echo "wheel_${i}=$(basename "${w}")"
+        echo "wheel_${i}_sha256=$(_sha256_of "${w}")"
+    done
+}
+
+# Records ONE wheel unit, as wheelhouse/build-info/<unit>.txt.
+#
+# $1 is the build-env string the wheel step is about to hand the build, so abi3 is read from
+# the value the BUILD CONSUMES rather than re-derived here. That matters: the Jenkins ABI3
+# parameter is three-way (auto|true|false) resolved by a commit gate, so without this
+# nothing records which way `auto` fell.
+_record_build_info() {
+    local build_env="${1:-}"
+    local pfx="${CBCI_PROJECT_PREFIX}"
+    local abi3="false" abi3_floor=""
+    if [[ " ${build_env} " == *" ${pfx}_PY_LIMITED_API=ON "* ]]; then
+        abi3="true"
+        abi3_floor="$(printf '%s\n' "${build_env}" | tr ' ' '\n' \
+            | sed -n "s/^${pfx}_PY_LIMITED_API_VERSION=//p" | head -1)" || abi3_floor=""
+    fi
+
+    local unit; unit="$(_build_info_unit "${abi3}")"
+    local info_dir; info_dir="$(_build_info_dir)"
+    local info="${info_dir}/${unit}.txt"
+    mkdir -p "${info_dir}"
+
+    local platform="${CBCI_BUILD_PLATFORM:-linux}"
+    local arch="${CBCI_BUILD_ARCH:-}"
+    [[ -n "${arch}" ]] || arch="$(uname -m)"
+
+    # CI identity arrives through NEUTRAL vars the adapter sets (Jenkins NODE_NAME and
+    # JOB_NAME #BUILD_NUMBER; GHA runner.name, workflow #run_number, ImageVersion), so this
+    # file speaks no CI's vocabulary. The agent falls back to the hostname, which keeps the
+    # single most investigation-critical field correct even from a bare local run.
+    local agent="${CBCI_BUILD_AGENT:-}"
+    [[ -n "${agent}" ]] || agent="$(uname -n 2>/dev/null || true)"
+
+    # Both shas, because a release is the product of two repos and the release version names
+    # only one of them. `submodule status --recursive` + a name match rather than a
+    # hardcoded deps/ path, so moving the submodule does not silently record "unknown".
+    local sdk_sha="" cxx_sha=""
+    sdk_sha="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null | head -1)" || sdk_sha=""
+    cxx_sha="$(git -C "${PROJECT_ROOT}" submodule status --recursive 2>/dev/null \
+        | awk '$2 ~ /cxx-client/ { gsub(/^[-+U]/, "", $1); print $1; exit }')" || cxx_sha=""
+
+    {
+        echo "unit=${unit}"
+        echo "platform=${platform}"
+        echo "arch=${arch}"
+        echo "python=${CBCI_PYTHON_VERSION:-${abi3_floor:-all}}"
+        echo "abi3=${abi3}"
+        if [[ "${abi3}" == "true" ]]; then echo "abi3_floor=${abi3_floor:-unknown}"; fi
+        echo "agent=${agent:-unknown}"
+        echo "build=${CBCI_BUILD_REF:-unknown}"
+        echo "runner_image=${CBCI_BUILD_IMAGE:-unknown}"
+        echo "sdk_sha=${sdk_sha:-unknown}"
+        echo "cxx_client_sha=${cxx_sha:-unknown}"
     } > "${info}"
+
+    # Toolchain. Mutually exclusive by construction: only linux/alpine run `image`, and only
+    # macOS has a host toolchain worth probing (Windows records its own in tasks.ps1).
+    case "${platform}" in
+        linux|alpine) _emit_image_info >> "${info}" ;;
+        macos)        _emit_macos_toolchain >> "${info}" ;;
+    esac
+    _emit_wheel_identity >> "${info}"
+
     while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
+}
+
+# First value for a key in a unit record. `head -1` so a duplicated key cannot yield a
+# two-line field that shifts every column after it in the summary table.
+_bi_kv() {
+    local v; v="$(sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1)" || v=""
+    echo "${v:-unknown}"
+}
+
+# Keeps a summary row on ONE line. The untruncated value is always in the unit's own file,
+# so the summary can afford to be lossy and the table cannot afford to wrap.
+_bi_clip() {
+    local v="$1" n="$2"
+    if (( ${#v} > n )); then echo "${v:0:n-3}..."; else echo "${v}"; fi
+}
+
+# The one string that identifies the compiler, whichever platform wrote the record.
+_bi_toolchain() {
+    local platform v; platform="$(_bi_kv "$1" platform)"
+    case "${platform}" in
+        macos)   v="$(_bi_kv "$1" clang)" ;;
+        windows) v="MSVC $(_bi_kv "$1" msvc_toolset)" ;;
+        *)       v="$(_bi_kv "$1" compiler)" ;;
+    esac
+    _bi_clip "${v}" 40
+}
+
+# The identifying INPUT: the base image for a container build, the platform SDK for a host
+# build. This is the column that moves when one agent behind a shared label drifts.
+_bi_base() {
+    local platform dg; platform="$(_bi_kv "$1" platform)"
+    case "${platform}" in
+        macos)   echo "macOS SDK $(_bi_kv "$1" macos_sdk)" ;;
+        windows) echo "Windows SDK $(_bi_kv "$1" windows_sdk)" ;;
+        *)
+            dg="$(_bi_kv "$1" base_digest)"
+            # Short digest: enough to compare two releases at a glance, and the full value
+            # is one grep away in the unit file.
+            [[ "${dg}" == "unknown" ]] || dg="${dg:0:19}..."
+            echo "$(_bi_kv "$1" base_image) ${dg}" ;;
+    esac
+}
+
+# Header facts plus one aligned row per unit. The columns are chosen so that drift is
+# visible by scanning: two agents building one release with different SDKs differ in the
+# last column and nowhere else.
+_build_info_summary() {
+    local version="$1"; shift
+    local -a units=("$@")
+    local first="${units[0]}"
+
+    # Header facts are per-unit but identical across units, so read them off the first file.
+    echo "release=${version}"
+    echo "build=$(_bi_kv "${first}" build)"
+    echo "sdk_sha=$(_bi_kv "${first}" sdk_sha)"
+    echo "cxx_client_sha=$(_bi_kv "${first}" cxx_client_sha)"
+
+    # abi3 is NOT assumed uniform. A partially rerun matrix can mix, and reporting the first
+    # unit's value would hide exactly that.
+    local u a floor="" abi3_seen=""
+    for u in "${units[@]}"; do
+        a="$(_bi_kv "${u}" abi3)"
+        if [[ -z "${abi3_seen}" ]]; then
+            abi3_seen="${a}"
+        elif [[ "${abi3_seen}" != "${a}" ]]; then
+            abi3_seen="mixed"
+        fi
+        if [[ -z "${floor}" && "${a}" == "true" ]]; then floor="$(_bi_kv "${u}" abi3_floor)"; fi
+    done
+    if [[ "${abi3_seen}" == "true" && -n "${floor}" ]]; then
+        echo "abi3=true (floor ${floor})"
+    else
+        echo "abi3=${abi3_seen}"
+    fi
+    echo "units=${#units[@]}"
+    echo ""
+
+    printf '%-24s %-7s %-40s %s\n' 'unit' 'python' 'toolchain' 'base/sdk'
+    for u in "${units[@]}"; do
+        printf '%-24s %-7s %-40s %s\n' \
+            "$(_bi_kv "${u}" unit)" "$(_bi_kv "${u}" python)" \
+            "$(_bi_toolchain "${u}")" "$(_bi_base "${u}")"
+    done
+}
+
+# Packs the per-unit records the build archived into ONE object for permanent storage:
+# SUMMARY.txt (the whole release on one screen) plus the unit files themselves.
+#
+# Neutral on purpose. The zip and its summary are what is worth keeping identical across CI
+# vendors and worth testing on a laptop; only PUTTING the object is adapter work (Jenkins
+# s3Upload through the plugin, GHA aws-cli under an OIDC role), because credential
+# acquisition and the available tooling differ.
+#
+#   tasks.sh build-info-pack [dir] [out.zip]
+#
+# dir defaults to ./build-info, where both adapters' artifact download lands it, and out.zip
+# to ./build-info-${CBCI_VERSION}.zip. Deliberately does NOT call load_project_env: this
+# operates on text files alone, so it must not need engine.py, PyYAML or an SDK checkout on
+# a release agent that has none of them.
+task_build_info_pack() {
+    local dir="${1:-build-info}"
+    local version="${CBCI_VERSION:-unknown}"
+    local out="${2:-build-info-${version}.zip}"
+
+    [[ -d "${dir}" ]] || die "build-info-pack: no such directory: ${dir}"
+    local -a units=()
+    while IFS= read -r -d '' f; do units+=("${f}"); done \
+        < <(find "${dir}" -maxdepth 1 -name '*.txt' ! -name 'SUMMARY.txt' -print0 \
+            2>/dev/null | sort -z)
+    # Refuse to pack an empty record rather than publishing a zip that LOOKS like the
+    # release was documented. What an absent record means is the caller's call.
+    [[ ${#units[@]} -gt 0 ]] || die "build-info-pack: no unit records in ${dir}"
+
+    _build_info_summary "${version}" "${units[@]}" > "${dir}/SUMMARY.txt"
+    while IFS= read -r line; do log "  ${line}"; done < "${dir}/SUMMARY.txt"
+
+    # Absolute, because the zip is written from INSIDE dir so its members are bare
+    # filenames rather than build-info/<name>: one less directory for a reader to descend,
+    # and it keeps every member name equal to its unit name.
+    local abs_out
+    case "${out}" in /*) abs_out="${out}" ;; *) abs_out="${PWD}/${out}" ;; esac
+    rm -f "${abs_out}"
+
+    local -a members=(SUMMARY.txt)
+    local u
+    for u in "${units[@]}"; do members+=("$(basename "${u}")"); done
+
+    # zip(1) is not guaranteed on a release agent; python is, because tasks.sh already needs
+    # it. -X drops the uid/gid/extra-attribute fields, which nothing here reads.
+    if command -v zip >/dev/null 2>&1; then
+        ( cd "${dir}" && zip -q -X "${abs_out}" "${members[@]}" )
+    else
+        log "build-info-pack: no zip(1) on PATH, using python zipfile"
+        ( cd "${dir}" && "${PYTHON}" -m zipfile -c "${abs_out}" "${members[@]}" )
+    fi
+
+    log "build-info-pack: ${#members[@]} member(s) -> ${abs_out}"
+    log "build-info-pack: sha256=$(_sha256_of "${abs_out}")"
 }
 
 task_image() {
@@ -382,8 +738,8 @@ task_image() {
     # Diagnostics must NEVER fail a green build, so the recording step is consumed by
     # `||`: `set -e` does not fire on a command in an `||` list, which makes that a
     # structural property of the call rather than a discipline inside the helper.
-    _record_build_info "${family}" "${arch}" "${docker_platform}" "${base_image}" "${image}" \
-        || log "build-info: not recorded (non-fatal)"
+    _record_image_info "${libc}" "${family}" "${arch}" "${docker_platform}" "${base_image}" \
+        "${image}" || log "image-info: not recorded (non-fatal)"
 
     # Surface the ref + the matching var name task_wheel reads, so a LOCAL caller can
     # wire build to wheel by hand (in CI the adapter sets CBCI_IMAGE for both steps).
@@ -831,16 +1187,22 @@ task_wheel() {
 
     log "release wheels:"; ls -alh wheelhouse/dist
     log "debug wheels:";   ls -alh "${host_debug}" 2>/dev/null || log "  (none surfaced)"
+
+    # AFTER the build, because the record hashes the wheels this unit produced. The
+    # build-env string is passed in rather than re-read, so the recorded abi3 value is the
+    # one the build actually consumed. Diagnostics: failure is consumed by `||`.
+    _record_build_info "${cibw_environment}" || log "build-info: not recorded (non-fatal)"
 }
 
 task_wheel_native() {
-    # NATIVE wheel build (no cibuildwheel). The vendor adapter selects this verb instead
-    # of `wheel` for platforms where cibuildwheel's interpreter provisioning is unwanted
-    # (Jenkins macOS/Windows). Builds ONE wheel with the on-PATH (cbdep) python, then
-    # reuses task__wheel_repair for the lean release wheel and full-symbol debug wheel, so
-    # strip/packaging is IDENTICAL to the cibuildwheel path. The host toolchain env
-    # (MACOSX_DEPLOYMENT_TARGET/ARCHFLAGS/_PYTHON_HOST_PLATFORM, cmake/go on PATH) comes
-    # from the vendor.
+    # NATIVE wheel build (no cibuildwheel). Nothing here is vendor-specific: an adapter
+    # picks this verb over `wheel` for the platforms where IT provisions the interpreter --
+    # host builds on macOS and Windows, which have no container for cibuildwheel to run one
+    # in. Builds ONE wheel for whichever interpreter CBCI_PYTHON/PATH resolves to, so how
+    # that python arrived (a vendor package manager, a setup-python step) stays the
+    # adapter's business. Repair/strip is task__wheel_repair, IDENTICAL to the cibuildwheel
+    # path. The host toolchain env (MACOSX_DEPLOYMENT_TARGET/ARCHFLAGS/_PYTHON_HOST_PLATFORM,
+    # cmake/go on PATH) also comes from the adapter.
     load_project_env
     cd "${PROJECT_ROOT}"
 
@@ -888,6 +1250,10 @@ task_wheel_native() {
 
     log "wheel-native: release wheels:"; ls -alh "${PROJECT_ROOT}/wheelhouse/dist"
     log "wheel-native: debug wheels:";   ls -alh "${CBCI_DEBUG_WHEELHOUSE}" 2>/dev/null || log "  (none)"
+
+    # Same record as the containerized path. This is the ONLY place macOS build-info comes
+    # from: there is no `image` step on a host build, so nothing else probes that toolchain.
+    _record_build_info "${build_env}" || log "build-info: not recorded (non-fatal)"
     rm -rf "${bdist}"
 }
 
@@ -1341,6 +1707,7 @@ main() {
         test)                      task_test "$@" ;;
         docs)                      task_docs "$@" ;;
         publish)                   task_publish "$@" ;;
+        build-info-pack)           task_build_info_pack "$@" ;;
         # internal cibuildwheel hooks (invoked by cibuildwheel, not the pipeline)
         _wheel_before_all)         task__wheel_before_all "$@" ;;
         _wheel_repair)             task__wheel_repair "$@" ;;
