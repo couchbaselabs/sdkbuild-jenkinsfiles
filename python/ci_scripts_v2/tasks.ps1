@@ -133,25 +133,91 @@ function Invoke-Wheel {
     & $Python -m cibuildwheel --output-dir wheelhouse/dist $target
 }
 
+# Longest PYCBC_BUILD_TEMP that MSVC can build underneath. Windows caps a path at 260 chars
+# INCLUDING the terminating NUL, so 259 is the longest usable string, and cl.exe has no
+# long-path support for the files it generates itself. Past the limit it reports
+#     fatal error C1083: Cannot open compiler generated file: '': Invalid argument
+# with an EMPTY filename, blamed on the .cxx it was compiling, so the failure reads as a
+# compiler or source problem rather than a path-length one. It also only bites the single
+# deepest object path in the tree, so a build stays green until one filename tips it over.
+#
+# The deepest object path the cxx-client generates sits 160 chars below the build temp dir:
+#     \deps\couchbase-cxx-client\CMakeFiles\couchbase_cxx_client_static_intermediate.dir
+#     \core\impl\transaction_get_multi_replicas_from_preferred_server_group_spec.obj
+# and distutils appends \Release to build_temp on Windows (build_ext.finalize_options), so
+# both come out of the same budget: 259 - 160 - 8 = 91.
+$BuildTempMaxLen = 91
+
+# Fail BEFORE the compile rather than 40 minutes into it with C1083 and no filename.
+#
+# Windows only, and not merely because that is where CI builds: MAX_PATH is a Win32 limit, so
+# on a POSIX host (pwsh runs there too) this would reject a perfectly buildable deep checkout.
+# $env:OS rather than $IsWindows, which does not exist in PowerShell 5.1.
+function Assert-BuildTempFits($temp) {
+    if (-not $temp) { return }
+    if ($env:OS -ne "Windows_NT") { return }
+    if ($temp.Length -le $BuildTempMaxLen) {
+        Write-Log "wheel-native: build temp path is $($temp.Length)/$BuildTempMaxLen chars"
+        return
+    }
+    Stop-Task ("wheel-native: build temp path is $($temp.Length) chars, " +
+        "$($temp.Length - $BuildTempMaxLen) over the $BuildTempMaxLen-char MAX_PATH budget: $temp. " +
+        'MSVC does not fail on this path itself, it fails mid-compile with C1083 (cannot open ' +
+        'compiler generated file) and an EMPTY filename, on whichever object path is deepest. ' +
+        'Set PYCBC_BUILD_TEMP, together with PYCBC_BUILD_BASE and PYCBC_BUILD_LIB, to something ' +
+        'shorter, or move the workspace nearer the drive root.')
+}
+
 # Pin setuptools' build tree to a path that outlives the build. pip builds from its OWN
 # temporary copy of the sdist and deletes it on the way out, so at the default location the
 # compile output, and every .pdb in it, is gone before symbols can be collected.
-# PYCBC_BUILD_BASE is absolute, so build_temp and build_lib derive from it keeping their
-# interpreter-tagged suffixes and stay isolated per python version.
 #
-# An adapter (or a developer) that already set it wins. Only the default is ours to clear, and
-# clearing it matters: build_lib is the directory bdist_wheel packages, so a leftover from an
-# earlier commit in the same workspace would ship inside the wheel.
+# All THREE vars are set, not only the base. Left to derive, build_temp and build_lib keep
+# setuptools' interpreter-tagged names (temp.win-amd64-cpython-311 is 26 chars) and that alone
+# is enough to put a normal Jenkins workspace over the budget above; t311 and l311 spend 4.
+# They stay one directory per interpreter rather than one shared pair, which build_lib needs:
+# it is the directory bdist_wheel packages, so sharing it across versions would ship one
+# version's .pyd inside another version's wheel.
+#
+# An adapter (or a developer) that presets these wins, but the budget is checked either way:
+# the point is that nothing can quietly reintroduce a path MSVC cannot build under.
 function Set-BuildBase {
-    if ($env:PYCBC_BUILD_BASE) {
-        Write-Log "wheel-native: PYCBC_BUILD_BASE=$($env:PYCBC_BUILD_BASE) (preset, left alone)"
+    # plat_specifier is how setuptools names the dirs it derives from build_base. Needed to
+    # report the default being replaced, and to check a caller that set only the base.
+    $tags = @(& $Python -c "import sys, sysconfig; print('%s-%s' % (sysconfig.get_platform(), sys.implementation.cache_tag)); print('%d%d' % sys.version_info[:2])")
+    if ($LASTEXITCODE -ne 0 -or $tags.Count -lt 2) {
+        Stop-Task "wheel-native: could not read the interpreter tags needed for the build paths"
+    }
+    $plat = $tags[0]
+    $ver = $tags[1]
+
+    if ($env:PYCBC_BUILD_BASE -or $env:PYCBC_BUILD_TEMP -or $env:PYCBC_BUILD_LIB) {
+        $effTemp = $env:PYCBC_BUILD_TEMP
+        if (-not $effTemp) { $effTemp = Join-Path $env:PYCBC_BUILD_BASE "temp.$plat" }
+        Write-Log ("wheel-native: PYCBC_BUILD_* preset, left alone " +
+                   "(base=$($env:PYCBC_BUILD_BASE) temp=$($env:PYCBC_BUILD_TEMP) lib=$($env:PYCBC_BUILD_LIB))")
+        Assert-BuildTempFits $effTemp
         return
     }
-    $base = Join-Path $ProjectRoot ".cbci_build"
-    if (Test-Path $base) { Remove-Item -Recurse -Force $base -ErrorAction SilentlyContinue }
-    New-Item -ItemType Directory -Force -Path $base | Out-Null
+
+    $base = Join-Path $ProjectRoot ".cbci"
+    $temp = Join-Path $base "t$ver"
+    $lib = Join-Path $base "l$ver"
+    Assert-BuildTempFits $temp
+
+    # Clear THIS interpreter's two dirs, not the whole base: a sibling version's tree in the
+    # same workspace belongs to a wheel that is already packed, while a stale build_lib is
+    # exactly what would ship, since build_lib is what bdist_wheel packages.
+    foreach ($d in @($temp, $lib)) {
+        if (Test-Path $d) { Remove-Item -Recurse -Force $d -ErrorAction SilentlyContinue }
+    }
+    New-Item -ItemType Directory -Force -Path $temp, $lib | Out-Null
     $env:PYCBC_BUILD_BASE = $base
+    $env:PYCBC_BUILD_TEMP = $temp
+    $env:PYCBC_BUILD_LIB = $lib
     Write-Log "wheel-native: PYCBC_BUILD_BASE=$base (default, cleared)"
+    Write-Log "wheel-native: PYCBC_BUILD_TEMP=$temp (setuptools default would be temp.$plat)"
+    Write-Log "wheel-native: PYCBC_BUILD_LIB=$lib (setuptools default would be lib.$plat)"
 }
 
 # Move Windows symbols out of a freshly built wheel and prove what is left belongs there.

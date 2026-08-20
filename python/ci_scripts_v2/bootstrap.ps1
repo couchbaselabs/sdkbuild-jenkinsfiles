@@ -47,7 +47,7 @@ $CBCI_EXPECTED = @{
     'engine.py'           = '35c00330788ee1997909848c33baf492e917517005f408aec68f6afcc5a9f64c'
     'jenkins.py'          = '3a4f4be98f8c5e31e93551e8766267a24947fd8795551b9abf7faff6b72ec250'
     'tasks.sh'            = 'ba9363e3ba8afccc9fbb56d0880aa9a9718b521857ed3a6ac832ad383c5a0795'
-    'tasks.ps1'           = '0a058c057d6f91ca23ff6cb88cb199d1c6be24bf406959a6808c76789ed5186b'
+    'tasks.ps1'           = '1e02efd929308115296609201564d9d15d5761d4b37b46da770b4d5e46fe7dba'
     'auditwheel_patch.py' = '1e38cfe3a7335fe3c5d5e08a0f53718f38d95b8f7185c1315fec5cddc5ad4bfa'
     'ci-config.yaml'      = '6b3c035f8cc80ffb75dd6006134531e6a31bc6bdb3bb3d29e605ca777512cec9'
 }
