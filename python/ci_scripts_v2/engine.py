@@ -99,60 +99,84 @@ def _apply_config_override(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return _deep_merge(cfg, override)
 
 
+def _reject_unsupported(kind: str, bad: List[str], supported: Sequence[str],
+                        hint: str = "") -> None:
+    """A promoted var naming something outside the support matrix is FATAL.
+
+    These vars NARROW only: the matrix, after commit gates, is what this checkout can build,
+    so an unrecognized entry is a typo, a saved job config gone stale, or a version this
+    branch never carried. Dropping it with a warning builds a matrix nobody asked for and
+    says so only in a log line. The case that looks most like success is the worst: with
+    every entry dropped there is nothing left to narrow with, so the run would fall back to
+    the FULL matrix. Adding a value is a different channel on purpose: edit ci-config.yaml,
+    or pass CBCI_CONFIG_OVERRIDE for a one-off trial of a version not yet supported.
+    """
+    if not bad:
+        return
+    msg = (f"ERROR: {kind}: {sorted(set(bad))} not in this checkout's support matrix "
+           f"(has: {list(supported)}). This var narrows only; it cannot add a value.")
+    print(msg if not hint else f"{msg} {hint}", file=sys.stderr)
+    sys.exit(1)
+
+
 def _apply_promoted_vars(cfg: Dict[str, Any]) -> Dict[str, Any]:
     """Apply promoted override vars (HIGHEST precedence). Empty = leave as-is.
 
     Values are comma/space lists validated against the support matrix; an unsupported
-    entry warns and is dropped rather than failing the run.
+    entry is fatal (see _reject_unsupported).
     """
     support = cfg.setdefault("support", {})
     build = cfg.setdefault("build", {})
 
-    # PYTHON_VERSIONS: filter to supported; keep the file default if nothing valid.
+    # PYTHON_VERSIONS: narrow to the listed versions; anything unsupported is fatal.
     pv = (os.environ.get("PYTHON_VERSIONS") or "").strip()
     if pv:
         supported = support.get("python_versions", [])
-        chosen = []
+        chosen: List[str] = []
+        bad: List[str] = []
         for v in _parse_list(pv):
-            if v in supported:
+            if v not in supported:
+                bad.append(v)
+            elif v not in chosen:
                 chosen.append(v)
-            else:
-                print(f"WARNING: unsupported python version '{v}' (not in support matrix); ignoring", file=sys.stderr)
-        if chosen:
-            support["python_versions"] = chosen
+        _reject_unsupported("PYTHON_VERSIONS", bad, supported,
+                            "To trial a version the SDK does not yet declare, add it through "
+                            "CBCI_CONFIG_OVERRIDE.")
+        support["python_versions"] = chosen
 
     # ARCHES: normalize aarch64->arm64, filter to supported.
     ar = (os.environ.get("ARCHES") or "").strip()
     if ar:
         supported = support.get("architectures", [])
-        chosen: List[str] = []
+        chosen = []
+        bad = []
         for a in _parse_list(ar):
             a = "arm64" if a == "aarch64" else a
             a = "x86_64" if a == "x64" else a
             if a not in supported:
-                print(f"WARNING: unsupported arch '{a}' (not in support matrix); ignoring", file=sys.stderr)
+                bad.append(a)
             elif a not in chosen:
                 chosen.append(a)
-        if chosen:
-            support["architectures"] = chosen
+        _reject_unsupported("ARCHES", bad, supported)
+        support["architectures"] = chosen
 
     # PLATFORMS: narrow each selected arch's platform list to the request. The engine speaks
     # ONLY abstract platforms (linux/alpine/macos/windows). Mapping vendor/distro tokens
     # (amzn2, m1, ubuntu-22.04) to abstract is the ADAPTER's job: it pops PLATFORMS and calls
-    # narrow_to_platforms() itself. A non-abstract token here warns and is dropped, so a
-    # stray distro token cannot silently keep a platform.
+    # narrow_to_platforms() itself, so a distro token never reaches here through a CI run.
+    # One that does is a direct engine.py invocation using adapter vocabulary, which would
+    # otherwise narrow to nothing and build the full matrix.
     pf = (os.environ.get("PLATFORMS") or "").strip()
     if pf:
         requested = _parse_list(pf)
         plats = support.get("platforms", {})
         arches = support.get("architectures", [])
         valid_anywhere = {p for a in arches for p in plats.get(a, [])}
-        for p in requested:
-            if p not in valid_anywhere:
-                print(f"WARNING: platform '{p}' is not a supported abstract platform "
-                      f"{sorted(valid_anywhere)}; ignoring (distro/label tokens belong to "
-                      f"the CI adapter, not engine.py)", file=sys.stderr)
-        _narrow_platforms(support, {p for p in requested if p in valid_anywhere})
+        _reject_unsupported("PLATFORMS", [p for p in requested if p not in valid_anywhere],
+                            sorted(valid_anywhere),
+                            "engine.py speaks abstract platforms only; distro and agent-label "
+                            "tokens belong to the CI adapter.")
+        _narrow_platforms(support, set(requested))
 
     # USE_OPENSSL / OPENSSL_VERSION: flip the SSL backend + pin.
     use_ssl = (os.environ.get("USE_OPENSSL") or "").strip()
