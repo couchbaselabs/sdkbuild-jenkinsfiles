@@ -129,6 +129,229 @@ if (npmTar) {
     if ($LASTEXITCODE -ne 0) { Die "failed to unpack $tgzPath" }
 }
 
+# Longest $PROJECT_ROOT that MSVC can build couchnode underneath. Windows caps a path at
+# 260 chars INCLUDING the terminating NUL, so 259 is the longest usable string, and cl.exe
+# has no long-path support for the files it generates itself. Past the limit it reports
+#     fatal error C1083: Cannot open compiler generated file: '': Invalid argument
+# with an EMPTY filename, blamed on whichever .cxx it was compiling, so the failure reads
+# as a compiler or source problem rather than a path-length one. It also bites only the
+# single deepest object path in the tree, so a build stays green until one filename tips it
+# over.
+#
+# Derivation. cmake-js builds into $PROJECT_ROOT\build (6 chars) using the Visual Studio
+# multi-config generator, which lands a target's intermediates in
+# <target-binary-dir>\<target>.dir\<Config>\. The deepest of them belongs to the C++ core:
+#     \deps\couchbase-cxx-client\couchbase_cxx_client_static_intermediate.dir\Release
+#     \core\impl\transaction_get_multi_replicas_from_preferred_server_group_spec.obj
+# which is 157 chars, so the budget is 259 - 6 - 157 = 96.
+#
+# Note the layout differs from the Makefile/Ninja one (no \CMakeFiles component, and
+# \Release sits under .dir rather than being appended to the build root), so this number
+# is NOT transferable to or from a generator-agnostic measurement. Re-measure by finding
+# the longest .obj under build\deps\couchbase-cxx-client after a Windows build and
+# subtracting $PROJECT_ROOT.
+#
+# Sanity check on the number: the equivalent guard on the Python SDK allows 80 chars of
+# workspace, this one allows 86, and observed Jenkins Windows workspaces run 54 to 68. The
+# budget has headroom against the agents that already build under the stricter limit.
+$ProjectRootMaxLen = 96
+
+# Fail BEFORE the compile rather than 40 minutes into it with C1083 and no filename.
+#
+# Windows only, and not merely because that is where CI builds: MAX_PATH is a Win32 limit,
+# so on a POSIX host (pwsh runs there too) this would reject a perfectly buildable deep
+# checkout. $env:OS rather than $IsWindows, which does not exist in PowerShell 5.1.
+#
+# Unlike the Python SDK's equivalent there is no build-temp variable to redirect: cmake-js
+# fixes the build tree at $PROJECT_ROOT\build, so the only remedy is a shorter path, which
+# on Jenkins means a shorter workspace. CBCI_ALLOW_LONG_BUILD_PATH exists to test whether
+# the budget above is itself wrong, not for routine use.
+function Assert-BuildPathFits([string]$root) {
+    if (-not $root) { return }
+    if ($env:OS -ne "Windows_NT") { return }
+    if ($root.Length -le $ProjectRootMaxLen) {
+        Log "prebuild: project root path is $($root.Length)/$ProjectRootMaxLen chars"
+        return
+    }
+    $over = $root.Length - $ProjectRootMaxLen
+    $msg = ("prebuild: project root path is $($root.Length) chars, $over over the " +
+            "$ProjectRootMaxLen-char MAX_PATH budget: $root. MSVC does not fail on this path " +
+            "itself, it fails mid-compile with C1083 (cannot open compiler generated file) and " +
+            "an EMPTY filename, on whichever object path is deepest. Use a shorter workspace, " +
+            "or move the checkout nearer the drive root.")
+    if ($env:CBCI_ALLOW_LONG_BUILD_PATH -eq "true") {
+        Log "WARNING: $msg (continuing, CBCI_ALLOW_LONG_BUILD_PATH=true)"
+        return
+    }
+    Die $msg
+}
+
+# --- build-info: the Windows half of the record tasks.sh writes elsewhere -----
+#
+# Same file format, same unit key, same directory, so build-info-pack (tasks.sh, run on the
+# aggregating linux agent) reads a Windows record without knowing it wrote one. The keys
+# consumed by that summary are unit, platform, runtime, compiler and windows_sdk; the rest
+# is read by whoever is investigating.
+
+function BuildInfo-Dir { Join-Path $PROJECT_ROOT 'buildInfo' }
+
+function Sha256-Of([string]$path) {
+    try {
+        return (Get-FileHash -Algorithm SHA256 -Path $path).Hash.ToLower()
+    } catch {
+        return 'unknown'
+    }
+}
+
+# First line of a native tool's output, or 'unknown'. Piped through Out-String rather than
+# returned directly: a bare `& $exe` inside a function writes to the FUNCTION'S output
+# stream, so its lines would be prepended to whatever the caller expected back.
+function First-Line([string]$exe, [string[]]$exeArgs) {
+    try {
+        $out = (& $exe @exeArgs 2>&1 | Out-String)
+        if (-not $out) { return 'unknown' }
+        $line = ($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -First 1)
+        if ($line) { return $line.Trim() } else { return 'unknown' }
+    } catch {
+        return 'unknown'
+    }
+}
+
+function Or-Unknown($v) { if ($v) { return $v } else { return 'unknown' } }
+
+# First non-empty of its arguments, or 'unknown'. Exists so a record field can prefer the
+# adapter's neutral CBCI_BUILD_* channel and still resolve from a local developer shell.
+function First-Set([string[]]$values) {
+    foreach ($v in $values) { if ($v) { return $v.Trim() } }
+    return 'unknown'
+}
+
+# cl.exe's banner goes to STDERR. Windows PowerShell 5.1, which is what the pipeline invokes,
+# promotes a redirected native stderr into a terminating error under the 'Stop' preference set
+# at the top of this file, so a `2>&1` capture of it never returns the banner at all: the catch
+# reports "unknown". PowerShell 7 does not behave that way, which is why this reads correctly
+# from a developer shell and never from CI. cmd merges the streams before PowerShell sees them
+# either way. Worth having next to msvc_toolset: this is the only field naming the compiler
+# BINARY that ran rather than the toolchain directory it was selected from.
+function Cl-Banner {
+    try {
+        # Guarded, so a cl that is not on PATH yields "unknown" rather than cmd's
+        # "not recognized" text sitting in the field.
+        if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) { return 'unknown' }
+        # Function-scoped, so it does not leak to the caller. Relaxed for the same reason the
+        # call goes through cmd: cl exits non-zero when invoked with no arguments, and that
+        # must not discard the banner it already printed.
+        $ErrorActionPreference = 'Continue'
+        $line = (& cmd /c 'cl 2>&1') | Where-Object { $_.ToString().Trim() } | Select-Object -First 1
+        if ($line) { return $line.ToString().Trim() } else { return 'unknown' }
+    } catch {
+        return 'unknown'
+    }
+}
+
+# The MSVC toolchain, which no SHA in this record pins. vcvarsall.bat is what selects it, and
+# it runs in the ADAPTER, not here, so these read the neutral channel first: only
+# WindowsSDKVersion is forwarded into the build shell under its real name, and the rest would
+# otherwise all record "unknown" under CI. The real vcvars variables stay as the fallback for a
+# local run inside a developer shell. WindowsSDKVersion arrives with a trailing backslash; it is
+# trimmed so two agents can be compared as strings.
+function Emit-WindowsToolchain {
+    $sdk = $env:WindowsSDKVersion
+    if ($sdk) { $sdk = $sdk.TrimEnd('\') }
+    "msvc_toolset=$(First-Set @($env:CBCI_BUILD_MSVC_TOOLSET, $env:VCToolsVersion))"
+    # Which Visual Studio, spelled out. The toolset above is a directory version (14.29 vs
+    # 14.30); this is the number the agent was provisioned by, and the two matter separately
+    # because the adapter picks its VS by AGENT NAME.
+    "vs_version=$(First-Set @($env:CBCI_BUILD_VS_VERSION, $env:VSCMD_VER))"
+    "windows_sdk=$(Or-Unknown $sdk)"
+    "vs_install=$(First-Set @($env:CBCI_BUILD_VS_INSTALL, $env:VSINSTALLDIR))"
+    "vc_target_arch=$(First-Set @($env:CBCI_BUILD_VS_TGT_ARCH, $env:VSCMD_ARG_TGT_ARCH))"
+    # Recorded under the same key the other platforms use for their compiler so the summary
+    # has one column.
+    "compiler=$(Cl-Banner)"
+    "cmake=$(First-Line 'cmake' @('--version'))"
+    "runner_os=$(Or-Unknown ([System.Environment]::OSVersion.Version.ToString()))"
+    "host_arch=$(Or-Unknown $env:PROCESSOR_ARCHITECTURE)"
+}
+
+# Facts shared with the tasks.sh records. CI identity arrives ONLY through the neutral
+# CBCI_BUILD_* channel the adapter sets, so this file speaks no CI's vocabulary; the agent
+# falls back to the hostname, which keeps the most investigation-critical field correct even
+# from a bare local run.
+function Emit-CommonIdentity {
+    $agent = if ($env:CBCI_BUILD_AGENT) { $env:CBCI_BUILD_AGENT } else { $env:COMPUTERNAME }
+    "agent=$(Or-Unknown $agent)"
+    "build=$(Or-Unknown $env:CBCI_BUILD_REF)"
+    "runner_image=$(Or-Unknown $env:CBCI_BUILD_IMAGE)"
+    "node=$(First-Line $NODE_BIN @('-p', 'process.versions.node'))"
+    "npm=$(First-Line $NPM_BIN @('--version'))"
+    # CBCI_SHA rather than git: the prebuild stage builds from the packed sdist, which
+    # carries no git metadata. The C++ core sha is recorded by the sdist stage, which runs
+    # where the checkout still exists, and the summary takes it from there.
+    "sdk_sha=$(Or-Unknown $env:CBCI_SHA)"
+    "cxx_client_sha=unknown"
+}
+
+# The prebuilds this unit produced, with hashes, so a binary pulled out of a published
+# platform package can be matched back to the record of what built it.
+function Emit-PrebuildIdentity {
+    $bins = @(Get-ChildItem -Path (Join-Path $PROJECT_ROOT 'prebuilds') -Filter '*.node' `
+                            -File -ErrorAction SilentlyContinue | Sort-Object Name)
+    "prebuild_count=$($bins.Count)"
+    $i = 0
+    foreach ($b in $bins) {
+        $i++
+        "prebuild_$i=$($b.Name)"
+        "prebuild_${i}_sha256=$(Sha256-Of $b.FullName)"
+    }
+}
+
+# Records ONE prebuild unit as buildInfo/<unit>.txt, where <unit> is the prebuild name
+# minus its version and is passed in by the caller. See tasks.sh's _build_info_unit for why
+# it is derived from the artifact name rather than from (platform, arch, runtime).
+function Write-BuildInfo([string]$unit) {
+    if (-not $unit) { Die 'build-info: Write-BuildInfo needs a unit name' }
+    $platform = if ($env:CBCI_BUILD_PLATFORM) { $env:CBCI_BUILD_PLATFORM } else { 'windows' }
+    $arch = if ($env:CBCI_BUILD_ARCH) { $env:CBCI_BUILD_ARCH } else { (Node-Arch) }
+    $runtime = if ($env:CBCI_BUILD_RUNTIME) { $env:CBCI_BUILD_RUNTIME } else { 'node' }
+
+    $runtimeVersion = if ($runtime -eq 'electron') {
+        $env:CBCI_BUILD_ELECTRON_VERSION
+    } else {
+        $env:CBCI_BUILD_NODE_VERSION
+    }
+    $napi = if ($runtime -eq 'node') {
+        if ($env:CN_NAPI_VERSION) { $env:CN_NAPI_VERSION } else { '6' }
+    } else { 'n/a' }
+    $ssl = if ($env:CN_USE_OPENSSL -eq 'ON') { 'openssl' } else { 'boringssl' }
+
+    $dir = BuildInfo-Dir
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $info = Join-Path $dir "$unit.txt"
+
+    $lines = @(
+        "unit=$unit"
+        "platform=$platform"
+        "arch=$arch"
+        "runtime=$runtime"
+        "runtime_version=$(Or-Unknown $runtimeVersion)"
+        "napi_version=$napi"
+        "ssl=$ssl"
+        # CN_BUILD_CONFIG is cleared before the build on Windows (see the file header), so
+        # the CONFIGURED value is passed in rather than read back out of the environment.
+        "build_type=$(Or-Unknown $env:CBCI_BUILD_TYPE)"
+        "package_version=$(Pkg-Version)"
+    )
+    $lines += Emit-CommonIdentity
+    $lines += Emit-WindowsToolchain
+    $lines += Emit-PrebuildIdentity
+
+    # -Encoding ascii, not the PowerShell 5.1 default: that default is UTF-16LE with a BOM,
+    # which the linux agent's sed/grep read as binary when it packs and summarises these.
+    Set-Content -Path $info -Value $lines -Encoding ascii
+    foreach ($l in $lines) { Log "  build-info: $l" }
+}
+
 # --- stages --------------------------------------------------------------
 
 function Task-DisplayInfo {
@@ -179,6 +402,51 @@ function Task-Sdist {
 
 # Copy the .pdb debug symbols (no strip on Windows - ground-truthed, see file header),
 # then rename the release binary into place under prebuilds/.
+# Its OWN directory, deliberately not a subdirectory of prebuildsDebug/. That directory is
+# the publish payload: the aggregate stage copies every entry of it into dist_debug/ and the
+# release job uploads every file there to a public bucket. Diagnostics belong in neither.
+function RepairDiag-Dir { Join-Path $PROJECT_ROOT 'repairDiag' }
+
+# Dump what is needed to tell "this config emits no PDB" apart from "the PDB was emitted
+# somewhere this did not look". The prebuild stage stashes nothing when it fails, and even
+# when it only warns the build tree is deleted at the start of the next run, so this is the
+# one chance to record where the compiler actually put things.
+#
+# Best-effort throughout: a failure inside the dumper must not replace the caller's error.
+function Write-RepairDiag([string]$stem, [string]$built, [string]$reason) {
+    try {
+        $dir = RepairDiag-Dir
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $out = Join-Path $dir "$stem.repair-diag.txt"
+        Log "writing repair diagnostics to $out"
+        $lines = @(
+            "=== prebuild-repair diagnostics: $stem",
+            "reason=$reason",
+            "--- config",
+            "built=$built",
+            "configured_build_type=$(Or-Unknown $env:CBCI_BUILD_TYPE)",
+            "cn_build_config=$(Or-Unknown $env:CN_BUILD_CONFIG)",
+            "vc_tools=$(First-Set @($env:CBCI_BUILD_MSVC_TOOLSET, $env:VCToolsVersion))",
+            "--- every .pdb under build/, wherever the generator put it"
+        )
+        # Recursive and unfiltered: the question this answers is whether the compiler emitted
+        # a PDB at all, which a lookup beside the .node cannot distinguish from a PDB written
+        # to a different config directory.
+        $pdbs = @(Get-ChildItem -Path 'build' -Filter '*.pdb' -Recurse -File -ErrorAction SilentlyContinue)
+        if ($pdbs.Count -eq 0) {
+            $lines += '(none found)'
+        } else {
+            foreach ($p in $pdbs) { $lines += "$($p.Length)`t$($p.FullName)" }
+        }
+        $lines += '--- build/ tree, two levels'
+        $lines += @(Get-ChildItem -Path 'build' -Depth 1 -ErrorAction SilentlyContinue |
+                    ForEach-Object { $_.FullName })
+        Set-Content -Path $out -Value $lines -Encoding ascii
+    } catch {
+        Log "WARNING: prebuild-repair: could not write diagnostics ($($_.Exception.Message))"
+    }
+}
+
 function Task-PrebuildRepair([string]$built, [string]$filename) {
     if (-not (Test-Path $built)) { Die "prebuild-repair: built binary not found: $built" }
     New-Item -ItemType Directory -Force -Path 'prebuilds', 'prebuildsDebug' | Out-Null
@@ -192,7 +460,20 @@ function Task-PrebuildRepair([string]$built, [string]$filename) {
         Copy-Item $pdb "prebuildsDebug/$filename-debug.pdb" -Force
         Log "prebuild-repair: copied debug symbols -> prebuildsDebug/$filename-debug.pdb"
     } else {
-        Log "WARNING: prebuild-repair: no .pdb found next to $built (Debug/RelWithDebInfo config?) - no debug artifact produced"
+        # Whether this is a failure depends on the config, so the rule is encoded rather than
+        # assumed. Debug and RelWithDebInfo compile with /Zi and MUST leave a PDB, so a
+        # missing one means the split broke and shipping would leave Windows with no symbols
+        # at all. A plain Release build legitimately emits none, and that stays a warning.
+        Write-RepairDiag -stem $filename -built $built -reason 'no .pdb beside the built binary'
+        $cfg = $env:CBCI_BUILD_TYPE
+        if ($cfg -eq 'RelWithDebInfo' -or $cfg -eq 'Debug') {
+            Die ("prebuild-repair: no .pdb found next to $built, but the configured build type " +
+                 "is $cfg, which compiles with /Zi and always emits one. The symbol split is " +
+                 "broken, not merely absent: see repairDiag/$filename.repair-diag.txt for " +
+                 "every .pdb the build actually produced.")
+        }
+        Log ("WARNING: prebuild-repair: no .pdb found next to $built and the configured build " +
+             "type is '$(Or-Unknown $cfg)', which need not emit one - no debug artifact produced")
     }
     Log "prebuild-repair: $filename.node ready (prebuilds/)"
 }
@@ -229,6 +510,8 @@ function Task-Prebuild {
         Die 'prebuild: runtime=electron requires CBCI_BUILD_ELECTRON_VERSION (set by the adapter per job)'
     }
 
+    Assert-BuildPathFits $PROJECT_ROOT
+
     Log "building (npm run prebuild) runtime=$runtime version=$($env:CN_PREBUILD_RUNTIME_VERSION)"
     Invoke-Checked $NPM_BIN @('run', 'prebuild')
 
@@ -261,8 +544,18 @@ function Task-Prebuild {
         }
     }
     $filename = "couchbase-v$version-$kind-v$abi-$nodePlatform-$nodeArch-$sslSuffix"
+    # The same components minus the version: unique per JOB, and stable across releases so
+    # two builds of one version can be diffed. See tasks.sh's _build_info_unit.
+    $unitKey = "$kind-v$abi-$nodePlatform-$nodeArch-$sslSuffix"
+
+    # Set BEFORE the repair, not just for the record: the repair step needs it to decide
+    # whether a missing .pdb is a broken split or a config that never emits one.
+    # CN_BUILD_CONFIG was cleared above, so this is the only channel carrying it.
+    $env:CBCI_BUILD_TYPE = $configuredBuildType
 
     Task-PrebuildRepair $built $filename
+    # After the split, so the hashes recorded are the ones that ship.
+    Write-BuildInfo $unitKey
     Log 'prebuild: release:'; Get-ChildItem prebuilds | Format-Table -AutoSize
     Log 'prebuild: debug:';   Get-ChildItem prebuildsDebug -ErrorAction SilentlyContinue | Format-Table -AutoSize
 }
