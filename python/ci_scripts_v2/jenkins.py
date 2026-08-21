@@ -176,16 +176,28 @@ def _requested_tokens() -> List[str]:
 
 
 def _abstract_platforms(tokens: List[str]) -> set:
-    """Union the requested distro/label tokens down to abstract platforms. Unresolvable
-    tokens warn (a typo like `ubunut24` should surface) and are skipped."""
+    """Union the requested distro/label tokens down to abstract platforms.
+
+    An unresolvable token is FATAL. PLATFORMS narrows the fan-out, so a typo (`ubunut24`)
+    dropped with a warning silently produces a matrix nobody asked for, and if it was the
+    only token there is nothing left to narrow with and the run fans out to everything.
+    Same contract as the engine's promoted vars.
+    """
     out: set = set()
+    bad: List[str] = []
     for t in tokens:
         abstract = _platform_token_to_abstract(t)
         if abstract is None:
-            print(f"WARNING: PLATFORMS token '{t}' is not a known Jenkins platform/label; "
-                  f"ignoring", file=sys.stderr)
+            bad.append(t)
         else:
             out.add(abstract)
+    if bad:
+        known = sorted(_ABSTRACT_PLATFORMS | set(_PLATFORM_FAMILIES))
+        print(f"ERROR: PLATFORMS: {sorted(set(bad))} not a known Jenkins platform, distro "
+              f"family, or agent label (families and abstract platforms: {known}; raw agent "
+              f"labels from those families are accepted too). Adding one is a "
+              f"_PLATFORM_FAMILIES edit in jenkins.py.", file=sys.stderr)
+        sys.exit(1)
     return out
 
 
