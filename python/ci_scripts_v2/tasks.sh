@@ -428,6 +428,29 @@ _emit_image_info() {
     fi
 }
 
+# Xcode version WITHOUT `xcodebuild -version`, which is the obvious probe and the wrong one:
+# it fails outright when the active developer dir is a CommandLineTools instance, and two units
+# sharing a mac agent race it, which showed up as `xcode=unknown` on a shifting half of the
+# fleet's units while their siblings on the same agent reported a version. Reading the
+# developer dir's own version.plist is a file read: no daemon, no lock, no shared prefs, and
+# nothing to lose a race to.
+_macos_xcode_version() {
+    local dev bundle ver
+    dev="$(xcode-select -p 2>/dev/null | head -1)" || dev=""
+    [[ -n "${dev}" ]] || { echo "unknown"; return; }
+    # /Applications/Xcode.app/Contents/Developer -> /Applications/Xcode.app/Contents/version.plist.
+    bundle="${dev%/Developer}"
+    if [[ -r "${bundle}/version.plist" ]]; then
+        ver="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \
+            "${bundle}/version.plist" 2>/dev/null)" || ver=""
+        [[ -z "${ver}" ]] || { echo "Xcode ${ver}"; return; }
+    fi
+    # A CommandLineTools dir has no such plist and is not an Xcode at all. Report the dir
+    # rather than "unknown": which toolchain is active is the thing worth knowing, and a
+    # CLT-only agent building release wheels is itself the finding.
+    echo "${dev}"
+}
+
 # Host toolchain on macOS, none of which the SDK sha pins. This is the field set that would
 # have caught the mismatched agent SDKs at build time instead of by wheel-size archaeology.
 _emit_macos_toolchain() {
@@ -435,7 +458,7 @@ _emit_macos_toolchain() {
     sdk="$(xcrun --show-sdk-version 2>/dev/null | head -1)" || sdk=""
     sdk_path="$(xcrun --show-sdk-path 2>/dev/null | head -1)" || sdk_path=""
     clang="$(cc --version 2>/dev/null | head -1)" || clang=""
-    xcode="$(xcodebuild -version 2>/dev/null | head -1)" || xcode=""
+    xcode="$(_macos_xcode_version)"
     os="$(sw_vers -productVersion 2>/dev/null | head -1)" || os=""
     echo "macos_sdk=${sdk:-unknown}"
     echo "macos_sdk_path=${sdk_path:-unknown}"
@@ -500,12 +523,22 @@ _record_build_info() {
     [[ -n "${agent}" ]] || agent="$(uname -n 2>/dev/null || true)"
 
     # Both shas, because a release is the product of two repos and the release version names
-    # only one of them. `submodule status --recursive` + a name match rather than a
-    # hardcoded deps/ path, so moving the submodule does not silently record "unknown".
-    local sdk_sha="" cxx_sha=""
-    sdk_sha="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null | head -1)" || sdk_sha=""
-    cxx_sha="$(git -C "${PROJECT_ROOT}" submodule status --recursive 2>/dev/null \
-        | awk '$2 ~ /cxx-client/ { gsub(/^[-+U]/, "", $1); print $1; exit }')" || cxx_sha=""
+    # only one of them. The adapter's value wins: under CI the wheel is built from an
+    # extracted sdist, which ships the C++ core's SOURCE but no `.git` at all, so the git
+    # probes below find nothing and every record reads "unknown". The CI that checked the
+    # source out is the one place that knows, so it passes them on the same neutral channel as
+    # the rest of the identity. The git fallback still covers a local run, where PROJECT_ROOT
+    # IS a real repo.
+    # `submodule status --recursive` + a name match rather than a hardcoded deps/ path, so
+    # moving the submodule does not silently record "unknown".
+    local sdk_sha="${CBCI_BUILD_SDK_SHA:-}" cxx_sha="${CBCI_BUILD_CXX_SHA:-}"
+    if [[ -z "${sdk_sha}" ]]; then
+        sdk_sha="$(git -C "${PROJECT_ROOT}" rev-parse HEAD 2>/dev/null | head -1)" || sdk_sha=""
+    fi
+    if [[ -z "${cxx_sha}" ]]; then
+        cxx_sha="$(git -C "${PROJECT_ROOT}" submodule status --recursive 2>/dev/null \
+            | awk '$2 ~ /cxx-client/ { gsub(/^[-+U]/, "", $1); print $1; exit }')" || cxx_sha=""
+    fi
 
     {
         echo "unit=${unit}"

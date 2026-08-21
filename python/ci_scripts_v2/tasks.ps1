@@ -453,6 +453,11 @@ function Get-BuildInfoProbe($block) {
 # own. So ask vswhere the same question rather than recording "unknown" for a toolchain that
 # is demonstrably present.
 function Get-MsvcToolset {
+    # The adapter's value first: it is read out of the vcvarsall the build actually ran, which
+    # is the only source that knows WHICH Visual Studio was selected. VCToolsVersion next, for
+    # a local run inside a developer shell. The vswhere fallback last, and it is a guess: the
+    # newest toolset INSTALLED, which is not the one used on an agent pinned to an older VS.
+    if ($env:CBCI_BUILD_MSVC_TOOLSET) { return $env:CBCI_BUILD_MSVC_TOOLSET.Trim() }
     if ($env:VCToolsVersion) { return $env:VCToolsVersion.Trim() }
     $pf = ${env:ProgramFiles(x86)}
     if (-not $pf) { return "unknown" }
@@ -531,13 +536,22 @@ function Write-BuildInfo($buildEnvLines) {
     $runnerImage = if ($env:CBCI_BUILD_IMAGE) { $env:CBCI_BUILD_IMAGE } else { "unknown" }
 
     # Both shas, because a release is the product of two repos and the release version names
-    # only one of them. The submodule is matched by NAME rather than a hardcoded deps\ path,
-    # so moving it does not silently record "unknown".
-    $sdkSha = Get-BuildInfoProbe { git -C $ProjectRoot rev-parse HEAD 2>$null | Select-Object -First 1 }
-    $cxxSha = Get-BuildInfoProbe {
-        $line = git -C $ProjectRoot submodule status --recursive 2>$null |
-            Where-Object { $_ -match 'cxx-client' } | Select-Object -First 1
-        if ($line) { ($line.Trim() -split '\s+')[0].TrimStart('+', '-', 'U') }
+    # only one of them. The adapter's value wins: under CI the wheel is built from an
+    # extracted sdist, which ships the C++ core's SOURCE but no .git at all, so the git probes
+    # find nothing and every record reads "unknown". The CI that checked the source out is the
+    # one place that knows.
+    # The git fallback still covers a local run, where ProjectRoot IS a real repo. The
+    # submodule is matched by NAME rather than a hardcoded deps\ path, so moving it does not
+    # silently record "unknown".
+    $sdkSha = if ($env:CBCI_BUILD_SDK_SHA) { $env:CBCI_BUILD_SDK_SHA } else {
+        Get-BuildInfoProbe { git -C $ProjectRoot rev-parse HEAD 2>$null | Select-Object -First 1 }
+    }
+    $cxxSha = if ($env:CBCI_BUILD_CXX_SHA) { $env:CBCI_BUILD_CXX_SHA } else {
+        Get-BuildInfoProbe {
+            $line = git -C $ProjectRoot submodule status --recursive 2>$null |
+                Where-Object { $_ -match 'cxx-client' } | Select-Object -First 1
+            if ($line) { ($line.Trim() -split '\s+')[0].TrimStart('+', '-', 'U') }
+        }
     }
 
     $lines = @(
@@ -557,8 +571,28 @@ function Write-BuildInfo($buildEnvLines) {
         "sdk_sha=$sdkSha"
         "cxx_client_sha=$cxxSha"
         "msvc_toolset=$(Get-BuildInfoProbe { Get-MsvcToolset })"
+        # Which Visual Studio, spelled out. The toolset above is a directory version
+        # (14.29 vs 14.30); this is the number the agent was provisioned by, and the two
+        # matter separately because the build picks its VS by AGENT NAME.
+        "vs_version=$(Get-BuildInfoProbe {
+            if ($env:CBCI_BUILD_VS_VERSION) { $env:CBCI_BUILD_VS_VERSION } else { $env:VSCMD_VER }
+        })"
         "windows_sdk=$(Get-BuildInfoProbe { Get-WindowsSdkVersion })"
-        "cl=$(Get-BuildInfoProbe { (cl.exe 2>&1 | Select-Object -First 1) })"
+        # Via cmd, not `cl.exe 2>&1` directly: cl writes its banner to STDERR, and PowerShell
+        # turns native stderr into error records, which Get-BuildInfoProbe then catches and
+        # reports as "unknown". cmd merges the streams before PowerShell sees them. Worth
+        # having even next to msvc_toolset: this is the only field naming the compiler BINARY
+        # that ran, rather than the toolchain directory it was selected from.
+        "cl=$(Get-BuildInfoProbe {
+            # Guarded, so a cl that is not on PATH yields "unknown" rather than cmd's
+            # "not recognized" text sitting in the field. ErrorActionPreference is relaxed
+            # for the same reason the call goes through cmd: cl exits non-zero when invoked
+            # with no arguments, and that must not discard the banner it already printed.
+            if (Get-Command cl.exe -ErrorAction SilentlyContinue) {
+                $ErrorActionPreference = "Continue"
+                (& cmd /c "cl 2>&1") | Select-Object -First 1
+            }
+        })"
         "runner_os=$([System.Environment]::OSVersion.Version.ToString())"
         "host_arch=$(if ($env:PROCESSOR_ARCHITECTURE) { $env:PROCESSOR_ARCHITECTURE } else { 'unknown' })"
         "cmake=$(Get-BuildInfoProbe { ((cmake --version 2>&1 | Select-Object -First 1) -split '\s+')[-1] })"
