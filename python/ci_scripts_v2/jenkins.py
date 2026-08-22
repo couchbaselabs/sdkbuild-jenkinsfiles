@@ -71,7 +71,9 @@ _PLATFORM_FAMILIES: Dict[str, Dict[str, Any]] = {
     "centos7":    {"platform": "linux",   "x86_64": ["centos7"],    "arm64": []},
     "almalinux8": {"platform": "linux",   "x86_64": ["almalinux8"], "arm64": []},
     "amzn2":      {"platform": "linux",   "x86_64": ["amzn2"],      "arm64": ["qe-grav2-amzn2", "qe-grav3-amzn2", "qe-grav4-amzn2"]},
-    "rhel9":      {"platform": "linux",   "x86_64": ["rhel9"],      "arm64": ["qe-rhel9-arm64"]},
+    # rhel9 is arm64-only too: there is no x86_64 rhel9 agent, so a label here would send
+    # every linux/x86_64 verify + validate cell to a node that can never come online.
+    "rhel9":      {"platform": "linux",   "x86_64": [],             "arm64": ["qe-rhel9-arm64"]},
     # ubuntu22 has an arm64 box only (no x86 agent).
     "ubuntu22":   {"platform": "linux",   "x86_64": [],             "arm64": ["qe-ubuntu22-arm64"]},
     "alpine":     {"platform": "alpine",  "x86_64": ["alpine"],     "arm64": []},

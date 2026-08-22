@@ -95,6 +95,46 @@ function Get-BuiltArtifactPath($vpy) {
     return $artifact.FullName
 }
 
+# Install the package under test into venv python $vpy: the artifact this run BUILT, or --
+# with CBCI_PACKAGING_INDEX set -- the published package of that name from PyPI/Test PyPI.
+# The index branch is what turns `validate` into a release-verify check: it installs by
+# PACKAGE NAME so pip picks the matching wheel off the index itself, which is why nothing
+# here consults CBCI_INSTALL_TYPE or looks in wheelhouse\dist (a verify cell never built
+# anything, and the "No wheel artifact found" it would otherwise die on names the wrong
+# problem). Mirrors _install_built_artifact in tasks.sh; the two must stay in step, since
+# one release-verify run fans out over both.
+function Install-SdkPackage($vpy) {
+    $index = $env:CBCI_PACKAGING_INDEX
+    if ([string]::IsNullOrWhiteSpace($index)) {
+        $artifact = Get-BuiltArtifactPath $vpy
+        Write-Log "artifact = $artifact"
+        & $vpy -m pip install $artifact
+        return
+    }
+    $pkg = $env:CBCI_VALIDATE_PACKAGE
+    if ([string]::IsNullOrWhiteSpace($pkg)) {
+        Stop-Task "install: CBCI_PACKAGING_INDEX=$index but CBCI_VALIDATE_PACKAGE is empty (engine validate-env did not run?)"
+    }
+    # Pinned when CBCI_VERSION is set: verifying a release means installing THAT version, not
+    # whatever the index currently calls latest.
+    $spec = $pkg
+    if (-not [string]::IsNullOrWhiteSpace($env:CBCI_VERSION)) { $spec = "$pkg==$($env:CBCI_VERSION)" }
+    # Built by += on a plain @(), never from an if-expression: PowerShell unwraps a
+    # single-element array returned that way, and the next += would concatenate strings.
+    $pipArgs = @()
+    switch ($index.ToUpper()) {
+        "PYPI" { }
+        "TEST_PYPI" {
+            # Test PyPI carries the SDK only; its dependencies still resolve from real PyPI.
+            $pipArgs += @("-i", "https://test.pypi.org/simple/", "--extra-index-url", "https://pypi.org/simple")
+        }
+        default { Stop-Task "install: unknown CBCI_PACKAGING_INDEX: $index (PYPI|TEST_PYPI)" }
+    }
+    $pipArgs += $spec
+    Write-Log "index install ($index) = $spec"
+    & $vpy -m pip install @pipArgs
+}
+
 function Invoke-DisplayInfo {
     Write-Log "project=$($env:CBCI_PROJECT_TYPE) sha=$($env:CBCI_SHA) version=$($env:CBCI_VERSION)"
     & $Python $Engine validate-config
@@ -622,8 +662,9 @@ function Write-BuildInfo($buildEnvLines) {
 }
 
 function Invoke-Validate {
-    Write-Log "validating built wheel"
     Import-EngineEnvPairs (& $Python $Engine validate-env)
+    $vIndex = if ($env:CBCI_PACKAGING_INDEX) { $env:CBCI_PACKAGING_INDEX } else { "<local>" }
+    Write-Log "validate: package=$($env:CBCI_VALIDATE_PACKAGE) ssl=$($env:CBCI_VALIDATE_SSL) index=$vIndex"
 
     $venvRoot = [System.IO.Path]::GetTempFileName()
     Remove-Item $venvRoot
@@ -634,9 +675,7 @@ function Invoke-Validate {
     $vpy = Join-Path $venvPath "Scripts\python.exe"
     & $vpy -m pip install --upgrade pip
 
-    $artifact = Get-BuiltArtifactPath $vpy
-    Write-Log "artifact = $artifact"
-    & $vpy -m pip install $artifact
+    Install-SdkPackage $vpy
 
     # NOTE: expandable here-string. Keep the Python below free of '$' and backticks, or
     # PowerShell will interpolate/escape them before the interpreter ever sees them.
@@ -781,9 +820,7 @@ function Invoke-Test {
     $vpy = Join-Path $venvPath "Scripts\python.exe"
     & $vpy -m pip install --upgrade pip
 
-    $artifact = Get-BuiltArtifactPath $vpy
-    Write-Log "artifact = $artifact"
-    & $vpy -m pip install $artifact
+    Install-SdkPackage $vpy
     & $vpy -m pip install -r (Join-Path $testRoot "requirements-test.txt")
 
     $junitDir = [System.Environment]::GetEnvironmentVariable("CBCI_JUNIT_DIR")
