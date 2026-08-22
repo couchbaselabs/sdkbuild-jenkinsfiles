@@ -248,11 +248,13 @@ _emit_common_identity() {
 }
 
 # `submodule status --recursive` plus a name match, rather than a hardcoded deps/ path, so
-# moving the submodule does not silently record "unknown".
+# moving the submodule does not silently record "unknown". The name is anchored to the END of
+# the path field: with --recursive, every nested submodule under the cxx-client checkout also
+# has 'cxx-client' in its path, so a substring match records whichever git prints first.
 _cxx_client_sha() {
     local sha=""
     sha="$(git -C "${PROJECT_ROOT}" submodule status --recursive 2>/dev/null \
-        | awk '$2 ~ /cxx-client/ { gsub(/^[-+U]/, "", $1); print $1; exit }')" || sha=""
+        | awk '$2 ~ /couchbase-cxx-client$/ { gsub(/^[-+U]/, "", $1); print $1; exit }')" || sha=""
     echo "${sha:-unknown}"
 }
 
