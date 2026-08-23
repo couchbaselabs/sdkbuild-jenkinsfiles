@@ -916,6 +916,10 @@ build_openssl() {
         base="${base}/1.1.1"; libcrypto="${dir}/lib/libcrypto.so.1.1"; libssl="${dir}/lib/libssl.so.1.1"
     elif [[ "${version}" == *"3.0"* ]]; then
         base="${base}/3.0"; libcrypto="${dir}/lib/libcrypto.so.3"; libssl="${dir}/lib/libssl.so.3"
+    # 3.1 installs libssl.so.3 like every other 3.x (OpenSSL bumps the soname on the MAJOR
+    # version only), so these two paths never exist and the prebuilt check below always
+    # misses -- every call rebuilds from source. auditwheel_patch.py mirrors the same wrong
+    # mapping, with a worse consequence there; see its _openssl_libs_for. Fix both together.
     elif [[ "${version}" == *"3.1"* ]]; then
         base="${base}/3.1"; libcrypto="${dir}/lib/libcrypto.so.3.1"; libssl="${dir}/lib/libssl.so.3.1"
     else

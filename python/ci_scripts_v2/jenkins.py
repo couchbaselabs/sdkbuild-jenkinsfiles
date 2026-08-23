@@ -294,6 +294,10 @@ def tags(config_path: Optional[str] = None) -> Dict[str, Any]:
 # cbdinocluster) is only installed on this class of QE agent. A single platform is
 # deliberate; integration coverage comes from the server-version matrix, not from
 # build-platform breadth.
+# It also decides which OpenSSL versions an integration run can use. The repair step does not
+# bundle libssl/libcrypto (auditwheel_patch.py), so a USE_OPENSSL wheel loads them from THIS
+# agent, and nothing provisions a host OpenSSL here. RL9 ships 3.0 (libssl.so.3), so 3.0.x
+# works and 1.1.1 does not unless compat-openssl11 is installed. Re-check on a label change.
 _JENKINS_INTEGRATION_LABEL = "sdkqe-rockylinux9"
 
 # The wheel under test is built once per Python via the same containerized cibuildwheel

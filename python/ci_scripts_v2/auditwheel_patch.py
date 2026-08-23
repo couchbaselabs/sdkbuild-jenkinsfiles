@@ -25,7 +25,16 @@ import sys
 
 
 def _openssl_libs_for(version: str) -> list[str]:
-    """Map an OpenSSL version to its soname pair (matches tasks.sh build_openssl)."""
+    """Map an OpenSSL version to its soname pair (matches tasks.sh build_openssl).
+
+    KNOWN WRONG for 3.1.x: OpenSSL bumps its soname only on the MAJOR version, so every
+    3.x release installs libssl.so.3, never libssl.so.3.1. The 3.1 branch below therefore
+    whitelists names that do not exist, auditwheel sees the real libssl.so.3 as unlisted,
+    and BUNDLES it -- the opposite of what this file is for. Harmless at runtime (the
+    bundled lib loads), but it is not the dynamic-link shape the openssl backend is
+    testing. Prefer 3.0.x until the branch is dropped; tasks.sh build_openssl carries the
+    same mapping and must be changed with it.
+    """
     if "1.1" in version:
         return ["libssl.so.1.1", "libcrypto.so.1.1"]
     if "3.1" in version:
