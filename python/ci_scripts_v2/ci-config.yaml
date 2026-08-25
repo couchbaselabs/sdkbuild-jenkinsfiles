@@ -34,15 +34,17 @@ build:
   ssl: boringssl            # boringssl | openssl
   openssl_version: null     # only used when ssl == openssl (e.g. "3.1.4")
   build_type: RelWithDebInfo
-  abi3: false               # true -> coarse build units (one cpXY-abi3 wheel).
-                            # Also accepts a commit-gated form, which lets one config serve
-                            # both eras of the SDK (abi3 landed in PYCBC-1854):
-                            #   abi3: { enabled: true, min_commit: "<sha>" }
-                            # The ABI3 promoted var overrides the gate; leave it unset (or
-                            # "auto") to let the gate decide.
+  # Coarse build units (one cpXY-abi3 wheel per platform), gated on the checkout carrying
+  # the abi3 migration (PYCBC-1854). One config serves both eras: on a branch without that
+  # commit the gate turns abi3 off and the plan stays per-python. The ABI3 promoted var
+  # overrides the gate; leave it unset (or "auto") to let the gate decide.
+  abi3:
+    enabled: true
+    min_commit: "b0ce0a8fd33ebfcff328065c2fbc2520e77901f0"
   # Lowest CPython an abi3 wheel loads on. Drives the build interpreter, the Py_LIMITED_API
   # level, and the wheel's cpXY-abi3 tag together, so they cannot drift. Keep it equal to the
-  # lowest entry in support.python_versions; validate-config checks that.
+  # lowest entry in support.python_versions; validate-config checks that. 3.9's drop_commit
+  # precedes abi3's min_commit, so a checkout with abi3 never still carries 3.9.
   abi3_floor: "3.10"
   set_cpm_cache: true       # bake C++ core CPM cache into the sdist
   use_uv: false             # PYCBC default off; analytics on (end-state: uv everywhere)
