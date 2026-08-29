@@ -66,12 +66,12 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "fea3fa346fe8f4c391dbd34f9b73bbcf08ab7e36a3f09e04d5274e1d5d972fce" ;;
+        "engine.py")           echo "5b9f76d709bd6a2735dc2bb84364cd4cedd35104e794a35831212fdea9683743" ;;
         "jenkins.py")          echo "6ea6ef4ae06674023d6dcadcdd8f9e58e468d376acbe8a7fe8120f4143f9ecfb" ;;
-        "tasks.sh")            echo "fb730de940d1f93eedff40bd97057c75f362de21b5f466b5b703c55663a11d35" ;;
-        "tasks.ps1")           echo "623078d91abf45bfe32cecba735bb7fc3bfc5cbbd215b74eceed32a9e88f77f9" ;;
-        "auditwheel_patch.py") echo "562a5ea0d0368b7e9f424d8cafd4119fbbbf5d11d3154660811c255b9e67786d" ;;
-        "ci-config.yaml")      echo "7a2e6863b1f33c412857c30e1621d0807a3bb189df8879ae9ffe2e7abafb7e4c" ;;
+        "tasks.sh")            echo "4fd931ab0e198bdfb015fc57b534da8d4f2d4205983f787dff48b8e4f014c437" ;;
+        "tasks.ps1")           echo "ebb82b9d825761945f1586bb44907f04ee1c98a891fe89292b0ccd6547704bf5" ;;
+        "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
+        "ci-config.yaml")      echo "2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c" ;;
         *)                     echo "" ;;
     esac
 }

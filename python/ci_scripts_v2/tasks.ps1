@@ -71,7 +71,7 @@ function Select-Wheel($vpy) {
     foreach ($w in $candidates) {
         # try/catch, not just the *>$null redirect: with $ErrorActionPreference = "Stop"
         # (top of script), a native command's stderr output gets promoted to a TERMINATING
-        # error before the redirect can suppress it -- an incompatible wheel is the expected,
+        # error before the redirect can suppress it. An incompatible wheel is the expected,
         # non-fatal case here (that's how we detect it), so swallow the exception and fall
         # through to the exit-code check, exactly like tasks.sh's `if ... ; then` guard.
         try {
@@ -99,8 +99,8 @@ function Get-BuiltArtifactPath($vpy) {
     return $artifact.FullName
 }
 
-# Install the package under test into venv python $vpy: the artifact this run BUILT, or --
-# with CBCI_PACKAGING_INDEX set -- the published package of that name from PyPI/Test PyPI.
+# Install the package under test into venv python $vpy: the artifact this run BUILT, or,
+# with CBCI_PACKAGING_INDEX set, the published package of that name from PyPI/Test PyPI.
 # The index branch is what turns `validate` into a release-verify check: it installs by
 # PACKAGE NAME so pip picks the matching wheel off the index itself, which is why nothing
 # here consults CBCI_INSTALL_TYPE or looks in wheelhouse\dist (a verify cell never built
@@ -475,7 +475,7 @@ function Invoke-WheelNative {
 # MSVC and the Windows SDK, and the archive holding the only current record of that expires.
 #
 # Written from wheel-native, the verb an adapter picks when it provisions the interpreter
-# itself -- on Windows that is every adapter. Invoke-Wheel (cibuildwheel) is left alone.
+# itself, which on Windows is every adapter. Invoke-Wheel (cibuildwheel) is left alone.
 
 # Best-effort probe: a missing tool degrades ONE line to "unknown" and never fails a green
 # build. $ErrorActionPreference is "Stop" at the top of this file, which promotes a native

@@ -1137,7 +1137,7 @@ def test_setup(cfg: Config, output_path: str) -> None:
         os.rename(test_root, final_root)
     except BaseException:
         # BaseException, not Exception: _load_tomllib()'s failure path is sys.exit(1), which
-        # raises SystemExit -- an Exception-only except would miss it and leak the temp dir.
+        # raises SystemExit; an Exception-only except would miss it and leak the temp dir.
         shutil.rmtree(test_root, ignore_errors=True)
         raise
 

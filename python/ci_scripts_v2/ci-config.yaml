@@ -68,11 +68,11 @@ test:
     # acouchbase/txcouchbase are deferred to periodic scheduled runs, driven via
     # CBCI_TEST_COMMAND / CBCI_TEST_ARGS (see engine.test_cmds) rather than enabled here.
     couchbase_cmd: "python -m pytest -m pycbc_couchbase"
-    # --reruns/--reruns-delay (pytest-rerunfailures, already a test dep -- see
+    # --reruns/--reruns-delay (pytest-rerunfailures, already a test dep, see
     # PROJECT_TEST_LAYOUT.reqs in engine.py): absorbs per-test timing/network flakiness
     # in-process, in seconds, instead of a whole-suite Jenkins-level retry (~30min against
     # a real cluster). A test that still fails after these is treated as a genuine/reported
-    # failure, not noise -- see scripted-integration-pipeline.groovy's runIntegrationTest.
+    # failure, not noise; see scripted-integration-pipeline.groovy's runIntegrationTest.
     couchbase_opts: "-p no:asyncio -v -p no:warnings --reruns 2 --reruns-delay 5"
 
   # Neutral real-cluster spec for integration testing. Jenkins realizes this via

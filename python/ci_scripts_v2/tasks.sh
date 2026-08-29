@@ -277,7 +277,7 @@ DOCKERFILE
 # It cannot be derived from the SDK sha, which is the whole reason it exists: the container
 # base image moves whenever pypa publishes `latest`, musllinux's compiler resolves live
 # against Alpine's repos (`apk add build-base`), and on the host platforms the AGENT
-# supplies the toolchain -- two agents behind one label have already been observed carrying
+# supplies the toolchain: two agents behind one label have already been observed carrying
 # different macOS SDKs, worth 172 KB of wheel between two builds of the same sha. So these
 # files do not make a build reproducible; they make it IDENTIFIABLE, which is what an
 # investigation needs before it can decide whether reproducing an old release is plausible
@@ -929,7 +929,7 @@ build_openssl() {
         base="${base}/3.0"; libcrypto="${dir}/lib/libcrypto.so.3"; libssl="${dir}/lib/libssl.so.3"
     # 3.1 installs libssl.so.3 like every other 3.x (OpenSSL bumps the soname on the MAJOR
     # version only), so these two paths never exist and the prebuilt check below always
-    # misses -- every call rebuilds from source. auditwheel_patch.py mirrors the same wrong
+    # misses, so every call rebuilds from source. auditwheel_patch.py mirrors the same wrong
     # mapping, with a worse consequence there; see its _openssl_libs_for. Fix both together.
     elif [[ "${version}" == *"3.1"* ]]; then
         base="${base}/3.1"; libcrypto="${dir}/lib/libcrypto.so.3.1"; libssl="${dir}/lib/libssl.so.3.1"
@@ -1244,7 +1244,7 @@ task_wheel() {
 
 task_wheel_native() {
     # NATIVE wheel build (no cibuildwheel). Nothing here is vendor-specific: an adapter
-    # picks this verb over `wheel` for the platforms where IT provisions the interpreter --
+    # picks this verb over `wheel` for the platforms where IT provisions the interpreter:
     # host builds on macOS and Windows, which have no container for cibuildwheel to run one
     # in. Builds ONE wheel for whichever interpreter CBCI_PYTHON/PATH resolves to, so how
     # that python arrived (a vendor package manager, a setup-python step) stays the
@@ -1321,7 +1321,7 @@ _make_clean_venv() {
 # copy-artifacts test-only rerun (RUN_STAGES=test + COPY_ARTIFACTS_FROM, no fresh 'build')
 # fetches EVERY platform's wheel into every cell's wheelhouse/dist indiscriminately (Jenkins
 # copyArtifacts has no per-cell filter), so a naive `ls | head -1` picks whatever sorts
-# first alphabetically -- observed picking a macosx wheel on Linux, and even the Intel
+# first alphabetically. Observed picking a macosx wheel on Linux, and even the Intel
 # macosx wheel over the arm64 one on M1 ("macosx_10_15_x86_64" < "macosx_11_0_arm64").
 # Rather than reimplement PEP 425/600 tag matching (manylinux vs musllinux, arm64 vs
 # aarch64 spelling, abi3 floors, ...), let pip's own compatibility check be the oracle:
@@ -1684,7 +1684,7 @@ task_docs() {
 }
 
 # Publish the built dist (dist/*.whl, dist/*.tar.gz) to PyPI or Test PyPI via twine.
-# Reads CBCI_PACKAGING_INDEX (PYPI|TEST_PYPI, required -- same knob _install_built_artifact
+# Reads CBCI_PACKAGING_INDEX (PYPI|TEST_PYPI, required; the same knob _install_built_artifact
 # uses for index-install) and CBCI_VERSION (informational only here; twine reads it from the
 # artifact filenames, not env). Credentials are twine's OWN env vars (TWINE_USERNAME/
 # TWINE_PASSWORD), sourced by the adapter (Jenkins withCredentials, GHA secrets). This task
@@ -1711,7 +1711,7 @@ task_publish() {
     "${PYTHON}" -m twine check "${artifacts[@]}"
 
     if [[ "${CBCI_PUBLISH_DRY_RUN:-false}" == "true" ]]; then
-        log "publish: CBCI_PUBLISH_DRY_RUN=true -- check only, skipping upload"
+        log "publish: CBCI_PUBLISH_DRY_RUN=true, check only, skipping upload"
         return 0
     fi
 
