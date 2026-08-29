@@ -229,8 +229,17 @@ RUN yum install -y perl-IPC-Cmd \
 # Pin CMake < 4.0 (same rationale as before): 4.0 dropped cmake_minimum_required
 # (<3.5) compat that the C++ core's CPM deps still need. setup.py only pip-installs
 # cmake<4 when NONE is on PATH, so re-pin the pipx cmake.
+#
+# pipx's own venv dir is REMOVED first, not overwritten. The pypa images hardlink-dedupe
+# identical files, so the cmake venv's bin/Activate.ps1 is the same inode as the template
+# under the interpreter pipx runs on. Recreating the venv in place then makes venv's
+# shutil.copyfile see src and dst as one file and raise SameFileError ("... are the same
+# file"), which --force cannot get past: pipx declines to remove a venv "not created in
+# this session". It only started biting when the base image moved pipx from CPython 3.12
+# to 3.14 and the 3.14 template became byte-identical to the copy already in the venv.
 ARG CMAKE_VERSION=3.31.*
-RUN pipx install --force "cmake==${CMAKE_VERSION}" \
+RUN pipx uninstall cmake || true \
+    && pipx install --force "cmake==${CMAKE_VERSION}" \
     && cmake --version
 DOCKERFILE
             ;;
@@ -248,9 +257,11 @@ FROM ${BASE_IMAGE}
 # already ships IPC::Cmd, so no perl fix is required.
 RUN apk add --no-cache build-base
 
-# Pin CMake < 4.0 (same rationale as manylinux).
+# Pin CMake < 4.0 (same rationale as manylinux), and remove pipx's existing cmake venv
+# first for the same hardlink/SameFileError reason spelled out there.
 ARG CMAKE_VERSION=3.31.*
-RUN pipx install --force "cmake==${CMAKE_VERSION}" \
+RUN pipx uninstall cmake || true \
+    && pipx install --force "cmake==${CMAKE_VERSION}" \
     && cmake --version
 DOCKERFILE
             ;;
@@ -1316,16 +1327,18 @@ _make_clean_venv() {
 # aarch64 spelling, abi3 floors, ...), let pip's own compatibility check be the oracle:
 # try each candidate through `pip install --dry-run --no-deps` and take the first it
 # accepts. --no-deps keeps this local/fast (no dependency resolution over the network).
+#
+# A LONE candidate goes through the same check rather than being taken on trust: one wheel
+# for the wrong interpreter is what an upstream build-unit/stash mismatch looks like, and
+# passing it straight to pip reports it as pip's bare "not a supported wheel on this
+# platform", which names neither the interpreter that rejected it nor the other wheels
+# that were (not) on offer. The die below names both.
 _select_wheel() {
     local vpy="$1" whl_dir="${PROJECT_ROOT}/wheelhouse/dist"
     local -a candidates=()
     while IFS= read -r -d '' f; do candidates+=("${f}"); done \
         < <(find "${whl_dir}" -maxdepth 1 -name '*.whl' -print0 2>/dev/null | sort -z)
     [[ ${#candidates[@]} -gt 0 ]] || return 0
-    if [[ ${#candidates[@]} -eq 1 ]]; then
-        printf '%s\n' "${candidates[0]}"
-        return 0
-    fi
     local w
     for w in "${candidates[@]}"; do
         if "${vpy}" -m pip install --dry-run --no-deps "${w}" >/dev/null 2>&1; then

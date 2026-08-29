@@ -60,10 +60,14 @@ function Import-EngineEnvPairs([string[]]$lines) {
 # EVERY platform's wheel into every cell's wheelhouse\dist indiscriminately, so a naive
 # "first file" pick can grab the wrong platform's wheel. Let pip's own compatibility
 # check be the oracle instead of reimplementing wheel tag matching.
+#
+# A LONE candidate goes through the same check rather than being taken on trust: one wheel
+# for the wrong interpreter is what an upstream build-unit/stash mismatch looks like, and
+# passing it straight to pip reports it as pip's bare "not a supported wheel on this
+# platform", naming neither the interpreter that rejected it nor what else was on offer.
 function Select-Wheel($vpy) {
     $candidates = @(Get-ChildItem "wheelhouse\dist\*.whl" -ErrorAction SilentlyContinue | Sort-Object Name)
     if ($candidates.Count -eq 0) { return $null }
-    if ($candidates.Count -eq 1) { return $candidates[0].FullName }
     foreach ($w in $candidates) {
         # try/catch, not just the *>$null redirect: with $ErrorActionPreference = "Stop"
         # (top of script), a native command's stderr output gets promoted to a TERMINATING

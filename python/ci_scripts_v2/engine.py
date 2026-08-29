@@ -242,6 +242,50 @@ GATE_REPORT_DOMAINS: Dict[str, tuple] = {
 }
 
 
+def _gate_findings(cfg: Config) -> List[tuple]:
+    """Every indeterminate commit gate as (domain, message, pinned). `pinned` means an
+    EXPLICIT override supersedes that gate and makes the indeterminacy moot, which is what
+    keeps a pipeline with no SDK checkout legitimate without a bypass flag a source-building
+    pipeline could inherit by accident."""
+    gates = cfg.raw.get(_GATE_KEY, {})
+    out: List[tuple] = []
+    for rec in gates.get("indeterminate", []):
+        domain, msg = rec["domain"], rec["msg"]
+        if domain == "abi3":
+            pinned = gates.get("abi3_override") is not None
+        else:  # python_versions
+            pinned = bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
+        suffix = " (superseded by an explicit override)" if pinned else ""
+        out.append((domain, f"commit gate could not be evaluated: {msg}{suffix}", pinned))
+    return out
+
+
+def enforce_gates(cfg: Config, cmd: str) -> None:
+    """Fail `cmd` when a gate whose verdict it CONSUMES could not be evaluated.
+
+    validate-config has always treated an unevaluatable gate as fatal, but the value-emitting
+    commands only warned and then used the ungated config. Those are exactly the commands that
+    run on a node building from an extracted sdist, which ships no .git for a gate to read. A
+    `build.abi3` gate that comes back indeterminate there flips abi3 back ON for a branch the
+    planning node had gated it OFF for, and wheel_env then emits the abi3 floor's CIBW_BUILD
+    for a unit whose wheel is stashed, validated and shipped as some other python's.
+
+    An explicit override (ABI3, PYTHON_VERSIONS) supersedes the gate and clears this, so the
+    fix on the adapter side is to pass the planning node's verdicts down to every node after
+    it rather than to re-resolve gates without a repo to resolve them against.
+    """
+    domains = GATE_REPORT_DOMAINS.get(cmd, ())
+    stale = [msg for domain, msg, pinned in _gate_findings(cfg)
+             if not pinned and domain in domains]
+    if stale:
+        for msg in stale:
+            print(f"[engine] ERROR: {cmd}: {msg}", file=sys.stderr)
+        raise SystemExit(
+            f"[engine] {cmd} consumes a commit gate that could not be evaluated. Point "
+            f"CBCI_PROJECT_ROOT at the SDK git tree, or pass the planning node's already "
+            f"resolved verdict down (ABI3=true|false, PYTHON_VERSIONS=...).")
+
+
 def _is_commit_ancestor(commit_sha: str, project_root: Optional[str] = None) -> Optional[bool]:
     """Returns True if commit_sha is an ancestor of HEAD in the SDK git repo,
     False if not an ancestor, or None if commit_sha does not exist in the local git repository.
@@ -802,15 +846,8 @@ def validate_config(cfg: Config) -> tuple:
     # installs a PUBLISHED artifact and pins its own matrix) without a bypass flag that a
     # source-building pipeline could inherit by accident.
     gates = cfg.raw.get(_GATE_KEY, {})
-    for rec in gates.get("indeterminate", []):
-        domain, msg = rec["domain"], rec["msg"]
-        if domain == "abi3":
-            pinned = gates.get("abi3_override") is not None
-        else:  # python_versions
-            pinned = bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
-        target = warnings if pinned else errors
-        suffix = " (superseded by an explicit override)" if pinned else ""
-        target.append(f"commit gate could not be evaluated: {msg}{suffix}")
+    for _domain, msg, pinned in _gate_findings(cfg):
+        (warnings if pinned else errors).append(msg)
 
     # ABI3=true against a checkout the gate says predates abi3 support would build the coarse
     # abi3 plan on an SDK that cannot honor it: one wheel per platform, built only on the
@@ -1206,8 +1243,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.cmd == "publish-env":
         _emit_pairs(publish_env(cfg))
     elif args.cmd == "build-env":
+        enforce_gates(cfg, args.cmd)
         _emit_pairs(build_env(cfg, args.stage))
     elif args.cmd == "wheel-env":
+        enforce_gates(cfg, args.cmd)
         _emit_lines(wheel_env(cfg))
     elif args.cmd == "test-setup":
         test_setup(cfg, args.output_path)
