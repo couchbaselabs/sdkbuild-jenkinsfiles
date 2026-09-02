@@ -148,6 +148,22 @@ function Invoke-Lint   { Stop-Task "lint: not implemented on Windows (use tasks.
 function Invoke-Sdist  { Stop-Task "sdist: not implemented on Windows (use tasks.sh)" }
 
 function Invoke-Wheel {
+    # Resolve the project facts here rather than trusting the adapter to have exported
+    # them: this file has no load_project_env equivalent, so CBCI_IS_PURE_PYTHON is
+    # otherwise unset on a Windows node and the guard below would silently not fire.
+    # engine's project-env is the same call tasks.sh makes, so the values agree by
+    # construction, and the wheel-env/build-env calls below already need the engine.
+    Import-EngineEnvPairs (& $Python $Engine project-env)
+
+    # A pure-Python project produces one py3-none-any wheel, built once on Linux by
+    # tasks.sh; there is no per-platform Windows build to run. Refuse explicitly rather
+    # than letting cibuildwheel run and emit a second wheel that would race the real one
+    # at aggregate time. Windows still runs validate and test for these projects, which is
+    # the point of a universal wheel.
+    if ($env:CBCI_IS_PURE_PYTHON -eq "true") {
+        Stop-Task "wheel: this project is pure Python. The single py3-none-any wheel is built on Linux (tasks.sh wheel); Windows runs validate/test only"
+    }
+
     Write-Log "building wheel with cibuildwheel"
 
     # Set up cibuildwheel env variables

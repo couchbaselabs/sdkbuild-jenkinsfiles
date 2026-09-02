@@ -28,6 +28,16 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 CONFIG_FILENAME = "ci-config.yaml"
 
+# Per-project config file, tried before CONFIG_FILENAME when CBCI_PROJECT_TYPE names a
+# project other than PYCBC. `ci-config.yaml` stays PYCBC's, since it is the reference project
+# and every existing pipeline names that file, so an added project cannot change what PYCBC
+# loads. A project with no file of its own falls through to ci-config.yaml, which is what
+# makes this additive rather than a migration.
+CONFIG_FILENAME_BY_PROJECT = {
+    "PYCBAC": "ci-config-pycbac.yaml",
+    "PYCBCC": "ci-config-pycbcc.yaml",
+}
+
 # Promoted override vars (empty = use file). Map 1:1 to Jenkins params / GHA inputs.
 PROMOTED_VARS = ("PLATFORMS", "ARCHES", "PYTHON_VERSIONS", "USE_OPENSSL", "OPENSSL_VERSION", "ABI3", "INSTALL_TYPES")
 
@@ -427,6 +437,24 @@ def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[s
     return cfg
 
 
+def _default_config_path() -> str:
+    """The config file next to this module for the project named by CBCI_PROJECT_TYPE.
+
+    Falls back to ci-config.yaml when the project has no file of its own, or when the
+    per-project file is absent, so shipping the mapping ahead of the file is harmless.
+    Note this reads CBCI_PROJECT_TYPE directly rather than via resolve_project(), which
+    needs a loaded Config and would be circular here.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    raw = os.environ.get("CBCI_PROJECT_TYPE")
+    if raw:
+        prefix = PROJECT_ALIASES.get(str(raw).upper())
+        name = CONFIG_FILENAME_BY_PROJECT.get(prefix or "")
+        if name and os.path.isfile(os.path.join(here, name)):
+            return os.path.join(here, name)
+    return os.path.join(here, CONFIG_FILENAME)
+
+
 def load_config(config_path: Optional[str] = None,
                 report_domains: Optional[Sequence[str]] = None) -> Config:
     """Load, merge, and validate ci-config.yaml.
@@ -434,11 +462,7 @@ def load_config(config_path: Optional[str] = None,
     `report_domains` scopes commit-gate narration to the domains the caller consumes
     (None = narrate everything; the CLI passes GATE_REPORT_DOMAINS[cmd]).
     """
-    path = (
-        config_path
-        or os.environ.get("CBCI_CONFIG_FILE")
-        or os.path.join(os.path.dirname(os.path.abspath(__file__)), CONFIG_FILENAME)
-    )
+    path = config_path or os.environ.get("CBCI_CONFIG_FILE") or _default_config_path()
     cfg = _load_yaml(path)
     # Order is load-bearing. The override merges FIRST so a gating dict supplied through
     # CBCI_CONFIG_OVERRIDE is actually resolved (an unresolved dict is truthy, which reads as
@@ -492,6 +516,112 @@ def resolve_project(cfg: Config) -> str:
     return prefix
 
 
+# ---------------------------------------------------------------------------
+# Package-name resolution: the tables above, or the CHECKOUT when it disagrees
+# ---------------------------------------------------------------------------
+#
+# WHY this exists. Four of the per-project facts are the SDK's package NAMES, not labels:
+# the version script, the import package, the pip dist, and the test-tree rename map. A
+# product rename therefore invalidates them for a checkout that is otherwise the same
+# project, which is what the Analytics -> Operational Insights rename did. Both must build
+# for the duration of the overlap, off ONE project type (PYCBAC), so these four are resolved
+# from the tree under test rather than pinned to one era's spelling.
+#
+# WHAT IS NOT AFFECTED. Resolution only engages when the checkout's root `*_version.py` is a
+# name the table has never heard of. PYCBC ships `couchbase_version.py` and PYCBCC ships
+# `couchbase_columnar_version.py`, both already in VERSION_SCRIPTS, so they take the
+# known-name branch and get the table values verbatim, byte-identical to before this
+# existed. The Analytics checkout (`couchbase_analytics_version.py`) is likewise known, and
+# also unchanged. Only `couchbase_operational_insights_version.py` derives.
+#
+# NO CHECKOUT. A node resolving facts without an SDK tree (release-verify installs a
+# PUBLISHED artifact) falls back to the table, which for the OI era is the wrong dist name.
+# CBCI_PACKAGE_DIST / CBCI_PACKAGE_IMPORT override everything and are the intended escape
+# hatch for exactly that pipeline: one env value, set by the vendor workflow.
+
+_VERSION_SCRIPT_SUFFIX = "_version.py"
+
+
+def _project_root() -> str:
+    return os.environ.get("CBCI_PROJECT_ROOT") or os.getcwd()
+
+
+def _discover_version_script(root: str) -> Optional[str]:
+    """The checkout's own root `*_version.py`, or None if it is not exactly one.
+
+    Every Python SDK carries exactly one at the repo root and it is the reliable
+    discriminator (`couchbase_version.py`, `couchbase_columnar_version.py`,
+    `couchbase_operational_insights_version.py`). Zero means no checkout is present;
+    more than one means the layout changed and guessing would be worse than the table.
+    """
+    try:
+        names = sorted(
+            n for n in os.listdir(root)
+            if n.endswith(_VERSION_SCRIPT_SUFFIX)
+            and os.path.isfile(os.path.join(root, n))
+        )
+    except OSError:
+        return None
+    return names[0] if len(names) == 1 else None
+
+
+def _derived_names(version_script: str, root: str) -> Dict[str, Any]:
+    """Package names implied by a version-script filename.
+
+    `couchbase_operational_insights_version.py` -> import `couchbase_operational_insights`,
+    dist `couchbase-operational-insights`, async sibling `acouchbase_operational_insights`.
+    The sibling is reported only if it is actually a package dir in the checkout, so a
+    single-API SDK does not get a phantom entry in the rename map.
+    """
+    stem = version_script[: -len(_VERSION_SCRIPT_SUFFIX)]
+    rename = {stem: "cb"}
+    for prefix_char, short in (("a", "acb"), ("tx", "txcb")):
+        sibling = f"{prefix_char}{stem}"
+        if os.path.isdir(os.path.join(root, sibling)):
+            rename[sibling] = short
+    return {"import": stem, "dist": stem.replace("_", "-"), "rename": rename}
+
+
+def _resolve_names(cfg: Config) -> Dict[str, Any]:
+    """Version script + package names + rename map for the checkout under test.
+
+    Returns the table's values unless the checkout names a version script the table does
+    not know, in which case the names are derived from it. Env always wins.
+    """
+    prefix = resolve_project(cfg)
+    pkg = PROJECT_PACKAGES[prefix]
+    layout = PROJECT_TEST_LAYOUT.get(prefix, {})
+    resolved: Dict[str, Any] = {
+        "version_script": VERSION_SCRIPTS[prefix],
+        "import": pkg["import"],
+        "dist": pkg["dist"],
+        "metadata": pkg["metadata"],
+        "rename": dict(layout.get("rename", {})),
+        "derived_from": None,
+    }
+
+    root = _project_root()
+    found = _discover_version_script(root)
+    if found is not None and found not in VERSION_SCRIPTS.values():
+        derived = _derived_names(found, root)
+        resolved.update({
+            "version_script": found,
+            "import": derived["import"],
+            "dist": derived["dist"],
+            "rename": derived["rename"],
+            "derived_from": found,
+        })
+
+    # Env overrides win over both, for nodes with no checkout to read.
+    env_dist = os.environ.get("CBCI_PACKAGE_DIST")
+    env_import = os.environ.get("CBCI_PACKAGE_IMPORT")
+    if env_dist:
+        resolved["dist"] = env_dist.strip()
+    if env_import:
+        resolved["import"] = env_import.strip()
+    return resolved
+
+
 def _as_bool(value: str) -> bool:
     return value.strip().lower() in ("1", "true", "y", "yes", "on")
 
@@ -534,9 +664,10 @@ def _resolve_test_log_level(cfg: Config) -> str:
 def project_env(cfg: Config) -> Dict[str, str]:
     """CBCI-level facts tasks.sh needs to drive a stage. Values are space-free."""
     prefix = resolve_project(cfg)
+    names = _resolve_names(cfg)
     return {
         "CBCI_PROJECT_PREFIX": prefix,
-        "CBCI_VERSION_SCRIPT": VERSION_SCRIPTS[prefix],
+        "CBCI_VERSION_SCRIPT": names["version_script"],
         "CBCI_IS_PURE_PYTHON": "true" if prefix in PURE_PYTHON_PROJECTS else "false",
         "CBCI_USE_UV": "true" if _resolve_use_uv(cfg) else "false",
     }
@@ -550,17 +681,16 @@ def validate_env(cfg: Config) -> Dict[str, str]:
     venv holding only the SDK, so tasks.sh passes these through as env to a dependency-free
     Python snippet. Values are space-free.
     """
-    prefix = resolve_project(cfg)
-    pkg = PROJECT_PACKAGES[prefix]
+    names = _resolve_names(cfg)
     test = cfg.raw.get("test", {})
     build = cfg.raw.get("build", {})
     install_types = test.get("install_types", ["sdist", "wheel"])
     ssl = str(build.get("ssl", "boringssl")).lower()
     return {
         "CBCI_VALIDATE_INSTALL_TYPES": ",".join(install_types),
-        "CBCI_VALIDATE_PACKAGE": pkg["dist"],
-        "CBCI_VALIDATE_IMPORT": pkg["import"],
-        "CBCI_VALIDATE_HAS_METADATA": "true" if pkg["metadata"] else "false",
+        "CBCI_VALIDATE_PACKAGE": names["dist"],
+        "CBCI_VALIDATE_IMPORT": names["import"],
+        "CBCI_VALIDATE_HAS_METADATA": "true" if names["metadata"] else "false",
         "CBCI_VALIDATE_SSL": ssl,
     }
 
@@ -580,10 +710,9 @@ def publish_env(cfg: Config) -> Dict[str, str]:
     CBCI_PACKAGING_INDEX (PYPI|TEST_PYPI) and CBCI_VERSION are supplied by the adapter
     per-call, the same way validate_env gets its index, so they are NOT emitted here.
     """
-    prefix = resolve_project(cfg)
-    pkg = PROJECT_PACKAGES[prefix]
+    names = _resolve_names(cfg)
     return {
-        "CBCI_PUBLISH_PACKAGE": pkg["dist"],
+        "CBCI_PUBLISH_PACKAGE": names["dist"],
         "CBCI_PUBLISH_DRY_RUN": "true" if _resolve_publish_dry_run(cfg) else "false",
     }
 
@@ -605,6 +734,11 @@ def build_env(cfg: Config, stage: str) -> Dict[str, str]:
         print(f"ERROR: build-env: unknown stage: {stage}", file=sys.stderr)
         sys.exit(1)
     prefix = resolve_project(cfg)
+    # Every knob here configures the C++ core build (CPM cache, SSL backend, abi3 level,
+    # CMake echo). A pure-Python project's setup.py reads none of them, so emitting them
+    # would put five misleading vars in the stage log and imply a build that never happens.
+    if prefix in PURE_PYTHON_PROJECTS:
+        return {}
     build = cfg.raw.get("build", {})
     ssl = str(build.get("ssl", "boringssl")).lower()
     out: Dict[str, str] = {}
@@ -747,7 +881,8 @@ def build_plan(cfg: Config) -> Dict[str, Any]:
     """Emit the vendor-NEUTRAL plan: ABSTRACT dimensions only, no runner labels or
     container images (the adapter attaches those). See CONVENTIONS.md.
 
-      * build units: abi3=true  -> one unit per (platform, arch, libc, ssl), pythons[]
+      * build units: pure python -> exactly ONE unit (no platform/arch/ssl/abi3 axis)
+                     abi3=true  -> one unit per (platform, arch, libc, ssl), pythons[]
                      abi3=false -> additionally keyed by python (one per python)
       * validate / test:         per (platform, arch, libc?, python, install_type),
                                  a wide fan-out for parallelism and fast feedback.
@@ -763,6 +898,7 @@ def build_plan(cfg: Config) -> Dict[str, Any]:
     abi3 = bool(build.get("abi3", False))
     build_type = str(build.get("build_type", "RelWithDebInfo"))
     install_types = list(cfg.raw.get("test", {}).get("install_types", ["sdist", "wheel"]))
+    pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
 
     def _keyed(platform: str, arch: str, libc: Optional[str]) -> Dict[str, Any]:
         d: Dict[str, Any] = {"platform": platform, "arch": arch}
@@ -775,11 +911,25 @@ def build_plan(cfg: Config) -> Dict[str, Any]:
     test_units: List[Dict[str, Any]] = []
     seen: set = set()
 
+    # A pure-Python project compiles nothing, so ONE `py3-none-any` wheel serves every
+    # platform, arch and interpreter: the build axis collapses to a single unit built on
+    # whatever node the adapter picks. Fanning it out would produce N identical wheels
+    # racing for the same filename at aggregate time. validate/test still fan out in full
+    # below, since one wheel is exactly the reason to prove it imports and passes everywhere.
+    if pure_python:
+        build_units.append({
+            "pure_python": True,
+            "build_python": str(support.get("default_python") or _min_python([str(v) for v in pyvers])),
+            "wheel_tag": "py3-none-any",
+        })
+
     for arch in arches:
         for platform in plats_by_arch.get(arch, []):
             seen.add(platform)
             libc = libc_map.get(platform)  # None for macos/windows
-            if abi3:
+            if pure_python:
+                pass  # the single unit above already covers every platform
+            elif abi3:
                 unit = _keyed(platform, arch, libc)
                 # `build_python` is the interpreter the unit is COMPILED with. For abi3 that
                 # is the floor, not any member of `pythons`: the wheel claims the floor's
@@ -800,14 +950,19 @@ def build_plan(cfg: Config) -> Dict[str, Any]:
                     validate_units.append(dict(cell))
                     test_units.append(dict(cell))
 
+    build_out: Dict[str, Any] = {
+        "has_linux": "linux" in seen,
+        "has_macos": "macos" in seen,
+        "has_windows": "windows" in seen,
+        "has_alpine": "alpine" in seen,
+        "units": build_units,
+    }
+    # Adapters branch on this to skip the whole per-platform build fan-out (and, for
+    # Jenkins, the `image` stage) rather than inferring it from a unit's shape.
+    if pure_python:
+        build_out["pure_python"] = True
     return {
-        "build": {
-            "has_linux": "linux" in seen,
-            "has_macos": "macos" in seen,
-            "has_windows": "windows" in seen,
-            "has_alpine": "alpine" in seen,
-            "units": build_units,
-        },
+        "build": build_out,
         "validate": {"units": validate_units},
         "test": {"units": test_units},
     }
@@ -829,11 +984,24 @@ def validate_config(cfg: Config) -> tuple:
         if not support.get("platforms", {}).get(arch):
             warnings.append(f"no platforms selected for arch '{arch}'; it will produce no units")
 
-    ssl = str(build.get("ssl", "boringssl")).lower()
-    if ssl not in ("boringssl", "openssl"):
-        errors.append(f"build.ssl must be boringssl|openssl (got '{ssl}')")
-    if ssl == "openssl" and not build.get("openssl_version"):
-        warnings.append("build.ssl=openssl but build.openssl_version is unset")
+    # A pure-Python project links no SSL and builds no abi3 wheel, so requiring a coherent
+    # build.ssl / build.abi3 block would force its config to carry values nothing reads -
+    # and a stale one would then read as reviewed fact. Declaring one is the warning instead.
+    # The commit gates below still apply: they gate support.python_versions, which a
+    # pure-Python project has exactly like any other.
+    pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
+    if pure_python:
+        for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc"):
+            if key in build:
+                warnings.append(
+                    f"build.{key} is set, but this project is pure Python and reads none of "
+                    f"the C++ core build knobs; the value is ignored")
+    else:
+        ssl = str(build.get("ssl", "boringssl")).lower()
+        if ssl not in ("boringssl", "openssl"):
+            errors.append(f"build.ssl must be boringssl|openssl (got '{ssl}')")
+        if ssl == "openssl" and not build.get("openssl_version"):
+            warnings.append("build.ssl=openssl but build.openssl_version is unset")
 
     # --- commit gates ---------------------------------------------------------
     # An unevaluatable gate is fatal, not advisory: it fails by leaving the entry in place,
@@ -859,7 +1027,7 @@ def validate_config(cfg: Config) -> tuple:
             "the gate decide.")
 
     # --- abi3 floor coherence -------------------------------------------------
-    if build.get("abi3", False):
+    if build.get("abi3", False) and not pure_python:
         floor = abi3_floor(cfg)
         pyvers = [str(v) for v in support.get("python_versions", [])]
         try:
@@ -996,10 +1164,70 @@ def _build_pytest_ini(pyproject_path: str, rename: Dict[str, str]) -> str:
     return "\n".join(out)
 
 
+def _analytics_test_config_ini(cfg: Config) -> str:
+    """Render tests/test_config.ini for PYCBAC (Analytics / Operational Insights).
+
+    Ported from the legacy gha.sh `build_test_config_ini`, with two deliberate changes:
+
+      * `disable_server_cert_verification`, not `tls_verify`. The SDK's own reader
+        (tests/operational_insights_config.py) looks for the former and nothing reads the
+        latter, so the legacy key was inert, which left cert verification pinned to the
+        reader's `fallback='ON'` (i.e. verification DISABLED) with no way to turn it on.
+      * CBDC_CONNSTR is parsed for scheme/host/port when present, exactly as the legacy
+        script did, so the cbdinocluster-provisioned endpoint still wins over the defaults.
+
+    The section key stays `[analytics]`: it is the SDK's on-disk contract, not a name that
+    tracks the product rename.
+    """
+    connstr = os.environ.get("CBDC_CONNSTR") or os.environ.get("CBCI_TEST_HOST_URL")
+    scheme = host = port = None
+    if connstr:
+        from urllib.parse import urlparse
+        parsed = urlparse(connstr)
+        scheme = parsed.scheme or None
+        host = parsed.hostname or None
+        port = str(parsed.port) if parsed.port is not None else None
+
+    scheme = scheme or os.environ.get("PYCBAC_SCHEME", "https")
+    host = host or os.environ.get("PYCBAC_HOST") or os.environ.get("CBCI_TEST_HOST") or "127.0.0.1"
+    port = port or os.environ.get("PYCBAC_PORT", "18095")
+    username = os.environ.get("PYCBAC_USERNAME", "Administrator")
+    password = os.environ.get("PYCBAC_PASSWORD", "password")
+    nonprod = os.environ.get("PYCBAC_NONPROD", "OFF")
+    # ON preserves today's EFFECTIVE behavior, and turning it off here would break the run.
+    # The chain: cbdino allocates with use_dino_certs, so the cluster serves certificates
+    # from a NONPROD CA; the SDK only trusts that CA when `nonprod` is on, and nothing sets
+    # PYCBAC_NONPROD, so it is off. Verifying against the Capella CAs would then fail the
+    # handshake. The legacy script wrote `tls_verify`, which the SDK's reader does not look
+    # at, so verification was in fact governed by that reader's own permissive fallback -
+    # inert key, permissive result. Writing the key the reader DOES read makes the state
+    # explicit and overridable, which is the prerequisite for fixing it; the fix itself is
+    # nonprod=ON plus verification=ON, and belongs with a run that can be watched.
+    disable_verify = os.environ.get("PYCBAC_DISABLE_SERVER_CERT_VERIFICATION", "ON")
+    fqdn = os.environ.get("PYCBAC_FQDN")
+
+    lines = [
+        "[analytics]",
+        f"scheme = {scheme}",
+        f"host = {host}",
+        f"port = {port}",
+        f"username = {username}",
+        f"password = {password}",
+        f"nonprod = {nonprod}",
+        f"disable_server_cert_verification = {disable_verify}",
+    ]
+    if fqdn:
+        lines.append(f"fqdn = {fqdn}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def _build_test_config_ini(prefix: str, cfg: Config) -> str:
     """Render tests/test_config.ini. Operational uses realserver/gocaves; values come
     from PYCBC_* / CBCI_* env with sensible defaults.
     """
+    if prefix == "PYCBAC":
+        return _analytics_test_config_ini(cfg)
     if prefix != "PYCBC":
         raise NotImplementedError(f"test_config.ini for {prefix} is not implemented")
 
@@ -1096,7 +1324,10 @@ def test_setup(cfg: Config, output_path: str) -> None:
     root = os.environ.get("CBCI_PROJECT_ROOT") or os.getcwd()
     output_path_abs = os.path.abspath(output_path)
     final_root = os.path.join(output_path_abs, layout["tree"])
-    rename = layout["rename"]
+    # Resolved, not read straight off the layout: for a checkout whose API packages were
+    # renamed (Analytics -> Operational Insights) the table's map names directories that no
+    # longer exist, and step 1 below would fail on the first one.
+    rename = _resolve_names(cfg)["rename"]
     package_init = layout.get("package_init", {})
 
     test_root = tempfile.mkdtemp(prefix=layout["tree"] + ".tmp-", dir=output_path_abs)
@@ -1149,15 +1380,24 @@ def test_cmds(cfg: Config) -> List[str]:
     Each line is `<cmd> <opts>` ready to run (cmd carries the `-m '<markers>'`).
 
     When test logging is on (TEST_LOGGING -> CBCI_TEST_LOG_LEVEL, or ci-config
-    test.pytest.log_level), each command is prefixed inline with `{PREFIX}_LOG_LEVEL=<level>`
+    test.pytest.log_level), each command is prefixed inline with the SDK's log-level env var
     (the SDK auto-configures a console logger at that level on import) and given `-s`, so
     pytest doesn't swallow the SDK's own console output on a passing run. The inline env prefix
-    survives tasks.sh's `eval` + junit-xml append."""
+    survives tasks.sh's `eval` + junit-xml append.
+
+    The var NAME comes from ci-config `test.pytest.log_level_var`, defaulting to
+    `{PREFIX}_LOG_LEVEL`. It is configurable because it is the SDK's own public knob and so
+    tracks the SDK's namespace, not CI's project prefix. The renamed Operational Insights
+    client reads PYCBOI_LOG_LEVEL while CI still calls the project PYCBAC. Getting this wrong
+    fails SILENTLY (logging simply never turns on), which is why it is stated in config
+    rather than derived."""
     level = _resolve_test_log_level(cfg)
     prefix = resolve_project(cfg)
+    log_var = (cfg.raw.get("test", {}).get("pytest", {}).get("log_level_var")
+               or f"{prefix}_LOG_LEVEL")
 
     def _decorate(cmd: str) -> str:
-        return f"{prefix}_LOG_LEVEL={level} {cmd} -s" if level else cmd
+        return f"{log_var}={level} {cmd} -s" if level else cmd
 
     override_cmd = os.environ.get("CBCI_TEST_COMMAND")
     override_args = os.environ.get("CBCI_TEST_ARGS") or ""

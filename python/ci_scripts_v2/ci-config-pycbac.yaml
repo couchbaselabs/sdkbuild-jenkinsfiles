@@ -1,0 +1,117 @@
+# ci-config-pycbac.yaml - PYCBAC defaults and support matrix.
+#
+# PYCBAC is the pure-Python query client: `couchbase-analytics`, and the same codebase
+# after the product rename, `couchbase-operational-insights`. ONE project type serves both
+# for the duration of the overlap, as the package names are resolved from the checkout under
+# test (engine.py `_resolve_names`), so a run against either era needs no config change.
+#
+# Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
+# Override at runtime via promoted vars (PLATFORMS/ARCHES/PYTHON_VERSIONS/INSTALL_TYPES)
+# or the CBCI_CONFIG_OVERRIDE JSON string.
+# Merge precedence (most specific wins): this file < CBCI_CONFIG_OVERRIDE < promoted vars.
+#
+# IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
+# (ubuntu-24.04, macos-15) and container images live in the vendor ADAPTER, not here.
+#
+# NOTE on what is deliberately ABSENT: no `build.ssl`, `build.abi3`, `build.libc` or
+# `build.set_cpm_cache`. There is no C++ core, so nothing reads them, and validate-config
+# warns if they appear, and a stale SSL backend recorded here would read as reviewed fact.
+
+project: PYCBAC
+
+# --- support matrix ----------------------------------------------------------
+support:
+  # Mirrors the SDK's own declared support (pyproject requires-python >=3.10 and its
+  # Programming Language classifiers). No commit gates: this client has no abi3 migration
+  # or per-version C++ era to gate on, so plain version strings are the whole story.
+  python_versions:
+    - "3.10"
+    - "3.11"
+    - "3.12"
+    - "3.13"
+    - "3.14"
+  # 3.10 rather than the newest: the floor is what a universal wheel must keep working on,
+  # so single-node stages (sdist, docs, publish) run there by default. Matches the SDK's
+  # own CBCI_DEFAULT_PYTHON.
+  default_python: "3.10"
+
+  architectures: ["x86_64", "arm64"]
+
+  # Which abstract platforms are supported per arch. A platform is one of
+  # linux, alpine, macos, windows. linux is manylinux; alpine is musllinux.
+  #
+  # The build axis does NOT use these, since a pure-Python project builds exactly one
+  # py3-none-any wheel (see engine.build_plan). They drive validate/test only, which is
+  # where the fan-out earns its keep: one wheel is precisely the reason to prove it
+  # installs and imports on every platform it claims.
+  platforms:
+    x86_64: ["linux", "alpine", "macos", "windows"]
+    arm64:  ["linux", "macos"]
+
+# --- build defaults ----------------------------------------------------------
+build:
+  build_type: RelWithDebInfo   # carried for plan shape only; nothing compiles
+  use_uv: true                 # this client is uv-native (uv.lock is committed)
+  verbose_makefile: false
+
+# --- test defaults -----------------------------------------------------------
+test:
+  apis: ["acouchbase", "couchbase"]     # no txcouchbase: there is no Twisted API here
+  install_types: ["sdist", "wheel"]     # artifact-isolation: test both
+  cluster: realserver                   # no gocaves equivalent; unit tests use the in-repo test server
+  skip_integration: true                # gate for the integration pipeline
+
+  pytest:
+    log_level: ""            # SDK log level during tests (debug|info|warning|error|critical); "" = off. Overridden by TEST_LOGGING -> CBCI_TEST_LOG_LEVEL.
+    # The SDK's own log-level env var, which tracks the PACKAGE namespace and not CI's
+    # project prefix: the renamed client reads PYCBOI_LOG_LEVEL while CI still calls the
+    # project PYCBAC. Stated rather than derived because getting it wrong fails silently -
+    # logging simply never turns on. Change this to PYCBAC_LOG_LEVEL when running against
+    # a pre-rename checkout.
+    log_level_var: "PYCBOI_LOG_LEVEL"
+    # Both APIs gate every build. Unlike the operational client (where acouchbase is
+    # deferred to scheduled runs) the suites here are small and the client is I/O-bound
+    # with no compiled core, so running both costs minutes, not tens of minutes.
+    acouchbase_cmd: "python -m pytest -m pycbac_acouchbase"
+    acouchbase_opts: "-v -p no:warnings"
+    couchbase_cmd: "python -m pytest -m pycbac_couchbase"
+    couchbase_opts: "-v -p no:warnings"
+
+  # Neutral real-cluster spec for integration testing. Jenkins realizes this via
+  # cbdyncluster; GHA realizes it via cbdinocluster (test.integration.cbdino). Provisioning
+  # itself is an adapter concern; this block is only the shared shape.
+  integration:
+    # Enterprise Analytics ships as its own server product on its own version line, so
+    # these are NOT Couchbase Server versions and they do not share the operational
+    # client's era grouping. Value ground-truthed against the legacy pygha.py
+    # `get_default_cbdino_config(Analytics)` rather than guessed. It is a build-numbered
+    # release, not a `-stable` alias.
+    server_versions:
+      - ["2.2.0-1314"]
+    version_subset: false
+    num_nodes: 3
+    ram_quota: 2048
+    storage_mode: plasma
+    buckets: ["default"]
+    sample_buckets: ["travel-sample"]
+    developer_preview: false
+
+    cbdino:
+      version: "2.2.0-1314"
+      # Both true for this project, unlike every other: the client talks to the analytics
+      # service over TLS through the load balancer, and dino_certs makes the cluster serve
+      # real (nonprod-CA) certificates rather than self-signed ones. See the
+      # disable_server_cert_verification note in engine._analytics_test_config_ini. These
+      # two settings are what a future verification-ON run would depend on.
+      use_load_balancer: true
+      use_dns: false
+      use_dino_certs: true
+
+  skip_cbdino: true
+
+# --- publish defaults --------------------------------------------------------
+publish:
+  publish_pypi: true
+  publish_test_pypi: true
+  publish_api_docs: true
+  publish_dry_run: false

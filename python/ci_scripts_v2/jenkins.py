@@ -262,6 +262,32 @@ def _tags_from_plan(plan: Dict[str, Any], requested: List[str]) -> Dict[str, Any
     }
 
 
+def _reject_pure_python(plan: Dict[str, Any], subcommand: str) -> None:
+    """Refuse a pure-Python plan with a sentence instead of a KeyError.
+
+    This adapter's whole job is the fan-out a COMPILED wheel needs: an agent label per
+    (platform, arch), a manylinux/musllinux image, cibuildwheel selectors. A pure-Python
+    project has none of those: `engine.build_plan` collapses its build to ONE unit with no
+    platform/arch at all, so teaching jenkins.py to read `build.pure_python` would mean
+    adding a second, parallel job-shaping path for projects that are not on the Jenkins
+    track. They run on GitHub Actions, where the neutral stages (`tasks.sh sdist|wheel|
+    validate|test|docs`) are already vendor-agnostic and need no label table.
+
+    So this is a guard, not a feature: without it `_build_job` dies on `u["platform"]` and
+    the operator reads a traceback pointing at the wrong layer. `verify_tags` is
+    deliberately NOT guarded, because it installs the published package from an index by
+    NAME and compiles nothing, so it is meaningful for any project.
+    """
+    if not plan.get("build", {}).get("pure_python", False):
+        return
+    raise SystemExit(
+        f"jenkins.py {subcommand}: project {engine.resolve_project(engine.load_config())} is "
+        "pure-Python (one py3-none-any wheel, no per-platform build), which the Jenkins "
+        "adapter does not shape jobs for. Pure-Python projects run on GitHub Actions; "
+        "invoke the neutral stages via tasks.sh from the workflow."
+    )
+
+
 def tags(config_path: Optional[str] = None) -> Dict[str, Any]:
     """Full pipeline: build the neutral plan (narrowed to the requested platforms) and
     translate it into the Jenkins job plan the groovy consumes.
@@ -283,6 +309,7 @@ def tags(config_path: Optional[str] = None) -> Dict[str, Any]:
     if abstract:
         engine.narrow_to_platforms(cfg, abstract)
     plan = engine.build_plan(cfg)
+    _reject_pure_python(plan, "tags")
     return _tags_from_plan(plan, requested)
 
 
@@ -381,6 +408,7 @@ def integration_tags(config_path: Optional[str] = None) -> Dict[str, Any]:
     keep the per-run cbdyncluster footprint small. See _resolve_integration_python_versions.
     """
     cfg = engine.load_config(config_path)
+    _reject_pure_python(engine.build_plan(cfg), "integration-tags")
     spec = cfg.raw.get("test", {}).get("integration", {})
     pyvers = _resolve_integration_python_versions(list(cfg.raw.get("support", {}).get("python_versions", [])))
     versions = _resolve_server_versions(spec)

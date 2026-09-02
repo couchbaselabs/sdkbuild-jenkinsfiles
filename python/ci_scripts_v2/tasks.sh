@@ -1140,6 +1140,53 @@ task__wheel_repair() {
     rm -rf "${tmp}" "${unpackdir}"
 }
 
+# Pure-Python wheel build: ONE py3-none-any wheel, no cibuildwheel, no container, no
+# repair/strip step (there is no binary to strip, so task__wheel_repair has nothing to do
+# and is deliberately not called).
+#
+# Ported from the legacy gha.sh `build_analytics_wheel`, which is the proven recipe. Two
+# things it did that are kept for a reason:
+#   * `pip wheel . --no-deps` rather than `python -m build`: `build` provisions an isolated
+#     env and would re-resolve the build backend, while the toolchain is already installed
+#     here and the version has already been stamped into pyproject.toml by set_client_version.
+#   * the build/ and *.egg-info cleanup: setuptools leaves both behind, and a stale
+#     egg-info makes a later `pip install -e`-style resolution pick up the OLD version.
+# The output lands in wheelhouse/dist, which is where validate's _install_built_artifact
+# looks (--find-links), the same contract the compiled path satisfies.
+task__wheel_pure_python() {
+    local wheel_dir="${PROJECT_ROOT}/wheelhouse/dist"
+    mkdir -p "${wheel_dir}"
+
+    set_client_version
+
+    if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
+        log "wheel: pure-python build via uv"
+        uv build --wheel --out-dir "${wheel_dir}" || die "wheel: uv build failed"
+    else
+        log "wheel: pure-python build via pip wheel"
+        "${PYTHON}" -m pip install --upgrade pip setuptools wheel
+        "${PYTHON}" -m pip wheel . --no-deps -w "${wheel_dir}" || die "wheel: pip wheel failed"
+        rm -rf "${PROJECT_ROOT}/build"
+        find "${PROJECT_ROOT}" -maxdepth 1 -name '*.egg-info' -type d -exec rm -rf {} +
+    fi
+
+    local built
+    built="$(ls "${wheel_dir}"/*.whl 2>/dev/null | head -1 || true)"
+    [[ -n "${built}" ]] || die "wheel: no wheel produced in ${wheel_dir}"
+
+    # A wheel tagged for one interpreter or platform means the project is not actually pure
+    # Python (a stray C extension, or a build backend that read a platform tag), and it
+    # would then be installed on cells it was never built for. Catch it here, where the
+    # cause is one build log away, rather than as an install failure in a later fan-out.
+    case "$(basename "${built}")" in
+        *-py3-none-any.whl|*-py2.py3-none-any.whl) ;;
+        *) die "wheel: expected a py3-none-any wheel, got $(basename "${built}")" ;;
+    esac
+
+    log "wheel: built $(basename "${built}")"
+    ls -alh "${wheel_dir}"
+}
+
 task_wheel() {
     # cibuildwheel wrapper. Builds ONE build unit; the vendor adapter fans out across
     # units and sets the per-unit CBCI_BUILD_* env.
@@ -1147,8 +1194,11 @@ task_wheel() {
     cd "${PROJECT_ROOT}"
 
     if [[ "${CBCI_IS_PURE_PYTHON}" == "true" ]]; then
-        # analytics has no C++ core, so it needs a plain build rather than cibuildwheel.
-        die "wheel: pure-python build path not yet implemented"
+        # No C++ core, so cibuildwheel has nothing to do: one py3-none-any wheel serves
+        # every platform/arch/interpreter. The neutral plan reflects that with a single
+        # build unit (build.pure_python), so this runs ONCE per pipeline, not per cell.
+        task__wheel_pure_python
+        return
     fi
 
     log "installing cibuildwheel"
@@ -1255,7 +1305,12 @@ task_wheel_native() {
     cd "${PROJECT_ROOT}"
 
     if [[ "${CBCI_IS_PURE_PYTHON}" == "true" ]]; then
-        die "wheel-native: pure-python build path not yet implemented"
+        # `wheel` and `wheel-native` differ only in who provisions the interpreter, which is
+        # moot with nothing to compile: both produce the same py3-none-any wheel. Delegating
+        # (rather than refusing) means an adapter that picks wheel-native per platform does
+        # not need a pure-Python special case of its own.
+        task__wheel_pure_python
+        return
     fi
 
     log "wheel-native: installing build deps"
@@ -1630,21 +1685,39 @@ task_docs() {
     "${py}" -m pip install -q wheel || true
     "${py}" -m wheel unpack "${wheel}" -d "${unpackdir}"
 
-    local root so_dir so_file so_path
+    local root pkg_dir
     root="$(find "${unpackdir}" -mindepth 1 -maxdepth 1 -type d | head -1)"
-    read -r so_dir so_file <<<"$(locate_core_so "${root}")"
-    so_path="${so_dir}/${so_file}"
-    [[ -n "${so_file}" && -f "${so_path}" ]] \
-        || die "docs: could not locate the compiled extension in ${root}"
 
-    # Copy extension to the source tree at the correct subdirectory path
-    local rel_so_dir="${so_dir#"${root}"/}"
-    local target_so_dir="${PROJECT_ROOT}/${rel_so_dir}"
-    local target_so_path="${target_so_dir}/${so_file}"
+    if [[ "${CBCI_IS_PURE_PYTHON:-false}" == "true" ]]; then
+        # Nothing to copy into the tree: autodoc imports pure-Python modules straight from
+        # the checkout. Only _version.py is still needed (see below), so identify the top
+        # package as the one that carries it.
+        pkg_dir="$(cd "${root}" && find . -mindepth 2 -maxdepth 2 -name '_version.py' \
+                    -exec dirname {} \; | head -1)"
+        pkg_dir="${pkg_dir#./}"
+        [[ -n "${pkg_dir}" ]] \
+            || die "docs: no <package>/_version.py in ${wheel}; the wheel was built without a stamped version"
+        log "docs: pure-python docs build, top package ${pkg_dir}"
+    else
+        local so_dir so_file so_path
+        read -r so_dir so_file <<<"$(locate_core_so "${root}")"
+        so_path="${so_dir}/${so_file}"
+        [[ -n "${so_file}" && -f "${so_path}" ]] \
+            || die "docs: could not locate the compiled extension in ${root}"
 
-    log "docs: copying extension ${so_path} -> ${target_so_path}"
-    mkdir -p "${target_so_dir}"
-    cp "${so_path}" "${target_so_path}"
+        # Copy extension to the source tree at the correct subdirectory path
+        local rel_so_dir="${so_dir#"${root}"/}"
+        local target_so_dir="${PROJECT_ROOT}/${rel_so_dir}"
+        local target_so_path="${target_so_dir}/${so_file}"
+
+        log "docs: copying extension ${so_path} -> ${target_so_path}"
+        mkdir -p "${target_so_dir}"
+        cp "${so_path}" "${target_so_path}"
+
+        # The top package is the first segment of the extension's path, which covers every
+        # compiled project (couchbase/logic/pycbc_core, couchbase, couchbase_columnar/protocol).
+        pkg_dir="${rel_so_dir%%/*}"
+    fi
 
     # docs/conf.py calls <project>_version.py's get_version(), which reads
     # <top_package>/_version.py as TEXT (deliberately, so it never imports the package and
@@ -1653,10 +1726,7 @@ task_docs() {
     # Take it from the wheel rather than regenerating it: the documented version is then the
     # version of the artifact being documented, by construction rather than by two
     # derivations agreeing, and the docs build needs neither a git tree nor CBCI_VERSION.
-    # The top package is the first segment of the extension's path, which covers every
-    # project (couchbase/logic/pycbc_core, couchbase, couchbase_columnar/protocol).
-    local pkg_dir version_src
-    pkg_dir="${rel_so_dir%%/*}"
+    local version_src
     version_src="${root}/${pkg_dir}/_version.py"
     [[ -f "${version_src}" ]] \
         || die "docs: ${pkg_dir}/_version.py is not in ${wheel}; the wheel was built without a stamped version"
@@ -1664,11 +1734,38 @@ task_docs() {
     mkdir -p "${PROJECT_ROOT}/${pkg_dir}"
     cp "${version_src}" "${PROJECT_ROOT}/${pkg_dir}/_version.py"
 
-    log "docs: installing sphinx dependencies"
+    # Autodoc IMPORTS the modules it documents, so a pure-Python client needs its runtime
+    # deps present (httpx, anyio, ...) or the sphinx config phase dies on the first import.
+    # The compiled projects get theirs via the copied extension plus their sphinx
+    # requirements file, so this stays scoped to the pure-Python path.
+    if [[ "${CBCI_IS_PURE_PYTHON:-false}" == "true" && -f "${PROJECT_ROOT}/requirements.txt" ]]; then
+        log "docs: installing runtime dependencies (autodoc imports the package)"
+        if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
+            uv pip install -r requirements.txt
+        else
+            "${py}" -m pip install -r requirements.txt
+        fi
+    fi
+
+    # The sphinx requirements FILENAME differs per repo (`sphinx_requirements.txt` in the
+    # operational and columnar clients, `requirements-sphinx.txt` in Operational Insights),
+    # so take whichever the checkout actually has rather than hardcoding one and failing on
+    # the other. CBCI_SPHINX_REQUIREMENTS overrides for a repo that uses a third name.
+    local sphinx_reqs="${CBCI_SPHINX_REQUIREMENTS:-}"
+    if [[ -z "${sphinx_reqs}" ]]; then
+        local candidate
+        for candidate in sphinx_requirements.txt requirements-sphinx.txt; do
+            if [[ -f "${PROJECT_ROOT}/${candidate}" ]]; then sphinx_reqs="${candidate}"; break; fi
+        done
+    fi
+    [[ -n "${sphinx_reqs}" && -f "${PROJECT_ROOT}/${sphinx_reqs}" ]] \
+        || die "docs: no sphinx requirements file (looked for sphinx_requirements.txt, requirements-sphinx.txt; override with CBCI_SPHINX_REQUIREMENTS)"
+
+    log "docs: installing sphinx dependencies from ${sphinx_reqs}"
     if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
-        uv pip install -r sphinx_requirements.txt
+        uv pip install -r "${sphinx_reqs}"
     else
-        "${py}" -m pip install -r sphinx_requirements.txt
+        "${py}" -m pip install -r "${sphinx_reqs}"
     fi
 
     log "docs: building documentation with sphinx"

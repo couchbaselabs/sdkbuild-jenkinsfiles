@@ -32,7 +32,13 @@ CBCI_BASE_URL="${CBCI_BASE_URL:-https://raw.githubusercontent.com/couchbaselabs/
 CBCI_DEST="${CBCI_DEST:-.}"
 
 # The fixed manifest. bootstrap.sh itself is excluded, since it is already present.
-# Growth happens *inside* these files, not as new files.
+# Growth happens *inside* these files, not as new files, with ONE bounded exception: the
+# per-project `ci-config-<project>.yaml`. That is data, of which the manifest already
+# carries one (`ci-config.yaml`, which stays PYCBC's), and it is capped at one file per SDK
+# project rather than being open-ended the way an `images/` dir would be. Keeping them
+# separate also means PYCBC's config never changes SHAPE to accommodate another project, so
+# an engine/config version skew cannot break it. A project with no file of its own falls
+# back to ci-config.yaml (engine._default_config_path).
 CBCI_MANIFEST=(
     "engine.py"
     "jenkins.py"
@@ -40,6 +46,7 @@ CBCI_MANIFEST=(
     "tasks.ps1"
     "auditwheel_patch.py"
     "ci-config.yaml"
+    "ci-config-pycbac.yaml"
 )
 
 # --- helpers -----------------------------------------------------------------
@@ -66,12 +73,13 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "5b9f76d709bd6a2735dc2bb84364cd4cedd35104e794a35831212fdea9683743" ;;
-        "jenkins.py")          echo "6ea6ef4ae06674023d6dcadcdd8f9e58e468d376acbe8a7fe8120f4143f9ecfb" ;;
-        "tasks.sh")            echo "4fd931ab0e198bdfb015fc57b534da8d4f2d4205983f787dff48b8e4f014c437" ;;
-        "tasks.ps1")           echo "ebb82b9d825761945f1586bb44907f04ee1c98a891fe89292b0ccd6547704bf5" ;;
+        "engine.py")           echo "468858cc1a7ae2f90cf7625b55e05cb7d1b9244cd23654d04bdac6a7f097c880" ;;
+        "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
+        "tasks.sh")            echo "a0c6a52f87abbb4eeff115fe438b1f23daee954c288165ad26b71067cbbe2232" ;;
+        "tasks.ps1")           echo "110e3ead0afaa9185ad0dba5d0f0a1d8a6c7bd23b430686149fcaed8c43826bb" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ci-config.yaml")      echo "2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c" ;;
+        "ci-config-pycbac.yaml") echo "5f12b0115243a4abbce3d04046109c2091e1b891ab6897b505612338ecb3b515" ;;
         *)                     echo "" ;;
     esac
 }
@@ -112,15 +120,23 @@ verify_manifest() {
             continue
         fi
 
+        # An entry with no pinned hash is a HOLE, not a pass: the file was fetched over the
+        # network and would then run unverified, which is the one thing this script exists to
+        # prevent. Previously an empty expected hash silently skipped the check, so adding a
+        # manifest entry and forgetting to run `update_manifest.sh --update` produced a
+        # bootstrap that verified everything except the new file.
         local expected; expected="$(get_expected_hash "${name}")"
-        if [[ -n "${expected}" ]]; then
-            local actual; actual="$(get_sha256 "${file}")"
-            if [[ "${actual}" != "${expected}" ]]; then
-                log "ERROR: checksum verification failed for ${name}"
-                log "  expected: ${expected}"
-                log "  actual:   ${actual}"
-                missing=1
-            fi
+        if [[ -z "${expected}" ]]; then
+            log "ERROR: no pinned sha256 for ${name}; run update_manifest.sh --update"
+            missing=1
+            continue
+        fi
+        local actual; actual="$(get_sha256 "${file}")"
+        if [[ "${actual}" != "${expected}" ]]; then
+            log "ERROR: checksum verification failed for ${name}"
+            log "  expected: ${expected}"
+            log "  actual:   ${actual}"
+            missing=1
         fi
     done
     [[ "${missing}" -eq 0 ]] || exit 1

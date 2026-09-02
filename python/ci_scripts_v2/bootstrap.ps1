@@ -32,7 +32,8 @@ $CBCI_BASE_URL = if ($env:CBCI_BASE_URL) {
 $CBCI_DEST = if ($env:CBCI_DEST) { $env:CBCI_DEST } else { '.' }
 
 # The fixed manifest (must match bootstrap.sh's CBCI_MANIFEST). bootstrap.ps1 itself
-# is excluded, since it is already present.
+# is excluded, since it is already present. See bootstrap.sh for why the per-project
+# ci-config-<project>.yaml is the one admitted exception to "no new files".
 $CBCI_MANIFEST = @(
     'engine.py'
     'jenkins.py'
@@ -40,16 +41,18 @@ $CBCI_MANIFEST = @(
     'tasks.ps1'
     'auditwheel_patch.py'
     'ci-config.yaml'
+    'ci-config-pycbac.yaml'
 )
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.py'           = '5b9f76d709bd6a2735dc2bb84364cd4cedd35104e794a35831212fdea9683743'
-    'jenkins.py'          = '6ea6ef4ae06674023d6dcadcdd8f9e58e468d376acbe8a7fe8120f4143f9ecfb'
-    'tasks.sh'            = '4fd931ab0e198bdfb015fc57b534da8d4f2d4205983f787dff48b8e4f014c437'
-    'tasks.ps1'           = 'ebb82b9d825761945f1586bb44907f04ee1c98a891fe89292b0ccd6547704bf5'
-    'auditwheel_patch.py' = '402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5'
-    'ci-config.yaml'      = '2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c'
+    'engine.py'             = '468858cc1a7ae2f90cf7625b55e05cb7d1b9244cd23654d04bdac6a7f097c880'
+    'jenkins.py'            = 'edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4'
+    'tasks.sh'              = 'a0c6a52f87abbb4eeff115fe438b1f23daee954c288165ad26b71067cbbe2232'
+    'tasks.ps1'             = '110e3ead0afaa9185ad0dba5d0f0a1d8a6c7bd23b430686149fcaed8c43826bb'
+    'auditwheel_patch.py'   = '402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5'
+    'ci-config.yaml'        = '2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c'
+    'ci-config-pycbac.yaml' = '5f12b0115243a4abbce3d04046109c2091e1b891ab6897b505612338ecb3b515'
 }
 
 # --- helpers -----------------------------------------------------------------
@@ -100,15 +103,19 @@ foreach ($name in $CBCI_MANIFEST) {
         $failed = $true
         continue
     }
+    # An unpinned entry is a HOLE, not a pass. See the matching note in bootstrap.sh.
     $expected = $CBCI_EXPECTED[$name]
-    if ($expected) {
-        $actual = Get-Sha256 $file
-        if ($actual -ne $expected) {
-            Write-Log "ERROR: checksum verification failed for $name"
-            Write-Log "  expected: $expected"
-            Write-Log "  actual:   $actual"
-            $failed = $true
-        }
+    if (-not $expected) {
+        Write-Log "ERROR: no pinned sha256 for $name; run update_manifest.sh --update"
+        $failed = $true
+        continue
+    }
+    $actual = Get-Sha256 $file
+    if ($actual -ne $expected) {
+        Write-Log "ERROR: checksum verification failed for $name"
+        Write-Log "  expected: $expected"
+        Write-Log "  actual:   $actual"
+        $failed = $true
     }
 }
 
