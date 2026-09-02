@@ -20,6 +20,41 @@ die() { echo "[tasks] ERROR: $*" >&2; exit 1; }
 
 # --- shared helpers ----------------------------------------------------------
 
+# Make sure uv is callable when uv is the active toolchain.
+#
+# use_uv is a ci-config decision (per project), and a vendor pipeline only ever asks for a
+# stage, so it has no way to know whether the node it picked needs uv. Provisioning it here
+# keeps that knowledge in one place and covers every vendor, every container and every
+# hosted runner at once. Pin with CBCI_UV_VERSION when a node needs a specific uv, the same
+# way CBCI_PRE_COMMIT_VERSION pins pre-commit.
+#
+# No-op when use_uv is false (PYCBC) or uv is already on PATH (a provisioned agent).
+ensure_uv() {
+    [[ "${CBCI_USE_UV:-false}" == "true" ]] || return 0
+    if command -v uv >/dev/null 2>&1; then
+        return 0
+    fi
+
+    log "uv not on PATH; installing it"
+    "${PYTHON}" -m pip install --upgrade --quiet "uv${CBCI_UV_VERSION:+==${CBCI_UV_VERSION}}" \
+        || die "failed to install uv"
+
+    # pip drops the console script in the interpreter's scripts dir, or under the user base
+    # when the environment is externally managed. Neither is guaranteed to be on PATH, so
+    # add both before deciding the install did not take.
+    local d
+    for d in "$("${PYTHON}" -c 'import sysconfig; print(sysconfig.get_path("scripts"))' 2>/dev/null || true)" \
+             "$("${PYTHON}" -m site --user-base 2>/dev/null || true)/bin"; do
+        if [[ -n "${d}" && -d "${d}" ]]; then
+            PATH="${d}:${PATH}"
+        fi
+    done
+    export PATH
+
+    command -v uv >/dev/null 2>&1 || die "installed uv but it is not on PATH"
+    log "using $(uv --version)"
+}
+
 # Resolve CBCI_* project facts from engine.py and export them into this shell:
 #   CBCI_PROJECT_PREFIX, CBCI_VERSION_SCRIPT, CBCI_IS_PURE_PYTHON, CBCI_USE_UV
 load_project_env() {
@@ -27,6 +62,9 @@ load_project_env() {
     out="$("${PYTHON}" "${ENGINE}" project-env)" || die "failed to resolve project env"
     # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
     export ${out}
+    # Every stage funnels through here, and CBCI_USE_UV is only known once the export above
+    # has run, which makes this the one place the check cannot be forgotten.
+    ensure_uv
 }
 
 # Run python, routing through `uv run` when uv is the active toolchain.
@@ -185,7 +223,15 @@ task_sdist() {
     set_client_version
 
     log "building source distribution"
-    run_python setup.py sdist
+    if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
+        # The uv project env carries the project's dependencies, not its build backend, so
+        # `setup.py sdist` inside it dies on `import setuptools`. uv build runs the backend
+        # pyproject.toml declares, in its own isolated env, which is how the pure-python
+        # wheel is already built.
+        uv build --sdist --out-dir dist || die "sdist: uv build failed"
+    else
+        run_python setup.py sdist
+    fi
     log "dist contents:"
     ls -alh dist
 }
@@ -1552,7 +1598,12 @@ task_validate() {
 # the SDK checkout present under PROJECT_ROOT.
 _build_test_tree() {
     local test_dir="$1" test_root
-    rm -rf "${test_dir}"; mkdir -p "${test_dir}"
+    # mkdir only. test_dir is the directory the tree is built INSIDE, and a caller is free
+    # to point CBCI_TEST_DIR at a shared one (GHA builds into the workspace root so the tree
+    # lands where the v1 script put it), so wiping it would take the checkout with it.
+    # engine.py test-setup replaces its own tree, which is the only thing that needs
+    # clearing.
+    mkdir -p "${test_dir}"
     test_root="$(run_python "${ENGINE}" test-setup "${test_dir}" | tail -1)"
     [[ -d "${test_root}" ]] || die "test-setup did not produce a tree"
     printf '%s\n' "${test_root}"

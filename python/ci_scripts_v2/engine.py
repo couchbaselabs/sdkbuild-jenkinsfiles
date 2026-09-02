@@ -1365,6 +1365,11 @@ def test_setup(cfg: Config, output_path: str) -> None:
         with open(os.path.join(test_root, "requirements-test.txt"), "w") as f:
             f.write(_build_requirements_test(root, layout["dev_requirements"], layout["reqs"]))
 
+        # A tree from an earlier run has to go before the swap, or os.rename fails on a
+        # non-empty destination. Doing it here, after every step above has succeeded, keeps
+        # the window where neither tree exists as short as a rmtree plus a rename.
+        if os.path.isdir(final_root):
+            shutil.rmtree(final_root)
         os.rename(test_root, final_root)
     except BaseException:
         # BaseException, not Exception: _load_tomllib()'s failure path is sys.exit(1), which
