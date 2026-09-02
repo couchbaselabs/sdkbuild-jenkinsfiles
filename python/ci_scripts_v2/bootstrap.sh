@@ -4,17 +4,19 @@
 #
 # Responsibilities:
 #   1. Pin the CI-core ref (tag/sha) the rest of the manifest is fetched from.
-#   2. Fetch the fixed manifest (engine.py, jenkins.py, tasks.sh, tasks.ps1,
-#      auditwheel_patch.py, ci-config.yaml) at that ref.
+#   2. Fetch the fixed manifest (engine.py, the vendor adapters, tasks.sh, tasks.ps1,
+#      auditwheel_patch.py and the ci-config files) at that ref.
 #   3. Verify what was fetched before anything runs.
 #
 # Consumer usage:
-#   curl -fsSL <pinned-ref>/python/bootstrap.sh -o bootstrap.sh
+#   curl -fsSL <base-url>/bootstrap.sh -o bootstrap.sh
 #   ./bootstrap.sh
 #   ./tasks.sh <stage> ...
+# where <base-url> is CBCI_BASE_URL below, i.e. the ci_scripts_v2 tree at the pinned ref.
 #
-# NOTE: auth is not implemented yet, so this fetches over plain HTTPS from a pinned ref.
-# Do not ship to the private-repo flow until it is.
+# The source repo is PUBLIC (couchbaselabs/sdkbuild-jenkinsfiles), so the fetch needs no
+# credentials; integrity comes from the pinned ref plus the sha256 verification below, not
+# from transport auth. A move to a private repo would need an auth path added here first.
 
 set -euo pipefail
 
@@ -39,9 +41,16 @@ CBCI_DEST="${CBCI_DEST:-.}"
 # separate also means PYCBC's config never changes SHAPE to accommodate another project, so
 # an engine/config version skew cannot break it. A project with no file of its own falls
 # back to ci-config.yaml (engine._default_config_path).
+#
+# The vendor ADAPTERS (jenkins.py, gha.py) are the same bounded kind of exception: one file
+# per CI system, not one per project, and every consumer fetches all of them. Fetching an
+# adapter you do not run costs a few KB and keeps the manifest FIXED, which is the property
+# that lets a consumer curl one file by name and never edit a file list again. Splitting the
+# manifest per vendor would put that list back in every workflow.
 CBCI_MANIFEST=(
     "engine.py"
     "jenkins.py"
+    "gha.py"
     "tasks.sh"
     "tasks.ps1"
     "auditwheel_patch.py"
@@ -73,13 +82,14 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "468858cc1a7ae2f90cf7625b55e05cb7d1b9244cd23654d04bdac6a7f097c880" ;;
+        "engine.py")           echo "68e4bf820c8f807606c04d45cc00e4ec2620b47819e747fc30e6fc08afa94d3c" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
-        "tasks.sh")            echo "a0c6a52f87abbb4eeff115fe438b1f23daee954c288165ad26b71067cbbe2232" ;;
+        "gha.py")              echo "4bcf36dfa40c548c6ed4ada13ce25c2a29c2886051f6ec7990651c1c4119d2e5" ;;
+        "tasks.sh")            echo "60491ca02ada39f6ff0e05c7201d09fb6bea1010b1b14918bd902e55bb712608" ;;
         "tasks.ps1")           echo "110e3ead0afaa9185ad0dba5d0f0a1d8a6c7bd23b430686149fcaed8c43826bb" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ci-config.yaml")      echo "2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c" ;;
-        "ci-config-pycbac.yaml") echo "5f12b0115243a4abbce3d04046109c2091e1b891ab6897b505612338ecb3b515" ;;
+        "ci-config-pycbac.yaml") echo "3e1fb4b0e70283d273b52d1897c40c86eba3367b27c3b6d086e7259f2f339da3" ;;
         *)                     echo "" ;;
     esac
 }

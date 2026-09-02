@@ -1375,7 +1375,32 @@ def test_setup(cfg: Config, output_path: str) -> None:
     print(final_root)
 
 
-def test_cmds(cfg: Config) -> List[str]:
+def pytest_config(cfg: Config, stage: Optional[str] = None) -> Dict[str, str]:
+    """The resolved `test.pytest` string keys for one test stage: {api}_cmd / {api}_opts.
+
+    Resolution is stage-specific-then-flat: `test.pytest.<stage>.<key>` wins over
+    `test.pytest.<key>`. A project whose unit and integration runs use the SAME pytest
+    invocation states the flat keys only and never sees the stage blocks; a project that
+    selects tests by MARKER needs both, because the marker differs per stage.
+
+    PYCBAC is the marker case. Its suite tags every test `pycbac_unit` or
+    `pycbac_integration` (pyproject markers), so a flat `-m pycbac_acouchbase` selects both,
+    and a unit job with no cluster would then run the integration tests. PYCBC is the flat
+    case: it separates the two by CLUSTER (gocaves vs realserver) rather than by marker, so
+    one invocation is correct for both and its config is untouched by this.
+
+    Stage blocks are additive: with no `<stage>` block present this returns the flat keys
+    exactly as before, which is why adding the mechanism cannot move PYCBC.
+    """
+    pytest_cfg = dict(cfg.raw.get("test", {}).get("pytest", {}) or {})
+    if stage:
+        for key, value in (pytest_cfg.get(stage) or {}).items():
+            pytest_cfg[key] = value
+    # str-only: drops the nested stage blocks themselves, plus any non-string knob.
+    return {k: v for k, v in pytest_cfg.items() if isinstance(v, str)}
+
+
+def test_cmds(cfg: Config, stage: Optional[str] = None) -> List[str]:
     """Pytest invocations for the test stage, one per API, from ci-config test.pytest.
     Each line is `<cmd> <opts>` ready to run (cmd carries the `-m '<markers>'`).
 
@@ -1406,7 +1431,7 @@ def test_cmds(cfg: Config) -> List[str]:
         opts = override_args
         return [_decorate(f"{override_cmd} {opts}".strip())]
 
-    pytest_cfg = cfg.raw.get("test", {}).get("pytest", {})
+    pytest_cfg = pytest_config(cfg, stage)
     cmds: List[str] = []
     for api in ("acouchbase", "couchbase", "txcouchbase"):
         cmd = pytest_cfg.get(f"{api}_cmd")
@@ -1460,7 +1485,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_setup = sub.add_parser("test-setup", help="generate the artifact-isolation test tree + config")
     p_setup.add_argument("output_path", help="directory to write the test tree into")
 
-    sub.add_parser("test-cmds", help="emit pytest invocations (one per line)")
+    p_cmds = sub.add_parser("test-cmds", help="emit pytest invocations (one per line)")
+    p_cmds.add_argument("--stage", choices=("unit", "integration"), default=None,
+                        help="test stage, selecting the matching test.pytest.<stage> overrides")
+
+    p_ini = sub.add_parser("test-config-ini",
+                           help="render tests/test_config.ini into an EXISTING directory")
+    p_ini.add_argument("output_dir", help="directory to write test_config.ini into")
 
     args = parser.parse_args(argv)
     cfg = load_config(args.config, report_domains=GATE_REPORT_DOMAINS.get(args.cmd, ()))
@@ -1491,8 +1522,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.cmd == "test-setup":
         test_setup(cfg, args.output_path)
     elif args.cmd == "test-cmds":
-        for line in test_cmds(cfg):
+        for line in test_cmds(cfg, args.stage):
             print(line)
+    elif args.cmd == "test-config-ini":
+        # Re-render ONLY tests/test_config.ini, in place. `test-setup` cannot be reused for
+        # this: it builds the whole tree into a temp sibling and renames it, whereas the
+        # cluster endpoint (CBDC_CONNSTR) is not known until the cluster has been allocated,
+        # which happens AFTER the tree was built, uploaded as an artifact, and downloaded
+        # onto the test node.
+        if not os.path.isdir(args.output_dir):
+            print(f"ERROR: not a directory: {args.output_dir}", file=sys.stderr)
+            return 1
+        target = os.path.join(os.path.abspath(args.output_dir), "test_config.ini")
+        with open(target, "w") as f:
+            f.write(_build_test_config_ini(resolve_project(cfg), cfg))
+        print(target)
     else:  # pragma: no cover - argparse enforces
         parser.error(f"unknown command: {args.cmd}")
     return 0

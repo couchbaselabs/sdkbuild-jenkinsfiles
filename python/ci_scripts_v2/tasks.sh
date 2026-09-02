@@ -1571,6 +1571,28 @@ task_test_setup() {
     log "test-setup: test tree ready at ${test_root}"
 }
 
+# Re-render ONLY tests/test_config.ini, into a test tree that already exists.
+#
+# This is the second half of a split that only a real cluster forces: the tree (and its
+# first ini) is built once on one node and shipped to the test nodes as an artifact, but the
+# cluster ENDPOINT is not known until the cluster has been allocated, which happens on the
+# test node afterwards. So the ini is rendered twice, and the second render is this.
+#
+# Neutral on purpose, despite cbdinocluster being the thing that provisions the cluster on
+# GHA: the renderer reads CBDC_CONNSTR (or the neutral CBCI_TEST_HOST_URL) from the
+# environment and knows nothing about who set it, so Jenkins can use the same stage for a
+# cbdyncluster endpoint.
+task_test_config() {
+    load_project_env
+    cd "${PROJECT_ROOT}"
+    local dir="${1:-}"
+    [[ -n "${dir}" ]] || die "test-config: need the directory to write test_config.ini into"
+    [[ -d "${dir}" ]] || die "test-config: not a directory: ${dir}"
+    local written
+    written="$("${PYTHON}" "${ENGINE}" test-config-ini "${dir}")" || die "failed to render test_config.ini"
+    log "test-config: wrote ${written}"
+}
+
 task_test() {
     # Artifact isolation: run the tests against the INSTALLED artifact, not the repo
     # source. engine.py test-setup builds a test tree with the API dirs RENAMED
@@ -1608,11 +1630,18 @@ task_test() {
 
     # Pytest invocations from ci-config (one per API). Each line is a full
     # `pytest -m '<markers>' <opts>` command (markers contain spaces -> read by line).
+    #
+    # CBCI_TEST_STAGE (unit|integration) selects the matching test.pytest.<stage> overrides.
+    # Unset means the flat keys, which is what every project whose two runs share one pytest
+    # invocation wants (PYCBC). A project that splits its suite by MARKER sets it, since the
+    # marker is the only thing separating a unit run from an integration one there.
+    local -a stage_arg=()
+    [[ -n "${CBCI_TEST_STAGE:-}" ]] && stage_arg=(--stage "${CBCI_TEST_STAGE}")
     local -a cmds=()
     local line
     while IFS= read -r line; do
         [[ -n "${line}" ]] && cmds+=("${line}")
-    done < <("${PYTHON}" "${ENGINE}" test-cmds)
+    done < <("${PYTHON}" "${ENGINE}" test-cmds "${stage_arg[@]+"${stage_arg[@]}"}")
     [[ ${#cmds[@]} -gt 0 ]] || die "test: no pytest commands configured"
 
     local itype venvroot venv vpy cmd rc
@@ -1851,6 +1880,7 @@ main() {
         wheel-native)              task_wheel_native "$@" ;;
         validate)                  task_validate "$@" ;;
         test-setup)                task_test_setup "$@" ;;
+        test-config)               task_test_config "$@" ;;
         test)                      task_test "$@" ;;
         docs)                      task_docs "$@" ;;
         publish)                   task_publish "$@" ;;

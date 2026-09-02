@@ -6,8 +6,8 @@
 # on Windows and runs it with `powershell -ExecutionPolicy Bypass -File bootstrap.ps1`.
 # Responsibilities are identical to bootstrap.sh:
 #   1. Pin the CI-core ref (env CBCI_REF) the rest of the manifest is fetched from.
-#   2. Fetch the fixed manifest (engine.py, jenkins.py, tasks.sh, tasks.ps1,
-#      auditwheel_patch.py, ci-config.yaml) at that ref.
+#   2. Fetch the fixed manifest (engine.py, the vendor adapters, tasks.sh, tasks.ps1,
+#      auditwheel_patch.py and the ci-config files) at that ref.
 #   3. Verify what was fetched (sha256) before anything runs.
 #
 # Keep the expected hashes below IN SYNC with bootstrap.sh (one table per bootstrapper).
@@ -33,10 +33,12 @@ $CBCI_DEST = if ($env:CBCI_DEST) { $env:CBCI_DEST } else { '.' }
 
 # The fixed manifest (must match bootstrap.sh's CBCI_MANIFEST). bootstrap.ps1 itself
 # is excluded, since it is already present. See bootstrap.sh for why the per-project
-# ci-config-<project>.yaml is the one admitted exception to "no new files".
+# ci-config-<project>.yaml and the per-vendor adapters are the admitted exceptions to
+# "no new files".
 $CBCI_MANIFEST = @(
     'engine.py'
     'jenkins.py'
+    'gha.py'
     'tasks.sh'
     'tasks.ps1'
     'auditwheel_patch.py'
@@ -46,13 +48,14 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.py'             = '468858cc1a7ae2f90cf7625b55e05cb7d1b9244cd23654d04bdac6a7f097c880'
+    'engine.py'             = '68e4bf820c8f807606c04d45cc00e4ec2620b47819e747fc30e6fc08afa94d3c'
     'jenkins.py'            = 'edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4'
-    'tasks.sh'              = 'a0c6a52f87abbb4eeff115fe438b1f23daee954c288165ad26b71067cbbe2232'
+    'gha.py'                = '4bcf36dfa40c548c6ed4ada13ce25c2a29c2886051f6ec7990651c1c4119d2e5'
+    'tasks.sh'              = '60491ca02ada39f6ff0e05c7201d09fb6bea1010b1b14918bd902e55bb712608'
     'tasks.ps1'             = '110e3ead0afaa9185ad0dba5d0f0a1d8a6c7bd23b430686149fcaed8c43826bb'
     'auditwheel_patch.py'   = '402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5'
     'ci-config.yaml'        = '2f075cca668628cea899c98e5abe72cfa0cd39d62fc4ebd76a936256416e457c'
-    'ci-config-pycbac.yaml' = '5f12b0115243a4abbce3d04046109c2091e1b891ab6897b505612338ecb3b515'
+    'ci-config-pycbac.yaml' = '3e1fb4b0e70283d273b52d1897c40c86eba3367b27c3b6d086e7259f2f339da3'
 }
 
 # --- helpers -----------------------------------------------------------------
