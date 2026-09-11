@@ -3,9 +3,10 @@
 # windows-toolchain-diag.ps1 - dump the MSVC / Windows SDK layout an agent ACTUALLY has.
 #
 # Two ways in:
-#   1. The pipeline fetches this by name and runs it whenever the vcvarsall.bat it expects is
-#      missing or fails, and on demand via its WINDOWS_TOOLCHAIN_DIAG parameter. Arguments
-#      arrive as CBCI_DIAG_* environment variables so the caller needs no extra quoting.
+#   1. The pipeline fetches this by name and runs it whenever it can find no Visual Studio it
+#      can build with, or the one it picked fails, and on demand via its WINDOWS_TOOLCHAIN_DIAG
+#      parameter. Arguments arrive as CBCI_DIAG_* environment variables so the caller needs no
+#      extra quoting.
 #   2. By hand on the agent itself, with no arguments:  .\windows-toolchain-diag.ps1
 #
 # Deliberately NOT part of the bootstrap manifest: it is fetched only once something has
@@ -19,9 +20,9 @@ param(
     # Why the dump was taken. Echoed at the top so a console log says which guard fired.
     [string]$Context = $env:CBCI_DIAG_CONTEXT,
 
-    # The vcvarsall.bat the caller expected. Reported PRESENT/MISSING by full path, since
+    # The vcvarsall.bat the caller settled on. Reported PRESENT/MISSING by full path, since
     # `call` on a missing one prints "The system cannot find the path specified." and names
-    # neither the path nor the agent.
+    # neither the path nor the agent. A caller that passes nothing found no candidate at all.
     [string]$ExpectedVcvarsall = $env:CBCI_DIAG_VCVARSALL,
 
     # The CI's name for this machine, which is not always $env:COMPUTERNAME. Both are printed.
@@ -32,13 +33,20 @@ $ErrorActionPreference = 'Continue'
 
 if (-not $Context)   { $Context = 'run directly, no context given' }
 if (-not $NodeName)  { $NodeName = if ($env:NODE_NAME) { $env:NODE_NAME } else { '(unknown)' } }
-# A hand run gets the same default the pipeline uses for an agent it has no pin for, so
-# "does this machine have what CI asks for" is answerable with no arguments at all.
+# Nothing from a PIPELINE caller means it searched and came up empty, which is the finding
+# itself; inventing a path to report MISSING would dress that up as a bad guess. A HAND run
+# with no arguments gets a plausible default instead, so "does this machine have a usable
+# Visual Studio where one is normally installed" is answerable with no arguments at all.
+$callerFoundNothing = $false
 if (-not $ExpectedVcvarsall) {
-    # Built by interpolation, not Join-Path: off Windows $env:ProgramFiles is unset and
-    # Join-Path rejects both a null Path and a literal 'C:\' fallback (no such drive there).
-    $pf = if ($env:ProgramFiles) { $env:ProgramFiles } else { 'C:\Program Files' }
-    $ExpectedVcvarsall = "$pf\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
+    if ($env:CBCI_DIAG_CONTEXT) {
+        $callerFoundNothing = $true
+    } else {
+        # Built by interpolation, not Join-Path: off Windows $env:ProgramFiles is unset and
+        # Join-Path rejects both a null Path and a literal 'C:\' fallback (no such drive there).
+        $pf = if ($env:ProgramFiles) { $env:ProgramFiles } else { 'C:\Program Files' }
+        $ExpectedVcvarsall = "$pf\Microsoft Visual Studio\2022\Professional\VC\Auxiliary\Build\vcvarsall.bat"
+    }
 }
 
 function Write-Section([string]$title) {
@@ -62,7 +70,9 @@ Write-Host "powershell: $($PSVersionTable.PSVersion)"
 Write-Host "cwd       : $((Get-Location).Path)"
 
 Write-Section 'vcvarsall.bat the caller expects'
-if (Test-Path -LiteralPath $ExpectedVcvarsall) {
+if ($callerFoundNothing) {
+    Write-Host 'NONE - the caller found no installed Visual Studio matching what it asked for'
+} elseif (Test-Path -LiteralPath $ExpectedVcvarsall) {
     Write-Host "PRESENT $ExpectedVcvarsall"
 } else {
     Write-Host "MISSING $ExpectedVcvarsall"
