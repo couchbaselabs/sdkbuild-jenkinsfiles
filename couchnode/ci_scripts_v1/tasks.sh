@@ -971,6 +971,17 @@ _assert_prebuild_installed() {
     log "test: prebuild installed:"; ls -alh "${rel}"/*.node
 }
 
+# test/harness.js reads the server version from CNCVER and treats CNCSTR and CNCVER as a
+# pair: either one without the other is a fatal assertion at import time. Older SDK revisions
+# only read it, so exporting it for every real-cluster run is safe across the branches this
+# pipeline builds.
+#
+# CBCI_CLUSTER_VERSION is the x.y.z the PROVISIONED cluster reports, supplied by whichever CI
+# entity allocated it. It is deliberately not derived from the requested spec: a cbdyncluster
+# spec names a stream, not a build ("7.6-stable" is whatever 7.6.x is current), and the
+# suite's feature gates compare against major.minor.PATCH, so a guessed X.Y.0 would skip or
+# mis-enable gated tests.
+
 task_test() {
     cd "${PROJECT_ROOT}"
 
@@ -978,6 +989,18 @@ task_test() {
         export CNCSTR="couchbase://${CBCI_TEST_HOST}"
         export CNUSER="${CNUSER:-Administrator}"
         export CNPASS="${CNPASS:-password}"
+    fi
+
+    # Keyed on CNCSTR, not on CBCI_TEST_CLUSTER: the mock path must leave CNCVER unset, and
+    # harness.js decides mock-vs-real on CNCSTR alone. Only integration runs reach this; the
+    # build pipeline's `test` stage sets neither CBCI_TEST_HOST nor CNCSTR and stays on the mock
+    if [[ -n "${CNCSTR:-}" && -z "${CNCVER:-}" ]]; then
+        if [[ "${CBCI_CLUSTER_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            export CNCVER="${CBCI_CLUSTER_VERSION}"
+            log "test: CNCVER=${CNCVER}"
+        else
+            log "WARNING: test: CNCSTR is set but CBCI_CLUSTER_VERSION='${CBCI_CLUSTER_VERSION:-}' is not an x.y.z version, so CNCVER stays unset"
+        fi
     fi
 
     if [[ "${CBCI_TEST_CLUSTER:-mock}" != "realserver" && -z "${CNCSTR:-}" ]]; then

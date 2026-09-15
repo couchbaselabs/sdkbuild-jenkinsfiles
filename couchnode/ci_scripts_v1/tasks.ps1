@@ -760,6 +760,20 @@ function Task-Test {
         if (-not $env:CNPASS) { $env:CNPASS = 'password' }
     }
 
+    # test/harness.js treats CNCSTR and CNCVER as a pair: either one without the other is a
+    # fatal assertion at import time. CBCI_CLUSTER_VERSION is the x.y.z the provisioned
+    # cluster reports, supplied by whichever CI entity allocated it. Keyed on CNCSTR, since
+    # the mock path must leave CNCVER unset and harness.js decides mock-vs-real on CNCSTR
+    # alone. See tasks.sh's task_test header.
+    if ($env:CNCSTR -and -not $env:CNCVER) {
+        if ($env:CBCI_CLUSTER_VERSION -match '^[0-9]+\.[0-9]+\.[0-9]+$') {
+            $env:CNCVER = $env:CBCI_CLUSTER_VERSION
+            Log "test: CNCVER=$($env:CNCVER)"
+        } else {
+            Log "WARNING: test: CNCSTR is set but CBCI_CLUSTER_VERSION='$($env:CBCI_CLUSTER_VERSION)' is not an x.y.z version, so CNCVER stays unset"
+        }
+    }
+
     if ($env:CBCI_TEST_CLUSTER -ne 'realserver' -and -not $env:CNCSTR) {
         $requiresJava = (& $NODE_BIN $ENGINE requires-java).Trim()
         if ($requiresJava -eq 'true') {
