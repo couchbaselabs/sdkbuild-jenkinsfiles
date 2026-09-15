@@ -157,8 +157,17 @@ if (${env:ProgramFiles(x86)}) {
     $sdkInc = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\Include'
 }
 if ($sdkInc -and (Test-Path -LiteralPath $sdkInc)) {
+    # stdalign.h marks the C11 ucrt headers. They ship in the Windows SDK, not in the MSVC
+    # toolset, so the SDK is what decides whether boringssl compiles however new the installed
+    # Visual Studio is. The first SDK carrying them is 10.0.20348.0.
     Get-ChildItem -LiteralPath $sdkInc -Directory -ErrorAction SilentlyContinue |
-        ForEach-Object { Write-Host ('  ' + $_.Name) }
+        ForEach-Object {
+            $note = 'NO C11 ucrt headers (no stdalign.h), cannot build boringssl'
+            if (Test-Path -LiteralPath (Join-Path $_.FullName 'ucrt\stdalign.h')) {
+                $note = 'has the C11 ucrt headers'
+            }
+            Write-Host ('  ' + $_.Name + '  ' + $note)
+        }
 } else {
     Write-Host "MISSING $sdkInc"
 }
