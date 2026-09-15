@@ -1,0 +1,95 @@
+# ci-config.yaml - COUCHNODE (Couchbase Node.js SDK) defaults and support matrix.
+#
+# Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
+# Override at runtime via promoted vars (PLATFORMS/ARCHES/NODE_VERSIONS/
+# ELECTRON_VERSIONS/RUNTIMES/USE_OPENSSL) or the CBCI_CONFIG_OVERRIDE JSON string.
+# Merge precedence (most specific wins): this file < CBCI_CONFIG_OVERRIDE < promoted vars.
+#
+# IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
+# (qe-docker, m1, windows) and container images live in the vendor ADAPTER
+# (jenkins.mjs), not here. See ../CONVENTIONS.md.
+
+project: COUCHNODE
+
+# --- support matrix ----------------------------------------------------------
+support:
+  # Node ships prebuilt N-API binaries always. A prebuild is ABI-stable across every
+  # Node major version sharing the same napi_version, so node_versions and
+  # electron_versions drive TEST fan-out only, never build fan-out (see
+  # build.napi_version below).
+  node_versions:
+    - "16.20.2"
+    - "18.20.4"
+    - "20.15.1"
+    - { version: "22.14.0", min_commit: "8350f7c7eb4674f553072a4790d5a88a4a2e970c" }
+  electron_versions: []   # populated per-run; empty = electron runtime not exercised
+
+  runtimes: ["node", "electron"]
+
+  architectures: ["x64", "arm64"]
+
+  # Which abstract platforms are supported per arch. A platform is one of linux,
+  # alpine, macos, windows. linux and alpine both need a libc flavor (see build.libc).
+  platforms:
+    x64:   ["linux", "alpine", "macos", "windows"]
+    arm64: ["linux", "alpine", "macos"]
+
+  # Alpine + arm64 + electron is unsupported (JSCBC-1268).
+  unsupported:
+    - { platform: "alpine", arch: "arm64", runtime: "electron" }
+
+# --- build defaults ----------------------------------------------------------
+build:
+  ssl: boringssl            # boringssl | openssl
+  openssl_version: null     # only used when ssl == openssl
+  build_type: RelWithDebInfo
+  set_cpm_cache: true       # bake the C++ core's CPM cache (deps/couchbase-cxx-cache)
+                            # into the sdist tarball before it's built into prebuilds
+  verbose_makefile: false
+
+  # napi_version: the N-API level the C++ addon targets. Informational only, since it is
+  # HARDCODED at compile time (CMakeLists.txt: `-DNAPI_VERSION=6`) rather than env-driven,
+  # so tasks.sh has nothing to pass for it. It stays in config so validateConfig can
+  # assert the "ONE build serves every node_versions entry" claim. Bumping the compiled
+  # floor is a deliberate source-code change, not a per-run knob.
+  napi_version: 6
+
+  # libc flavors per platform. Drives build-unit keys and image selection.
+  libc:
+    linux: manylinux         # oldest-glibc floor picked by jenkins.mjs's family table
+    alpine: musllinux
+
+# --- test defaults -----------------------------------------------------------
+test:
+  install_types: ["prebuild", "sdist"]   # prebuild = ship binary; sdist = build-from-source fallback
+  cluster: mock                          # mock (CouchbaseMock.jar) | realserver
+  skip_integration: true                 # gate for the (later) integration pipeline
+
+  mocha:
+    cmd: "npm run test"
+    # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1
+    # check for it before falling back to a real cluster via CNCSTR.
+    require_java: true
+
+  # Neutral real-cluster spec. Provisioning stays adapter/groovy-only (cbdyncluster on
+  # Jenkins) and is not implemented yet.
+  integration:
+    server_versions:
+      - ["7.0-stable", "7.1-stable"]
+      - ["7.2-stable", "7.6-stable"]
+      - ["8.0-stable"]
+    version_subset: true
+    num_nodes: 3
+    ram_quota: 2048
+    storage_mode: plasma
+    buckets: ["default"]
+    sample_buckets: ["beer-sample"]
+    developer_preview: false
+
+  skip_cbdino: true
+
+# --- packaging / publish defaults ---------------------------------------------
+publish:
+  publish_npm: true             # node prebuilds -> optionalDependencies packages -> npm
+  publish_electron_npm: false   # Electron stays S3-only / gated (experimental support)
+  publish_dry_run: false
