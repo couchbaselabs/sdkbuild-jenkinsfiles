@@ -15,7 +15,6 @@ adapter.
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import re
@@ -24,7 +23,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
 CONFIG_FILENAME = "ci-config.yaml"
 
@@ -1069,8 +1068,16 @@ PROJECT_TEST_LAYOUT = {
         # in-test `import txcouchbase` collides with pytest-asyncio's loop mid-collection and
         # every txcb file fails with ReactorAlreadyInstalledError. Keyed by original API name.
         "package_init": {"txcouchbase": "import txcouchbase\n"},
+        # Additional test trees, copied exactly as `tests` is (per-api and top-level) and
+        # given their own rendered test_config.ini, but only when the checkout carries them:
+        # an absent one is skipped, so one CI-core serves branches on either side of the
+        # change. TEMPORARY: delete this key when tests_v2 takes over the `tests` name.
+        "extra_test_dirs": ["tests_v2"],
         "dev_requirements": "dev_requirements.txt",
-        "reqs": ["pytest", "pytest-asyncio", "pytest-rerunfailures", "requests", "Faker", "faker-vehicle", "Twisted"],
+        # pytest-xdist is INSTALLED, not switched on: `-n` comes from the per-api opts, and
+        # the suites differ in whether they tolerate it.
+        "reqs": ["pytest", "pytest-asyncio", "pytest-rerunfailures", "pytest-xdist", "requests",
+                 "Faker", "faker-vehicle", "Twisted"],
         "test_ini": "operational",
     },
     "PYCBCC": {
@@ -1292,15 +1299,28 @@ def _build_requirements_test(root: str, dev_req_name: str, reqs: List[str]) -> s
 
 
 def _copy_py_tree(src_dir: str, dst_dir: str, only_py: bool) -> None:
-    """Copy a test dir into the test tree. only_py: just *.py (api/tests); else everything."""
+    """Copy a test dir into the test tree. only_py: just *.py (api/tests); else everything.
+
+    Recursive in BOTH modes. The api trees carry package SUBDIRS (tests/tracing_tests,
+    tests/metrics_tests, tests_v2/_generated), and a flat copy drops them without a word,
+    which reads downstream as "that suite has no tests" rather than as an error.
+
+    A missing src_dir returns quietly: that is how an optional tree (`extra_test_dirs`) is
+    gated, so a checkout that does not carry one still builds.
+    """
     if not os.path.isdir(src_dir):
         return
-    os.makedirs(dst_dir, exist_ok=True)
-    if only_py:
-        for f in glob.glob(os.path.join(src_dir, "*.py")):
-            shutil.copy2(f, dst_dir)
-    else:
-        shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
+
+    def _ignore(dirpath: str, names: List[str]) -> Set[str]:
+        # __pycache__ and test_logs are run artifacts, absent from a CI checkout and present
+        # in a developer's, so dropping them keeps a local tree identical to CI's.
+        skip = {n for n in names if n in ("__pycache__", "test_logs")}
+        if only_py:
+            skip |= {n for n in names
+                     if not n.endswith(".py") and not os.path.isdir(os.path.join(dirpath, n))}
+        return skip
+
+    shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True, ignore=_ignore)
 
 
 def test_setup(cfg: Config, output_path: str) -> None:
@@ -1329,6 +1349,7 @@ def test_setup(cfg: Config, output_path: str) -> None:
     # longer exist, and step 1 below would fail on the first one.
     rename = _resolve_names(cfg)["rename"]
     package_init = layout.get("package_init", {})
+    extra_dirs = layout.get("extra_test_dirs", [])
 
     test_root = tempfile.mkdtemp(prefix=layout["tree"] + ".tmp-", dir=output_path_abs)
     try:
@@ -1338,11 +1359,19 @@ def test_setup(cfg: Config, output_path: str) -> None:
         for api, short in rename.items():
             _copy_py_tree(os.path.join(root, api, "tests"),
                           os.path.join(test_root, short, "tests"), only_py=True)
+            for extra in extra_dirs:
+                _copy_py_tree(os.path.join(root, api, extra),
+                              os.path.join(test_root, short, extra), only_py=True)
+            # The copies above create `short` only for a tree that exists, and every tree
+            # here is optional, so the package dir is made outright rather than assumed.
+            os.makedirs(os.path.join(test_root, short), exist_ok=True)
             with open(os.path.join(test_root, short, "__init__.py"), "w") as f:
                 f.write(package_init.get(api, ""))
 
         # 2. Top-level tests/ (shared fixtures/helpers) copied verbatim.
         _copy_py_tree(os.path.join(root, "tests"), os.path.join(test_root, "tests"), only_py=False)
+        for extra in extra_dirs:
+            _copy_py_tree(os.path.join(root, extra), os.path.join(test_root, extra), only_py=False)
 
         # 3. conftest.py, with the API package names remapped.
         conftest_src = os.path.join(root, "conftest.py")
@@ -1362,6 +1391,14 @@ def test_setup(cfg: Config, output_path: str) -> None:
         os.makedirs(os.path.join(test_root, "tests"), exist_ok=True)
         with open(os.path.join(test_root, "tests", "test_config.ini"), "w") as f:
             f.write(_build_test_config_ini(prefix, cfg))
+        # Each extra tree reads its OWN ini: they are separate packages with separate config
+        # readers, and one left un-rendered points a realserver run at the mock instead,
+        # which reports green. Written only into a tree that exists.
+        for extra in extra_dirs:
+            extra_dir = os.path.join(test_root, extra)
+            if os.path.isdir(extra_dir):
+                with open(os.path.join(extra_dir, "test_config.ini"), "w") as f:
+                    f.write(_build_test_config_ini(prefix, cfg))
         with open(os.path.join(test_root, "requirements-test.txt"), "w") as f:
             f.write(_build_requirements_test(root, layout["dev_requirements"], layout["reqs"]))
 
