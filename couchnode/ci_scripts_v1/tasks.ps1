@@ -120,15 +120,55 @@ function Clear-NodeModules {
     }
 }
 
+# Every path the packed sdist must put on disk before `npm run prebuild` can configure.
+#
+# couchnode's CMakeLists.txt calls add_subdirectory(deps/couchbase-cxx-client)
+# UNCONDITIONALLY, and this stage never clones or fetches the C++ core: it exists here
+# only as a member of the tarball (package.json's `files` ships
+# deps/couchbase-cxx-client/{CMakeLists.txt,cmake,core,couchbase,third_party} plus the
+# baked deps/couchbase-cxx-cache). So a partial unpack does not fail at the unpack. It
+# fails a minute later, after npm install, inside cmake-js as
+#     add_subdirectory given source "deps/couchbase-cxx-client" which is not an
+#     existing directory
+# which reads as a broken package or a broken CMakeLists rather than a broken extraction.
+$SDIST_REQUIRED = @(
+    'package.json',
+    'CMakeLists.txt',
+    'scripts/buildPrebuild.js',
+    'src',
+    'deps/couchbase-cxx-client/CMakeLists.txt',
+    'deps/couchbase-cxx-client/core',
+    'deps/couchbase-cxx-client/couchbase',
+    'deps/couchbase-cxx-cache/cpm'
+)
+
+function Get-MissingSdistPaths([string]$root) {
+    return @($SDIST_REQUIRED | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_)) })
+}
+
 function Get-TarExe {
     # System32\tar.exe is Windows native bsdtar (Windows 10 / Server 2019+).
     # Prefer it explicitly over MSYS/Git tar to avoid MSYS gzip/remote-host path issues.
+    #
+    # Sysnative first, because under WOW64 (a 32-bit agent JVM -> 32-bit cmd -> 32-bit
+    # powershell) the System32 probe below is redirected to SysWOW64, which carries no
+    # tar.exe. The native bsdtar then looks absent on an agent that has it and the search
+    # silently falls through to whatever tar.exe PATH fronts, which is a DIFFERENT
+    # extractor on a fleet where Git for Windows is installed.
     if ($env:SystemRoot) {
+        if (-not [Environment]::Is64BitProcess -and [Environment]::Is64BitOperatingSystem) {
+            $nativeTar = Join-Path $env:SystemRoot 'Sysnative\tar.exe'
+            if (Test-Path $nativeTar) { return $nativeTar }
+        }
         $sys32Tar = Join-Path $env:SystemRoot 'System32\tar.exe'
         if (Test-Path $sys32Tar) { return $sys32Tar }
     }
-    if (Get-Command tar.exe -ErrorAction SilentlyContinue) { return 'tar.exe' }
-    if (Get-Command tar -ErrorAction SilentlyContinue) { return 'tar' }
+    # Resolved to a full path, never the bare name: the log has to name the binary that
+    # actually ran, since which one PATH fronts varies across the fleet.
+    foreach ($name in @('tar.exe', 'tar')) {
+        $onPath = Get-Command $name -ErrorAction SilentlyContinue
+        if ($onPath -and $onPath.Source) { return $onPath.Source }
+    }
     $gitTar = 'C:\Program Files\Git\usr\bin\tar.exe'
     if (Test-Path $gitTar) { return $gitTar }
     $gitTarX86 = 'C:\Program Files (x86)\Git\usr\bin\tar.exe'
@@ -137,28 +177,37 @@ function Get-TarExe {
 }
 
 function Unpack-Tarball([string]$tgzPath) {
-    # Ensure Git\usr\bin is on PATH if present so MSYS tar (if used) can locate gzip.exe
-    $gitUsrBin = 'C:\Program Files\Git\usr\bin'
-    if (Test-Path $gitUsrBin) {
-        if (($env:PATH -split ';') -notcontains $gitUsrBin) {
-            $env:PATH = "$gitUsrBin;$env:PATH"
-        }
-    }
-    $gitUsrBinX86 = 'C:\Program Files (x86)\Git\usr\bin'
-    if (Test-Path $gitUsrBinX86) {
-        if (($env:PATH -split ';') -notcontains $gitUsrBinX86) {
-            $env:PATH = "$gitUsrBinX86;$env:PATH"
-        }
-    }
-
+    $dest = (Get-Location).Path
     $tarBin = Get-TarExe
     if ($tarBin) {
+        # MSYS/Git tar shells out to gzip.exe, which only resolves with Git\usr\bin on
+        # PATH. Prepended AFTER the search above so it can never decide WHICH tar wins.
+        foreach ($gitUsrBin in @('C:\Program Files\Git\usr\bin', 'C:\Program Files (x86)\Git\usr\bin')) {
+            if ((Test-Path $gitUsrBin) -and (($env:PATH -split ';') -notcontains $gitUsrBin)) {
+                $env:PATH = "$gitUsrBin;$env:PATH"
+            }
+        }
+
         $relPath = Resolve-Path -Relative $tgzPath -ErrorAction SilentlyContinue
         $tarFile = if ($relPath) { $relPath } else { $tgzPath }
         Log "unpacking $tarFile using $tarBin"
         & $tarBin --force-local -xzf $tarFile --strip-components=1
-        if ($LASTEXITCODE -eq 0) { return }
-        Log "WARNING: $tarBin exited $LASTEXITCODE; trying node fallback"
+        $tarExit = $LASTEXITCODE
+        $missing = @(Get-MissingSdistPaths $dest)
+        if ($tarExit -eq 0 -and $missing.Count -eq 0) { return }
+        if ($tarExit -ne 0) {
+            Log "WARNING: $tarBin exited $tarExit; trying node fallback"
+        } else {
+            # An exit code of 0 is not evidence the tree landed: ground truth from
+            # windows-sdk-build-04 is a tar that reported success while
+            # deps/couchbase-cxx-client never appeared. Re-extract with node's own tar
+            # rather than trust it.
+            Log ("WARNING: $tarBin exited 0 but left an incomplete tree under ${dest} " +
+                 "(missing: $($missing -join ', ')); trying node fallback")
+            # What DID land, so the next occurrence says whether the extractor dropped part
+            # of the tarball or something emptied the workspace underneath it.
+            Log "  top level after unpack: $(((Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue).Name) -join ', ')"
+        }
     }
 
     Log "Unpacking via node fallback..."
@@ -180,6 +229,14 @@ if (npmTar) {
 }
 " $tgzPath
     if ($LASTEXITCODE -ne 0) { Die "failed to unpack $tgzPath" }
+
+    $missing = @(Get-MissingSdistPaths $dest)
+    if ($missing.Count) {
+        Die ("unpacked $tgzPath but the tree under ${dest} is STILL incomplete: missing " +
+             "$($missing -join ', '). Every platform builds from this one tarball, so " +
+             "suspect the workspace before the tarball: another process removing files " +
+             "mid-stage, or a full disk.")
+    }
 }
 
 # Longest $PROJECT_ROOT that MSVC can build couchnode underneath. Windows caps a path at

@@ -680,6 +680,36 @@ task__prebuild_repair() {
     log "prebuild-repair: ${filename}.node ready (prebuilds/, prebuildsDebug/)"
 }
 
+# Every path the packed sdist must put on disk before `npm run prebuild` can configure.
+#
+# couchnode's CMakeLists.txt calls add_subdirectory(deps/couchbase-cxx-client)
+# UNCONDITIONALLY, and this stage never clones or fetches the C++ core: it exists here only
+# as a member of the tarball (package.json's `files` ships
+# deps/couchbase-cxx-client/{CMakeLists.txt,cmake,core,couchbase,third_party} plus the baked
+# deps/couchbase-cxx-cache). So a partial unpack does not fail at the unpack. It fails a
+# minute later, after npm install, inside cmake-js as
+#     add_subdirectory given source "deps/couchbase-cxx-client" which is not an existing directory
+# which reads as a broken package or a broken CMakeLists rather than a broken extraction.
+_SDIST_REQUIRED=(
+    package.json
+    CMakeLists.txt
+    scripts/buildPrebuild.js
+    src
+    deps/couchbase-cxx-client/CMakeLists.txt
+    deps/couchbase-cxx-client/core
+    deps/couchbase-cxx-client/couchbase
+    deps/couchbase-cxx-cache/cpm
+)
+
+_assert_sdist_unpacked() {
+    local root="${1}"
+    local missing=() p
+    for p in "${_SDIST_REQUIRED[@]}"; do
+        [[ -e "${root}/${p}" ]] || missing+=("${p}")
+    done
+    (( ${#missing[@]} == 0 )) || die "prebuild: unpacked the sdist but the tree under ${root} is incomplete: missing ${missing[*]}"
+}
+
 task_prebuild() {
     cd "${PROJECT_ROOT}"
 
@@ -692,6 +722,7 @@ task_prebuild() {
     [[ -n "${sdist_tgz}" ]] || die "prebuild: no *.tgz found under ${PROJECT_ROOT} (unstash the sdist first?)"
     log "prebuild: unpacking ${sdist_tgz}"
     tar -xzf "${sdist_tgz}" --strip-components=1
+    _assert_sdist_unpacked "${PROJECT_ROOT}"
 
     # package-lock.json is NOT in package.json's `files` allowlist, so there is no lock
     # file to verify against and `npm ci` cannot run here; it must be `npm install`.
