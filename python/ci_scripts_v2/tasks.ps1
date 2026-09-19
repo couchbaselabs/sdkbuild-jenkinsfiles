@@ -379,6 +379,40 @@ function Invoke-WheelSymbolSplit($vpy, $wheelPath, $distDir, $debugDir) {
     }
 }
 
+# The CMake generator for the native Windows build. Set explicitly because CMake's default is
+# the NEWEST Visual Studio installed on the agent, chosen without reference to the vcvarsall
+# environment the adapter set up: on an agent carrying both VS2019 and VS2022 the pipeline
+# reports it selected VS2019 and the wheel comes out built by the VS2022 toolset, which is a
+# compiler nothing in the fleet was validated against. Ninja compiles with the cl.exe on PATH,
+# so the selection the adapter made is the one that actually runs.
+#
+# PYCBC_CMAKE_SET_ARCH is deliberately not set beside it: setup.py turns it into `cmake -A`,
+# a platform specification the Ninja generator rejects outright. The target architecture comes
+# from vcvarsall's `amd64` argument instead.
+function Set-CMakeGenerator {
+    if ($env:PYCBC_CMAKE_SET_GENERATOR) {
+        Write-Log "wheel-native: PYCBC_CMAKE_SET_GENERATOR preset, left alone ($($env:PYCBC_CMAKE_SET_GENERATOR))"
+        return
+    }
+    if ($env:PYCBC_CMAKE_SET_ARCH) {
+        Stop-Task ("wheel-native: PYCBC_CMAKE_SET_ARCH=$($env:PYCBC_CMAKE_SET_ARCH) is set, which becomes " +
+                   "cmake -A and is rejected by the Ninja generator. Unset it, or preset " +
+                   "PYCBC_CMAKE_SET_GENERATOR to a Visual Studio generator.")
+    }
+    # Checked by name rather than left to CMake: cmake reports a missing Ninja from inside the
+    # pip build, a long way down the log, and which agents carry it is the open question.
+    $ninja = Get-Command ninja -ErrorAction SilentlyContinue
+    if (-not $ninja) { Stop-Task "wheel-native: generator is Ninja but ninja is not on PATH" }
+    # The cl.exe path carries the toolset version (VC\Tools\MSVC\14.29.30133\...), so this is
+    # the build-time record of WHICH compiler the generator will use. Before Ninja that could
+    # only be read back afterwards, out of the built wheel's metadata.
+    $cl = Get-Command cl -ErrorAction SilentlyContinue
+    $clPath = if ($cl) { $cl.Source } else { "<not on PATH>" }
+    $env:PYCBC_CMAKE_SET_GENERATOR = "Ninja"
+    Write-Log "wheel-native: PYCBC_CMAKE_SET_GENERATOR=Ninja (ninja=$($ninja.Source))"
+    Write-Log "wheel-native: cl=$clPath"
+}
+
 function Invoke-WheelNative {
     # NATIVE wheel build (no cibuildwheel) - the Jenkins path for Windows. Builds with the
     # on-PATH (cbdep) python + the existing MSVC/cmake/go toolchain env (getEnvStr). Unlike
@@ -393,6 +427,7 @@ function Invoke-WheelNative {
     if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: build-env wheel failed" }
     Import-EngineEnvPairs $buildEnvLines
     Set-BuildBase
+    Set-CMakeGenerator
 
     & $Python -m pip install --upgrade pip
     & $Python -m pip install wheel
@@ -755,12 +790,23 @@ else:
 
     $scriptPath = Join-Path $venvRoot "smoke.py"
     Set-Content -Path $scriptPath -Value $smokeScript
-    & $vpy $scriptPath
+    # -X faulthandler: the smoke can print every line above and STILL exit non-zero, because the
+    # core's C++ teardown runs after the last print (couchbase registers an atexit hook, and a
+    # console logger sink is deliberately left to static teardown). Windows reports that as a
+    # bare exit code with no text, so without this the log reads "smoke OK" then a failure with
+    # nothing connecting the two.
+    & $vpy -X faulthandler $scriptPath
     $exitCode = $LASTEXITCODE
 
-    Remove-Item -Recurse -Force $venvRoot
+    if ($exitCode -ne 0) {
+        # Hex as well: a teardown fault is an NTSTATUS (0xC0000005, 0xC0000409, ...) that is
+        # unreadable in decimal, and it is what separates a crash from a Python-level exit.
+        $hex = "0x{0:X8}" -f ($exitCode -band 0xFFFFFFFF)
+        Write-Log "smoke venv kept for inspection: $venvRoot"
+        Stop-Task "Smoke validation failed (python exited $exitCode / $hex)"
+    }
 
-    if ($exitCode -ne 0) { Stop-Task "Smoke validation failed" }
+    Remove-Item -Recurse -Force $venvRoot
     Write-Log "Validation completed successfully."
 }
 

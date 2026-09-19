@@ -1491,7 +1491,10 @@ _install_built_artifact() {
 # clean venv where only the SDK is installed); facts arrive via env.
 _validate_smoke() {
     local vpy="$1"
-    "${vpy}" - <<'PY'
+    # -X faulthandler: names the frame when the extension faults instead of raising. The
+    # teardown path is the one that needs it (couchbase's atexit hook leaves a console logger
+    # sink to static teardown on purpose), where the process can die after the last print.
+    "${vpy}" -X faulthandler - <<'PY'
 import importlib, os, pprint, sys
 
 
