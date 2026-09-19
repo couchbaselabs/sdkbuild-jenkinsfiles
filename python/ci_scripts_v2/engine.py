@@ -1147,10 +1147,36 @@ def _remap_testpath(testpath: str, rename: Dict[str, str]) -> str:
     return testpath
 
 
+def _ini_render_value(key: str, val: Any) -> List[str]:
+    """One [tool.pytest.ini_options] entry as pytest.ini lines.
+
+    A list becomes pytest's indented multi-line form, except a one-element list, which stays
+    inline. TOML bools are lowercased: `True` parses, but nothing else in a pytest.ini is
+    spelled that way.
+    """
+    if isinstance(val, bool):
+        return [f"{key} = {'true' if val else 'false'}"]
+    if isinstance(val, (list, tuple)):
+        if len(val) == 1:
+            return [f"{key} = {val[0]}"]
+        return [f"{key} ="] + [f"    {item}" for item in val]
+    if isinstance(val, dict):
+        raise ValueError(
+            f"[tool.pytest.ini_options] key '{key}' is a table, which the ini format cannot hold")
+    return [f"{key} = {val}"]
+
+
 def _build_pytest_ini(pyproject_path: str, rename: Dict[str, str]) -> str:
     """Render pytest.ini from pyproject's [tool.pytest.ini_options], remapping testpaths.
 
-    Missing optional keys are skipped, not KeyError'd.
+    Every key is carried across, in document order. A pass-through and not a list of known
+    keys because an unlisted key is dropped SILENTLY: pytest never warns about a setting it
+    was not given, so the tree just behaves differently from the same suite run locally, with
+    nothing in the log saying why. `asyncio_default_fixture_loop_scope` was lost that way.
+
+    `testpaths` is the only key naming API directories, so it is the only one remapped
+    (couchbase/tests -> cb/tests). Nothing else here has to know what the SDK's test dirs are
+    called, which is what lets them be renamed without touching this.
     """
     tomllib = _load_tomllib()
     with open(pyproject_path, "rb") as f:
@@ -1160,23 +1186,10 @@ def _build_pytest_ini(pyproject_path: str, rename: Dict[str, str]) -> str:
         raise ValueError(f"no [tool.pytest.ini_options] table in {pyproject_path}")
 
     out: List[str] = ["[pytest]"]
-    if ini.get("minversion") is not None:
-        out.append(f'minversion = {ini["minversion"]}')
-    out.append("testpaths =")
-    for tp in ini.get("testpaths", []):
-        out.append(f"    {_remap_testpath(tp, rename)}")
-    for key in ("python_classes", "python_files", "markers"):
-        val = ini.get(key)
-        if val is None:
-            continue
-        if isinstance(val, list):
-            if len(val) > 1:
-                out.append(f"{key} =")
-                out.extend(f"    {item}" for item in val)
-            else:
-                out.append(f"{key} = {val[0]}")
-        else:
-            out.append(f"{key} = {val}")
+    for key, val in ini.items():
+        if key == "testpaths":
+            val = [_remap_testpath(tp, rename) for tp in val]
+        out.extend(_ini_render_value(key, val))
     out.append("")
     return "\n".join(out)
 

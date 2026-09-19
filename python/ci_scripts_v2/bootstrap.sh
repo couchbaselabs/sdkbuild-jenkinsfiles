@@ -82,7 +82,7 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "4ff77a17f1631c0fa8b6e52c9f675087889ed7b98b8254174edd57e40ce7cf0e" ;;
+        "engine.py")           echo "97b0c402f9834b273917197ab19ab78a66b079028a0e074f7f2ce22906f9066d" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
         "gha.py")              echo "4bcf36dfa40c548c6ed4ada13ce25c2a29c2886051f6ec7990651c1c4119d2e5" ;;
         "tasks.sh")            echo "0887da1d0cebc77b0f5ebd03a15dc8447a438c4ceabbe86d03dd4ec6382b11b8" ;;
