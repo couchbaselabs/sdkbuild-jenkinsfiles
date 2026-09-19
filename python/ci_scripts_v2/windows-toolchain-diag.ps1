@@ -179,6 +179,37 @@ Get-ChildItem env: |
     Where-Object { $_.Name -match '^(VSINSTALLDIR|VCINSTALLDIR|VCToolsVersion|VCToolsInstallDir|VSCMD_VER|WindowsSdkDir|WindowsSDKVersion)$' } |
     ForEach-Object { Write-Host ('  ' + $_.Name + '=' + $_.Value) }
 
+Write-Section 'ninja'
+# CMake's Ninja generator adds /FS for MSVC on its own, and Windows ccache needs -GNinja. cmake
+# does not bundle ninja; Visual Studio ships one with the C++ CMake tools workload, so that is
+# the copy an agent is most likely to already have.
+$ninjaCmd = Get-Command ninja.exe -ErrorAction SilentlyContinue
+if ($ninjaCmd) { Write-Host "on PATH: $($ninjaCmd.Source)" } else { Write-Host 'on PATH: none' }
+$ninjaPaths = @()
+foreach ($root in $roots) {
+    if (-not (Test-Path -LiteralPath $root)) { continue }
+    foreach ($year in @(Get-ChildItem -LiteralPath $root -Directory -ErrorAction SilentlyContinue)) {
+        foreach ($ed in @(Get-ChildItem -LiteralPath $year.FullName -Directory -ErrorAction SilentlyContinue)) {
+            $n = Join-Path $ed.FullName 'Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
+            if (Test-Path -LiteralPath $n) { $ninjaPaths += $n }
+        }
+    }
+}
+if ($ninjaCmd) { $ninjaPaths += $ninjaCmd.Source }
+$ninjaPaths = @($ninjaPaths | Select-Object -Unique)
+if ($ninjaPaths.Count -eq 0) {
+    Write-Host 'NONE, and no Visual Studio here bundles one'
+} else {
+    foreach ($p in $ninjaPaths) {
+        # Captured, not written straight through, so a copy that is present but broken reports
+        # as present-with-no-version instead of throwing.
+        $ver = ''
+        try { $ver = (& $p --version 2>$null | Out-String).Trim() } catch { $ver = '' }
+        if (-not $ver) { $ver = 'unknown' }
+        Write-Host "  $p  version $ver"
+    }
+}
+
 Write-Section 'compiler on PATH'
 $cl = Get-Command cl.exe -ErrorAction SilentlyContinue
 if ($cl) { Write-Host $cl.Source } else { Write-Host 'cl.exe not on PATH, which is expected before vcvarsall runs' }

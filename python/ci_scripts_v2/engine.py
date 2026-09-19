@@ -295,11 +295,21 @@ def enforce_gates(cfg: Config, cmd: str) -> None:
             f"resolved verdict down (ABI3=true|false, PYTHON_VERSIONS=...).")
 
 
+def _gate_repo_dir(project_root: Optional[str] = None) -> str:
+    """The directory every commit-gate git call runs in.
+
+    Shared with the indeterminate-gate messages so they name the tree that was actually
+    consulted: CBCI_PROJECT_ROOT is the usual way in, and a message reporting the cwd instead
+    sends you looking at a directory nobody set.
+    """
+    return project_root or os.environ.get("CBCI_PROJECT_ROOT") or os.getcwd()
+
+
 def _is_commit_ancestor(commit_sha: str, project_root: Optional[str] = None) -> Optional[bool]:
     """Returns True if commit_sha is an ancestor of HEAD in the SDK git repo,
     False if not an ancestor, or None if commit_sha does not exist in the local git repository.
     """
-    cwd = project_root or os.environ.get("CBCI_PROJECT_ROOT") or os.getcwd()
+    cwd = _gate_repo_dir(project_root)
     try:
         has_commit = subprocess.run(
             ["git", "cat-file", "-e", f"{commit_sha}^{{commit}}"],
@@ -343,7 +353,7 @@ def _eval_version_entry(entry: Union[str, Dict[str, Any]], key_name: str, projec
 
     def _record_indeterminate(kind: str, sha: str) -> None:
         msg = (f"{key_name} '{version}': {kind} '{sha[:7]}' could not be evaluated "
-               f"(no git repo, or sha absent, at {project_root or os.getcwd()})")
+               f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
         if report:
             print(f"[engine] WARNING: {msg}", file=sys.stderr)
         if gates is not None:
@@ -409,7 +419,7 @@ def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[s
                 is_anc = _is_commit_ancestor(sha, project_root)
                 if is_anc is None:
                     msg = (f"build.abi3: {kind} '{sha[:7]}' could not be evaluated "
-                           f"(no git repo, or sha absent, at {project_root or os.getcwd()})")
+                           f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
                     if _reports("abi3"):
                         print(f"[engine] WARNING: {msg}", file=sys.stderr)
                     gates.setdefault("indeterminate", []).append({"domain": "abi3", "msg": msg})
