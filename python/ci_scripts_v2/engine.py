@@ -251,6 +251,27 @@ GATE_REPORT_DOMAINS: Dict[str, tuple] = {
 }
 
 
+def _gate_pinned(domain: str) -> bool:
+    """True when an EXPLICIT env override supersedes `domain`'s commit gate, making an
+    indeterminate verdict moot. Read from the environment, not from cfg[_GATE_KEY]: gate
+    resolution runs BEFORE _apply_promoted_vars records the override, and the narration at
+    resolution time needs the same answer enforce_gates will reach later."""
+    if domain == "abi3":
+        v = (os.environ.get("ABI3") or "").strip().lower()
+        return bool(v) and v != "auto"
+    return bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
+
+
+def _narrate_indeterminate(msg: str, domain: str) -> None:
+    """A gate that cannot be evaluated is only a WARNING when its verdict still decides
+    something. With the verdict passed down from the planning node it is expected on every
+    node that builds from an sdist, and shouting there makes a green build look broken."""
+    if _gate_pinned(domain):
+        print(f"[engine] {msg} (superseded by an explicit override)", file=sys.stderr)
+    else:
+        print(f"[engine] WARNING: {msg}", file=sys.stderr)
+
+
 def _gate_findings(cfg: Config) -> List[tuple]:
     """Every indeterminate commit gate as (domain, message, pinned). `pinned` means an
     EXPLICIT override supersedes that gate and makes the indeterminacy moot, which is what
@@ -260,10 +281,7 @@ def _gate_findings(cfg: Config) -> List[tuple]:
     out: List[tuple] = []
     for rec in gates.get("indeterminate", []):
         domain, msg = rec["domain"], rec["msg"]
-        if domain == "abi3":
-            pinned = gates.get("abi3_override") is not None
-        else:  # python_versions
-            pinned = bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
+        pinned = _gate_pinned(domain)
         suffix = " (superseded by an explicit override)" if pinned else ""
         out.append((domain, f"commit gate could not be evaluated: {msg}{suffix}", pinned))
     return out
@@ -355,7 +373,7 @@ def _eval_version_entry(entry: Union[str, Dict[str, Any]], key_name: str, projec
         msg = (f"{key_name} '{version}': {kind} '{sha[:7]}' could not be evaluated "
                f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
         if report:
-            print(f"[engine] WARNING: {msg}", file=sys.stderr)
+            _narrate_indeterminate(msg, key_name)
         if gates is not None:
             gates.setdefault("indeterminate", []).append({"domain": key_name, "msg": msg})
 
@@ -421,7 +439,7 @@ def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[s
                     msg = (f"build.abi3: {kind} '{sha[:7]}' could not be evaluated "
                            f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
                     if _reports("abi3"):
-                        print(f"[engine] WARNING: {msg}", file=sys.stderr)
+                        _narrate_indeterminate(msg, "abi3")
                     gates.setdefault("indeterminate", []).append({"domain": "abi3", "msg": msg})
                     return None
                 if is_anc is disable_when:

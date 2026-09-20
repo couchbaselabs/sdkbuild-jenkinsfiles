@@ -48,7 +48,7 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.py'             = '97b0c402f9834b273917197ab19ab78a66b079028a0e074f7f2ce22906f9066d'
+    'engine.py'             = '139fb3968af7d81d41df5207965729ef978e21f92560b9efbaace80186f51af1'
     'jenkins.py'            = 'edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4'
     'gha.py'                = '4bcf36dfa40c548c6ed4ada13ce25c2a29c2886051f6ec7990651c1c4119d2e5'
     'tasks.sh'              = 'c33e07633658bf130ea387a481c8e0f16bdcc46b9a1fd88c22dc33769a911f60'
