@@ -66,6 +66,12 @@ function Import-EngineEnvPairs([string[]]$lines) {
 # passing it straight to pip reports it as pip's bare "not a supported wheel on this
 # platform", naming neither the interpreter that rejected it nor what else was on offer.
 function Select-Wheel($vpy) {
+    # Cheap first, because it is the one failure this function cannot describe from pip's output:
+    # if the interpreter itself is gone, every candidate below gets rejected for a reason that has
+    # nothing to do with wheel tags, and the message at the bottom would blame the wheels.
+    if (-not (Test-Path $vpy)) {
+        Stop-Task "install: interpreter $vpy is not on disk; the workspace was removed underneath this run"
+    }
     $candidates = @(Get-ChildItem "wheelhouse\dist\*.whl" -ErrorAction SilentlyContinue | Sort-Object Name)
     if ($candidates.Count -eq 0) { return $null }
     foreach ($w in $candidates) {
@@ -80,6 +86,18 @@ function Select-Wheel($vpy) {
             # non-fatal: this candidate isn't compatible with $vpy; try the next one
         }
         if ($LASTEXITCODE -eq 0) { return $w.FullName }
+    }
+    # Every candidate was rejected and every reason went to *>$null. Re-run the LAST one with its
+    # output kept so the log carries pip's own words, because the message below describes only the
+    # symptom and reads as a wheel-tag mismatch no matter what actually went wrong. An abi3 wheel
+    # that IS installable here has been reported by that message as incompatible, when the real
+    # cause was the workspace being deleted mid-run.
+    $last = $candidates[-1]
+    Write-Host "install: no candidate was accepted; re-running pip on $($last.Name) to show why"
+    try {
+        & $vpy -m pip install --dry-run --no-deps $last.FullName 2>&1 | Out-Host
+    } catch {
+        Write-Host "install: pip probe of $($last.Name) raised: $($_.Exception.Message)"
     }
     Stop-Task "install: none of $($candidates.Count) wheels under wheelhouse\dist are compatible with this interpreter/platform: $($candidates.FullName -join ', ')"
 }
