@@ -396,7 +396,7 @@ del "%CMAKE_ZIP_FILE%"
                 axes {
                     axis {
                         name 'PLATFORM'
-                        values "ubuntu20", "debian12", "rockylinux9", "m1", "qe-grav2-amzn2", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
+                        values "ubuntu20", "debian12", "rockylinux9", "m1", "alpine", "qe-ubuntu20-arm64", "qe-ubuntu22-arm64", "qe-rhel9-arm64"
                     }
                 }
 

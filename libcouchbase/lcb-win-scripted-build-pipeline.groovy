@@ -301,9 +301,6 @@ del "%CMAKE_ZIP_FILE%"
                         }
                     }
                     stage("pack") {
-                        options {
-                            timeout(time: 10, unit: 'MINUTES')
-                        }
                         when {
                             expression {
                                 return !IS_GERRIT_TRIGGER.toBoolean()
