@@ -288,7 +288,7 @@ pipeline {
                     }
                 }
 
-                agent { label "msvc-${MSVS.split(' ')[1]} && !(build-window-sdk-05 || build-window-sdk-06 || build-window-sdk-07)"}
+                agent { label "msvc-${MSVS.split(' ')[1]}" }
                 stages {
                     stage('prep') {
                         steps {
