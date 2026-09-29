@@ -251,7 +251,12 @@ pipeline {
                 cleanWs(cleanWhenNotBuilt: false, deleteDirs: true, disableDeferredWipeout: true)
 
                 dir('libcouchbase') {
-                    checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]]])
+                    // Transient "Error fetching remote repo" failures mark the
+                    // change under test as broken. The clone timeout bounds how
+                    // long one attempt may hang before the retry gets its turn.
+                    retry(3) {
+                        checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]], extensions: [[$class: 'CloneOption', timeout: 30, honorRefspec: true]]])
+                    }
                     script {
                         VERSION = new Version(sh(script: 'git describe --long --abbrev=10', returnStdout: true))
                         echo "Building ${VERSION.gitVersion}, gerrit: ${IS_GERRIT_TRIGGER.toBoolean()}, release: ${IS_RELEASE.toBoolean()}, skip_tests: ${SKIP_TESTS.toBoolean()}"
