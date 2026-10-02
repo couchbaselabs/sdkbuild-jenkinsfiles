@@ -445,6 +445,35 @@ print('blocked' if pattern.search(text) else 'ok')
     return ""
 }
 
+# Pins a Visual Studio generator to the instance vcvarsall set up. Left to its default, CMake
+# picks the newest Visual Studio on the agent: a VS2022 17.10+ toolset links a std::mutex that
+# crashes (0xC0000005) against an older msvcp140.dll, which is what a VS2019-only machine has.
+#
+# Passed through CMAKE_GENERATOR and CMAKE_GENERATOR_INSTANCE rather than
+# PYCBC_CMAKE_SET_GENERATOR, because setup.py turns that into `cmake -G`, and CMake reads the
+# instance from the environment only when the generator comes from there too.
+#
+# The adapter forwards vcvarsall's PATH and VSCMD_VER (as CBCI_BUILD_VS_VERSION) but not
+# VSINSTALLDIR, so the instance is read off the cl.exe on PATH, which sits under
+# <instance>\VC\Tools\MSVC\<toolset>\bin.
+function Set-VisualStudioGenerator {
+    $generators = @{ "16" = "Visual Studio 16 2019"; "17" = "Visual Studio 17 2022" }
+    $vsVersion = if ($env:CBCI_BUILD_VS_VERSION) { $env:CBCI_BUILD_VS_VERSION } else { "$env:VSCMD_VER" }
+    $major = $vsVersion.Trim().Split('.')[0]
+    $cl = Get-Command cl -ErrorAction SilentlyContinue
+    $clPath = if ($cl) { $cl.Source } else { "" }
+    $at = $clPath.IndexOf('\VC\Tools\MSVC\', [System.StringComparison]::OrdinalIgnoreCase)
+    $vsInstall = if ($at -gt 0) { $clPath.Substring(0, $at) } else { "" }
+    if (-not $vsInstall -or -not $generators.ContainsKey($major)) {
+        Stop-Task ("wheel-native: cannot pin a Visual Studio generator to the vcvarsall environment " +
+                   "(VS version '$vsVersion', cl '$clPath')")
+    }
+    $env:CMAKE_GENERATOR = $generators[$major]
+    $env:CMAKE_GENERATOR_INSTANCE = $vsInstall
+    Write-Log "wheel-native: CMAKE_GENERATOR=$($env:CMAKE_GENERATOR) CMAKE_GENERATOR_INSTANCE=$vsInstall"
+    Write-Log "wheel-native: cl=$clPath"
+}
+
 # The CMake generator for the native Windows build. Set explicitly because CMake's default is
 # the NEWEST Visual Studio installed on the agent, chosen without reference to the vcvarsall
 # environment the adapter set up: on an agent carrying both VS2019 and VS2022 the pipeline
@@ -456,8 +485,9 @@ print('blocked' if pattern.search(text) else 'ok')
 # a platform specification the Ninja generator rejects outright. The target architecture comes
 # from vcvarsall's `amd64` argument instead.
 #
-# An SDK source that cannot build under Ninja keeps CMake's default Visual Studio generator,
-# which is how every Windows wheel was built before Ninja. See Test-NinjaCompatibleSource.
+# An SDK source that cannot build under Ninja gets a Visual Studio generator instead, pinned
+# to the instance vcvarsall set up so the newest-VS default above cannot apply. See
+# Test-NinjaCompatibleSource and Set-VisualStudioGenerator.
 function Set-CMakeGenerator([string]$target) {
     if ($env:PYCBC_CMAKE_SET_GENERATOR) {
         Write-Log "wheel-native: PYCBC_CMAKE_SET_GENERATOR preset, left alone ($($env:PYCBC_CMAKE_SET_GENERATOR))"
@@ -465,7 +495,8 @@ function Set-CMakeGenerator([string]$target) {
     }
     $reason = Test-NinjaCompatibleSource $target
     if ($reason) {
-        Write-Log "wheel-native: generator left to CMake's Visual Studio default: $reason"
+        Write-Log "wheel-native: not using Ninja: $reason"
+        Set-VisualStudioGenerator
         return
     }
     if ($env:PYCBC_CMAKE_SET_ARCH) {
