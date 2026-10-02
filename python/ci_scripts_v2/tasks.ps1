@@ -397,6 +397,54 @@ function Invoke-WheelSymbolSplit($vpy, $wheelPath, $distDir, $debugDir) {
     }
 }
 
+# Returns why the SDK source at $target (an sdist .tar.gz or a source directory) cannot build
+# under Ninja, or "" when it can. Read from the source itself rather than gated on a commit,
+# so a backported fix, a cherry-pick or an old tag each get the right answer without a sha
+# list to maintain.
+#
+# The one known blocker is a directory-scope add_definitions(/bigobj). Ninja hands directory
+# compile options to every language, including boringssl's ASM_NASM sources, and nasm reads
+# the flag as a second input file ("more than one input file specified"). The Visual Studio
+# generator never passed it to nasm. A source that cannot be read keeps Ninja, the default.
+function Test-NinjaCompatibleSource([string]$target) {
+    $probe = @'
+import os, re, sys, tarfile
+
+def top_level_cmakelists(path):
+    if os.path.isdir(path):
+        with open(os.path.join(path, 'CMakeLists.txt'), 'rb') as f:
+            return f.read()
+    with tarfile.open(path) as tar:
+        for m in tar:
+            parts = m.name.strip('/').split('/')
+            if len(parts) == 2 and parts[1] == 'CMakeLists.txt' and m.isfile():
+                return tar.extractfile(m).read()
+    raise FileNotFoundError('no top-level CMakeLists.txt in ' + path)
+
+try:
+    text = top_level_cmakelists(sys.argv[1]).decode('utf-8', 'replace')
+except Exception as exc:
+    print('unreadable: ' + repr(exc))
+    sys.exit(0)
+pattern = re.compile(r'^[ \t]*add_definitions[ \t]*\([^)#]*/bigobj', re.IGNORECASE | re.MULTILINE)
+print('blocked' if pattern.search(text) else 'ok')
+'@
+    $probePath = Join-Path ([System.IO.Path]::GetTempPath()) ("cbci-ninja-probe-" + [System.Guid]::NewGuid().ToString("N") + ".py")
+    Set-Content -Path $probePath -Value $probe
+    try {
+        $verdict = (& $Python $probePath $target 2>&1 | Out-String).Trim()
+    } finally {
+        Remove-Item -Force $probePath -ErrorAction SilentlyContinue
+    }
+    if ($verdict -eq "blocked") {
+        return "the SDK's CMakeLists.txt applies /bigobj with add_definitions(), which Ninja passes to nasm"
+    }
+    if ($verdict -ne "ok") {
+        Write-Log "wheel-native: could not check the SDK source for Ninja blockers, keeping Ninja ($verdict)"
+    }
+    return ""
+}
+
 # The CMake generator for the native Windows build. Set explicitly because CMake's default is
 # the NEWEST Visual Studio installed on the agent, chosen without reference to the vcvarsall
 # environment the adapter set up: on an agent carrying both VS2019 and VS2022 the pipeline
@@ -407,9 +455,17 @@ function Invoke-WheelSymbolSplit($vpy, $wheelPath, $distDir, $debugDir) {
 # PYCBC_CMAKE_SET_ARCH is deliberately not set beside it: setup.py turns it into `cmake -A`,
 # a platform specification the Ninja generator rejects outright. The target architecture comes
 # from vcvarsall's `amd64` argument instead.
-function Set-CMakeGenerator {
+#
+# An SDK source that cannot build under Ninja keeps CMake's default Visual Studio generator,
+# which is how every Windows wheel was built before Ninja. See Test-NinjaCompatibleSource.
+function Set-CMakeGenerator([string]$target) {
     if ($env:PYCBC_CMAKE_SET_GENERATOR) {
         Write-Log "wheel-native: PYCBC_CMAKE_SET_GENERATOR preset, left alone ($($env:PYCBC_CMAKE_SET_GENERATOR))"
+        return
+    }
+    $reason = Test-NinjaCompatibleSource $target
+    if ($reason) {
+        Write-Log "wheel-native: generator left to CMake's Visual Studio default: $reason"
         return
     }
     if ($env:PYCBC_CMAKE_SET_ARCH) {
@@ -445,11 +501,6 @@ function Invoke-WheelNative {
     if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: build-env wheel failed" }
     Import-EngineEnvPairs $buildEnvLines
     Set-BuildBase
-    Set-CMakeGenerator
-
-    & $Python -m pip install --upgrade pip
-    & $Python -m pip install wheel
-    if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: failed to install build deps" }
 
     # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
     $target = "."
@@ -457,6 +508,12 @@ function Invoke-WheelNative {
         $sdist = Get-ChildItem "dist\*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($sdist) { $target = $sdist.FullName }
     }
+
+    & $Python -m pip install --upgrade pip
+    & $Python -m pip install wheel
+    if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: failed to install build deps" }
+
+    Set-CMakeGenerator $target
 
     $bdist = Join-Path ([System.IO.Path]::GetTempPath()) ("cbci-bdist-" + [System.Guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force -Path $bdist | Out-Null
