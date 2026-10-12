@@ -772,7 +772,13 @@ try {
         # Staged in $tmp, not the system temp dir: require() resolves from the script's own
         # directory, so it has to sit beside the node_modules the install just created.
         Invoke-NodeScript $smokeScript $tmp
-        if ($LASTEXITCODE -ne 0) { Die "validate: smoke check failed for $itype" }
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            # Hex as well: a teardown fault is an NTSTATUS (0xC0000005, 0xC0000409, ...) that is
+            # unreadable in decimal, and it is what separates a crash from a JS-level exit.
+            $hex = "0x{0:X8}" -f ($exitCode -band 0xFFFFFFFF)
+            Die "validate: smoke check failed for $itype (node exited $exitCode / $hex)"
+        }
     } finally {
         Pop-Location
         Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
