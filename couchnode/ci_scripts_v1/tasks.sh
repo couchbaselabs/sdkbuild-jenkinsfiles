@@ -802,95 +802,51 @@ task_prebuild() {
     log "prebuild: debug:";   ls -alh prebuildsDebug
 }
 
-# --- validate: install the BUILT artifact into a clean checkout and smoke-require it,
-# proving what an `npm install couchbase` consumer actually gets rather than what the repo
-# source tree does. install_type=prebuild simulates the platform-package resolve path via
+# --- validate: install the BUILT artifact into a clean checkout and smoke it, proving what
+# an `npm install couchbase` consumer actually gets rather than what the repo source tree
+# does. install_type=prebuild simulates the platform-package resolve path via
 # npm_config_couchbase_local_prebuilds, which scripts/install.js reads in
 # getLocalPrebuild()/resolveLocalPrebuild(). install_type=sdist forces the full cmake-js
 # source build with no local-prebuilds hint, proving the sdist tarball is self-sufficient
 # (CPM cache baked in, no network fetch needed).
-# The smoke script, emitted verbatim (quoted heredoc = no shell expansion, so the JS may
-# use $ and backticks freely). On failure it names the cause instead of leaving you with
-# the SDK's own message, which reports only what the loader WANTED: resolvePrebuild()
-# throws "Could not find native build for platform=..., arch=..., runtime=..., sslType=..."
-# after swallowing the real error, and never says what was actually present. Since a failed
-# validate never reaches archiving, this in-process look is the only one anyone gets.
-_validate_smoke_js() {
-    cat <<'NODEJS'
-const fs = require('fs');
-const path = require('path');
+#
+# Registry mode (CBCI_PACKAGING_INDEX set, release-verify) installs the PUBLISHED package by
+# name instead, with any of npm, yarn (Berry) or yarn-classic. The smoke check itself is
+# `engine.mjs validate-smoke`: require, cbppMetadata, and with CBCI_VALIDATE_KV a KV
+# round-trip against GoCAVES.
 
-function dumpAddons() {
-  const facts = [`node ${process.versions.node}`, `Node-API ${process.versions.napi}`,
-    `${process.platform}/${process.arch}`, `ssl=${process.env.CBCI_VALIDATE_SSL || '?'}`];
-  if (process.platform === 'linux') {
-    // Only linux splits the prebuild's platform token by libc, and it is the token most
-    // likely to be wrong (a manylinux binary in an alpine container, or the reverse).
-    const report = typeof process.report?.getReport === 'function' ? process.report.getReport() : null;
-    const glibc = report?.header?.glibcVersionRuntime;
-    facts.push(glibc ? `glibc ${glibc}` : 'musl (no glibc runtime reported)');
-  }
-  console.error(`[validate] load failed on ${facts.join(', ')}`);
-
-  const found = [];
-  const walk = (dir) => {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.node')) found.push(p);
-    }
-  };
-  walk('node_modules');
-
-  if (!found.length) {
-    console.error('[validate]   shipped: NO .node addon anywhere under node_modules/ '
-      + '(the prebuild never landed, or a source build was expected and did not produce one)');
-    return;
-  }
-  // The loader matches on the FILENAME's tokens, so the name is the diagnosis:
-  //   couchbase-v<pkg>-<runtime>-v<abi>-<platform|libc>-<arch>-<ssl>.node
-  // A mismatch in any one of them (musl vs glibc, openssl3 vs boringssl, arch) presents
-  // as "no native build found", identical to nothing having shipped at all.
-  for (const p of found) console.error(`[validate]   shipped: ${p}`);
+# Put a corepack-managed yarn on PATH for this install only. COREPACK_HOME and the shim
+# directory both live under the run's temp dir, so nothing global changes and no agent
+# needs sudo. Runs inside _validate_one's subshell, so the exports die with it.
+_validate_setup_yarn() {
+    local root="$1"
+    command -v corepack >/dev/null 2>&1 \
+        || die "validate: corepack not found next to node ($(command -v "${NODE_BIN}")); needed for ${CBCI_VALIDATE_PACKAGE_MANAGER}"
+    export COREPACK_HOME="${root}/corepack" COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+    mkdir -p "${root}/bin"
+    corepack enable --install-directory "${root}/bin" yarn
+    corepack prepare "${CBCI_VALIDATE_PM_SPEC}" --activate
+    export PATH="${root}/bin:${PATH}"
+    log "validate: yarn $(yarn --version) (${CBCI_VALIDATE_PM_SPEC}) via corepack"
 }
 
-const mod = process.env.CBCI_VALIDATE_IMPORT;
-try {
-  const pkg = require(mod);
-  if (typeof pkg.connect !== 'function') {
-    console.error('[validate] couchbase module missing connect()');
-    process.exit(1);
-  }
-  console.log(`[validate] required ${mod} OK, connect() present`);
-} catch (err) {
-  dumpAddons();
-  throw err;
-}
-NODEJS
-}
-
-_validate_one() {
-    local itype="$1" sdist_tgz="$2"
-    local tmp; tmp="$(mktemp -d)"
-    log "validate: install_type=${itype} in ${tmp}"
-    (
-        cd "${tmp}"
-        "${NPM_BIN}" init -y >/dev/null
-        # Registry mode (release-verify): install the PUBLISHED package by name, so what is
-        # exercised is what a consumer actually gets. The install types keep their meaning:
-        # 'prebuild' lets npm resolve the optionalDependencies, '--omit=optional' withholds
-        # them and forces the from-source fallback.
-        if [[ -n "${CBCI_PACKAGING_INDEX:-}" ]]; then
-            local spec="${CBCI_VALIDATE_PACKAGE_NAME}@${CBCI_VERSION:?validate: CBCI_VERSION required when CBCI_PACKAGING_INDEX is set}"
-            if [[ "${itype}" == "prebuild" ]]; then
-                "${NPM_BIN}" install --save "${spec}"
-            elif [[ "${itype}" == "sdist" ]]; then
-                "${NPM_BIN}" install --save --omit=optional "${spec}"
-            else
-                die "validate: unknown install_type: ${itype} (prebuild|sdist)"
-            fi
+# Registry-mode install with the selected package manager. 'prebuild' lets it resolve the
+# optionalDependencies platform package; 'sdist' (npm only) withholds them and forces the
+# from-source fallback.
+_validate_registry_install() {
+    local itype="$1" root="$2"
+    local spec="${CBCI_VALIDATE_PACKAGE_NAME}@${CBCI_VERSION:?validate: CBCI_VERSION required when CBCI_PACKAGING_INDEX is set}"
+    local pm="${CBCI_VALIDATE_PACKAGE_MANAGER}"
+    local ignore_scripts="${CBCI_VALIDATE_IGNORE_SCRIPTS}"
+    log "validate: ${pm} install ${spec} from ${CBCI_VALIDATE_REGISTRY} (ignore_scripts=${ignore_scripts})"
+    # npm and yarn classic both read npm_config_registry; it outranks any ~/.npmrc.
+    export npm_config_registry="${CBCI_VALIDATE_REGISTRY}"
+    case "${pm}" in
+        npm)
+            local args=(install --save)
+            [[ "${itype}" == "sdist" ]] && args+=(--omit=optional)
+            [[ "${ignore_scripts}" == "true" ]] && args+=(--ignore-scripts)
+            "${NPM_BIN}" "${args[@]}" "${spec}"
             "${NPM_BIN}" list --depth=1 || true
             # An --omit=optional install that still resolved a platform package would be
             # testing the prebuild path twice and reporting the source path as covered.
@@ -898,10 +854,50 @@ _validate_one() {
                && "${NPM_BIN}" list --depth=1 2>/dev/null | grep -q "@${CBCI_VALIDATE_PACKAGE_NAME}/"; then
                 die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
             fi
-            "${NODE_BIN}" -e "$(_validate_smoke_js)"
-            exit $?
-        fi
-        if [[ "${itype}" == "prebuild" ]]; then
+            ;;
+        yarn)
+            _validate_setup_yarn "${root}"
+            # Berry treats the nearest lockfile as the project root.
+            touch yarn.lock
+            # YARN_* env outranks every .yarnrc.yml, including a stale one in the agent's home.
+            export YARN_NPM_REGISTRY_SERVER="${CBCI_VALIDATE_REGISTRY}"
+            export YARN_NODE_LINKER="${CBCI_VALIDATE_YARN_LINKER}"
+            [[ -n "${CBCI_VALIDATE_REGISTRY_HTTP_HOST}" ]] \
+                && export YARN_UNSAFE_HTTP_WHITELIST="${CBCI_VALIDATE_REGISTRY_HTTP_HOST}"
+            # Berry has no --ignore-scripts flag; enableScripts is the equivalent.
+            [[ "${ignore_scripts}" == "true" ]] && export YARN_ENABLE_SCRIPTS=false
+            log "validate: yarn nodeLinker=${CBCI_VALIDATE_YARN_LINKER}"
+            yarn add "${spec}"
+            yarn info "${CBCI_VALIDATE_PACKAGE_NAME}" || true
+            ;;
+        yarn-classic)
+            _validate_setup_yarn "${root}"
+            touch yarn.lock
+            local args=(add "${spec}" --registry "${CBCI_VALIDATE_REGISTRY}")
+            # Classic fails outright on an engines mismatch (cmake-js's floor) where npm
+            # and Berry only warn.
+            [[ "${CBCI_VALIDATE_IGNORE_ENGINES}" == "true" ]] && args+=(--ignore-engines)
+            [[ "${ignore_scripts}" == "true" ]] && args+=(--ignore-scripts)
+            yarn "${args[@]}"
+            yarn list --depth=1 || true
+            ;;
+        *)
+            die "validate: unknown package manager: ${pm} (npm|yarn|yarn-classic)"
+            ;;
+    esac
+}
+
+_validate_one() {
+    local itype="$1" sdist_tgz="$2"
+    local root; root="$(mktemp -d)"
+    log "validate: install_type=${itype} package_manager=${CBCI_VALIDATE_PACKAGE_MANAGER} in ${root}"
+    (
+        mkdir -p "${root}/proj"
+        cd "${root}/proj"
+        "${NPM_BIN}" init -y >/dev/null
+        if [[ -n "${CBCI_PACKAGING_INDEX:-}" ]]; then
+            _validate_registry_install "${itype}" "${root}"
+        elif [[ "${itype}" == "prebuild" ]]; then
             local prebuild_dir; prebuild_dir="$(mktemp -d)"
             cp "${PROJECT_ROOT}"/prebuilds/*.node "${prebuild_dir}/" 2>/dev/null \
                 || die "validate: no prebuild found under ${PROJECT_ROOT}/prebuilds (build it first?)"
@@ -912,10 +908,28 @@ _validate_one() {
         else
             die "validate: unknown install_type: ${itype} (prebuild|sdist)"
         fi
-        "${NODE_BIN}" -e "$(_validate_smoke_js)"
+
+        # Before the smoke, so the smoke proves the pruned install still loads. npm only:
+        # `npm explore` needs a node_modules tree, which Yarn PnP never creates.
+        if [[ "${CBCI_VALIDATE_PRUNE}" == "true" && "${CBCI_VALIDATE_PACKAGE_MANAGER}" == "npm" ]]; then
+            log "validate: help-prune"
+            "${NPM_BIN}" explore "${CBCI_VALIDATE_PACKAGE_NAME}" -- npm run help-prune
+        elif [[ "${CBCI_VALIDATE_PRUNE}" == "true" ]]; then
+            log "validate: help-prune is npm-only; skipped for ${CBCI_VALIDATE_PACKAGE_MANAGER}"
+        fi
+
+        # Staged in the install dir: under Yarn PnP the script has to sit inside the project
+        # for `yarn node` to resolve the package for it.
+        local smoke="__cbci_validate_smoke.cjs"
+        "${NODE_BIN}" "${ENGINE}" validate-smoke > "${smoke}" || die "validate: failed to emit the smoke script"
+        if [[ "${CBCI_VALIDATE_PACKAGE_MANAGER}" == "yarn" ]]; then
+            yarn node "${smoke}"
+        else
+            "${NODE_BIN}" "${smoke}"
+        fi
     )
     local rc=$?
-    rm -rf "${tmp}"
+    rm -rf "${root}"
     return "${rc}"
 }
 
@@ -926,10 +940,18 @@ task_validate() {
     # shellcheck disable=SC2086,SC2163
     export ${out}
     [[ -n "${CBCI_INSTALL_TYPE:-}" ]] && CBCI_VALIDATE_INSTALL_TYPES="${CBCI_INSTALL_TYPE}"
+    # Shared by every validate run on this agent, so the GoCAVES binary downloads once.
+    export CBCI_VALIDATE_CAVES_DIR="${SCRIPT_DIR}/.gocaves"
 
     # Registry mode installs by name from the index, so there is no local artifact to find.
     local sdist_tgz=""
     if [[ -z "${CBCI_PACKAGING_INDEX:-}" ]]; then
+        # A local artifact is installed by path with npm; the other knobs only mean
+        # something against a registry.
+        [[ "${CBCI_VALIDATE_PACKAGE_MANAGER}" == "npm" ]] \
+            || die "validate: package manager ${CBCI_VALIDATE_PACKAGE_MANAGER} needs registry mode (CBCI_PACKAGING_INDEX)"
+        [[ "${CBCI_VALIDATE_IGNORE_SCRIPTS}" != "true" ]] \
+            || die "validate: CBCI_VALIDATE_IGNORE_SCRIPTS needs registry mode; a local prebuild only installs through scripts/install.js"
         sdist_tgz="$(ls "${PROJECT_ROOT}"/*.tgz 2>/dev/null | head -1 || true)"
         [[ -n "${sdist_tgz}" ]] || die "validate: no *.tgz found under ${PROJECT_ROOT} (build sdist first?)"
     else
@@ -939,10 +961,18 @@ task_validate() {
     local itype
     IFS=',' read -ra _types <<<"${CBCI_VALIDATE_INSTALL_TYPES}"
     for itype in "${_types[@]}"; do
+        if [[ "${itype}" == "sdist" ]]; then
+            # sdist means --omit=optional, which only npm has.
+            [[ "${CBCI_VALIDATE_PACKAGE_MANAGER}" == "npm" ]] \
+                || die "validate: install_type sdist is npm-only (got ${CBCI_VALIDATE_PACKAGE_MANAGER})"
+            # The from-source fallback IS the install script, so this would fail by design.
+            [[ "${CBCI_VALIDATE_IGNORE_SCRIPTS}" != "true" ]] \
+                || die "validate: install_type sdist cannot run with CBCI_VALIDATE_IGNORE_SCRIPTS (the source build is the install script)"
+        fi
         _validate_one "${itype}" "${sdist_tgz}" || die "validate: ${itype} failed"
         log "validate: ${itype} OK"
     done
-    log "validate: all install types passed (${CBCI_VALIDATE_INSTALL_TYPES})"
+    log "validate: all install types passed (${CBCI_VALIDATE_INSTALL_TYPES}, ${CBCI_VALIDATE_PACKAGE_MANAGER})"
 }
 
 # --- test: run the mocha suite against the CouchbaseMock.jar backend (default) or a real

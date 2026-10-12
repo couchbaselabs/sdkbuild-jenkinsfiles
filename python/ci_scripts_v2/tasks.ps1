@@ -145,7 +145,9 @@ function Install-SdkPackage($vpy) {
     # single-element array returned that way, and the next += would concatenate strings.
     $pipArgs = @()
     switch ($index.ToUpper()) {
-        "PYPI" { }
+        # Stated even for PyPI: a stale pip.ini index-url or PIP_INDEX_URL on the agent
+        # would otherwise decide where the release under verification comes from.
+        "PYPI" { $pipArgs += @("-i", "https://pypi.org/simple") }
         "TEST_PYPI" {
             # Test PyPI carries the SDK only; its dependencies still resolve from real PyPI.
             $pipArgs += @("-i", "https://test.pypi.org/simple/", "--extra-index-url", "https://pypi.org/simple")
@@ -822,8 +824,42 @@ function Write-BuildInfo($buildEnvLines) {
     foreach ($l in $lines) { Write-Log "  build-info: $l" }
 }
 
+# The GoCAVES binary for this arch, cached under the CI-core dir by version, so it downloads
+# once per agent. Fetched here rather than in the smoke: the clean venv has no certifi.
+# Mirrors _validate_caves_bin in tasks.sh. Returns the path.
+function Get-ValidateCavesBin {
+    $version = $env:CBCI_VALIDATE_CAVES_VERSION
+    if ([string]::IsNullOrWhiteSpace($version)) { Stop-Task "validate: CBCI_VALIDATE_CAVES_VERSION unset" }
+    $asset = "gocaves-windows.exe"
+    if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $asset = "gocaves-windows-arm64.exe" }
+    $dir = Join-Path (Join-Path $PSScriptRoot ".gocaves") $version
+    $bin = Join-Path $dir $asset
+    if ((Test-Path $bin) -and ((Get-Item $bin).Length -gt 0)) { return $bin }
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $url = "https://github.com/couchbaselabs/gocaves/releases/download/$version/$asset"
+    $partial = "$bin.$PID.partial"
+    Write-Log "validate: fetching $url"
+    # PowerShell 5.1 defaults to TLS 1.0, which GitHub refuses, and its progress bar slows
+    # the download by an order of magnitude.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $savedProgress = $ProgressPreference
+    $ProgressPreference = "SilentlyContinue"
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $partial -UseBasicParsing
+    } catch {
+        Stop-Task "validate: failed to fetch ${url}: $_"
+    } finally {
+        $ProgressPreference = $savedProgress
+    }
+    # A temp name and a rename, so an interrupted fetch never leaves a truncated binary for
+    # the next run to trust.
+    Move-Item -Force $partial $bin
+    return $bin
+}
+
 function Invoke-Validate {
     Import-EngineEnvPairs (& $Python $Engine validate-env)
+    if ($env:CBCI_VALIDATE_KV -eq "true") { $env:CBCI_VALIDATE_CAVES_BIN = Get-ValidateCavesBin }
     $vIndex = if ($env:CBCI_PACKAGING_INDEX) { $env:CBCI_PACKAGING_INDEX } else { "<local>" }
     Write-Log "validate: package=$($env:CBCI_VALIDATE_PACKAGE) ssl=$($env:CBCI_VALIDATE_SSL) index=$vIndex"
 
@@ -838,64 +874,12 @@ function Invoke-Validate {
 
     Install-SdkPackage $vpy
 
-    # NOTE: expandable here-string. Keep the Python below free of '$' and backticks, or
-    # PowerShell will interpolate/escape them before the interpreter ever sees them.
-    $smokeScript = @"
-import importlib, os, pprint, sys
-
-
-def dump_extension_modules(mod):
-    # Name the cause of a failed import: what shipped vs what this interpreter accepts.
-    # An extension whose FILENAME is not an importable suffix fails identically to one that
-    # was never built. Windows is the trap: it has no '.abi3.pyd' suffix (only '.pyd'), so a
-    # stable-ABI module named the POSIX way is invisible to the importer. Validate failing
-    # also means the run never reaches archiving, so this is the only look inside the
-    # artifact anyone gets.
-    import importlib.machinery as machinery
-    import importlib.util as util
-    print(f"[validate] import failed; suffixes this interpreter accepts: {machinery.EXTENSION_SUFFIXES}", file=sys.stderr)
-    try:
-        roots = list(util.find_spec(mod).submodule_search_locations or [])
-    except Exception as exc:
-        print(f"[validate]   could not locate '{mod}' on disk: {exc!r}", file=sys.stderr)
-        return
-    found = 0
-    for root in roots:
-        for dirpath, _, names in os.walk(root):
-            for name in sorted(names):
-                if os.path.splitext(name)[1].lower() in (".so", ".pyd", ".dylib"):
-                    found += 1
-                    rel = os.path.join(os.path.relpath(dirpath, root), name)
-                    print(f"[validate]   shipped: {rel}", file=sys.stderr)
-    if not found:
-        print(f"[validate]   shipped: NO extension modules under {roots} (the build produced none, or they were left out of the artifact)", file=sys.stderr)
-
-
-mod = os.environ["CBCI_VALIDATE_IMPORT"]
-try:
-    m = importlib.import_module(mod)
-except ImportError:
-    dump_extension_modules(mod)
-    raise
-print(f"[validate] imported {mod} from {getattr(m, '__file__', '?')}")
-if os.environ.get("CBCI_VALIDATE_HAS_METADATA") == "true":
-    md = m.get_metadata(detailed=True)
-    print("[validate] get_metadata(detailed=True):")
-    pprint.pprint(md)
-    blob = repr(md).lower()
-    want_ver = (os.environ.get("CBCI_VERSION") or "").strip().lower()
-    if want_ver and want_ver not in blob:
-        print(f"[validate] WARNING: version '{want_ver}' not found in metadata", file=sys.stderr)
-    want_ssl = (os.environ.get("CBCI_VALIDATE_SSL") or "").strip().lower()
-    if want_ssl and want_ssl not in blob:
-        print(f"[validate] WARNING: expected ssl backend '{want_ssl}' not evident in metadata", file=sys.stderr)
-    print("[validate] smoke OK (extension imported + initialized)")
-else:
-    print("[validate] smoke OK (import only)")
-"@
-
+    # Emitted by the engine and written without a BOM, which python would otherwise read as
+    # a stray character ahead of the first import.
+    $smokeScript = (& $Python $Engine validate-smoke) -join "`n"
+    if ($LASTEXITCODE -ne 0) { Stop-Task "validate: failed to emit the smoke script" }
     $scriptPath = Join-Path $venvRoot "smoke.py"
-    Set-Content -Path $scriptPath -Value $smokeScript
+    [System.IO.File]::WriteAllText($scriptPath, $smokeScript + "`n", [System.Text.UTF8Encoding]::new($false))
     # -X faulthandler: the smoke can print every line above and STILL exit non-zero, because the
     # core's C++ teardown runs after the last print (couchbase registers an atexit hook, and a
     # console logger sink is deliberately left to static teardown). Windows reports that as a

@@ -35,22 +35,6 @@ function Invoke-Checked([string]$exe, [string[]]$exeArgs) {
     if ($LASTEXITCODE -ne 0) { Die "'$exe $($exeArgs -join ' ')' exited $LASTEXITCODE" }
 }
 
-# Run a block of JS by staging it as a file. `node -e $js` is NOT usable here: PowerShell
-# 5.1 hands a native command's arguments to Windows wrapped in double quotes and does not
-# escape any the argument already contains, so the first `"` anywhere in the JS - a string,
-# a comment - ends the argument and node sees a truncated script ("SyntaxError: Unexpected
-# end of input"). A file has no quoting layer at all, and names itself in stack traces.
-# $dir is where the file lands, and so is where its require() resolves from: for anything
-# loading an installed package that must be the directory holding node_modules.
-function Invoke-NodeScript([string]$js, [string]$dir) {
-    $scriptPath = Join-Path $dir '__cbci_node_script.js'
-    # WriteAllText with an explicit no-BOM encoding; Set-Content -Encoding UTF8 emits a BOM
-    # on PowerShell 5.1.
-    [System.IO.File]::WriteAllText($scriptPath, $js, (New-Object System.Text.UTF8Encoding $false))
-    try { & $NODE_BIN $scriptPath }
-    finally { Remove-Item -LiteralPath $scriptPath -Force -ErrorAction SilentlyContinue }
-}
-
 # Parse a space-joined `KEY=VALUE KEY2=VALUE2` line (engine.mjs's emitPairs format)
 # into the current process environment.
 function Import-EnvPairs([string]$line) {
@@ -673,27 +657,61 @@ function Task-Prebuild {
     Log 'prebuild: debug:';   Get-ChildItem prebuildsDebug -ErrorAction SilentlyContinue | Format-Table -AutoSize
 }
 
-function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
-    $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
-    New-Item -ItemType Directory -Force -Path $tmp | Out-Null
-    Log "validate: install_type=$itype in $tmp"
-    Push-Location $tmp
-    try {
-        Invoke-Checked $NPM_BIN @('init', '-y')
-        # Registry mode (release-verify): install the PUBLISHED package by name, so what is
-        # exercised is what a consumer actually gets. The install types keep their meaning:
-        # 'prebuild' lets npm resolve the optionalDependencies, '--omit=optional' withholds
-        # them and forces the from-source fallback.
-        if ($env:CBCI_PACKAGING_INDEX) {
-            if (-not $env:CBCI_VERSION) { Die "validate: CBCI_VERSION required when CBCI_PACKAGING_INDEX is set" }
-            $spec = "$($env:CBCI_VALIDATE_PACKAGE_NAME)@$($env:CBCI_VERSION)"
-            if ($itype -eq 'prebuild') {
-                Invoke-Checked $NPM_BIN @('install', '--save', $spec)
-            } elseif ($itype -eq 'sdist') {
-                Invoke-Checked $NPM_BIN @('install', '--save', '--omit=optional', $spec)
-            } else {
-                Die "validate: unknown install_type: $itype (prebuild|sdist)"
-            }
+# Env vars one validate run has set, with the values they replaced. tasks.sh gets this for
+# free from its subshell; here Restore-ScopedEnv puts them back when the run ends.
+$script:ScopedEnvSaved = @{}
+
+function Set-ScopedEnv([string]$name, [string]$value) {
+    if (-not $script:ScopedEnvSaved.ContainsKey($name)) {
+        $script:ScopedEnvSaved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process')
+    }
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+}
+
+function Restore-ScopedEnv {
+    # $null removes the variable, which is the right restore for one that was unset.
+    foreach ($name in $script:ScopedEnvSaved.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $script:ScopedEnvSaved[$name], 'Process')
+    }
+    $script:ScopedEnvSaved = @{}
+}
+
+# Put a corepack-managed yarn on PATH for this install only. COREPACK_HOME and the shim
+# directory both live under the run's temp dir, so nothing global changes.
+function Initialize-ValidateYarn([string]$root) {
+    if (-not (Get-Command corepack -ErrorAction SilentlyContinue)) {
+        Die "validate: corepack not found next to node; needed for $($env:CBCI_VALIDATE_PACKAGE_MANAGER)"
+    }
+    $bin = Join-Path $root 'bin'
+    New-Item -ItemType Directory -Force -Path $bin | Out-Null
+    Set-ScopedEnv 'COREPACK_HOME' (Join-Path $root 'corepack')
+    Set-ScopedEnv 'COREPACK_ENABLE_DOWNLOAD_PROMPT' '0'
+    Invoke-Checked 'corepack' @('enable', '--install-directory', $bin, 'yarn')
+    Invoke-Checked 'corepack' @('prepare', $env:CBCI_VALIDATE_PM_SPEC, '--activate')
+    Set-ScopedEnv 'PATH' "$bin$([System.IO.Path]::PathSeparator)$($env:PATH)"
+    $yarnVersion = (& yarn --version) -join ''
+    Log "validate: yarn $yarnVersion ($($env:CBCI_VALIDATE_PM_SPEC)) via corepack"
+}
+
+# Registry-mode install with the selected package manager. 'prebuild' lets it resolve the
+# optionalDependencies platform package; 'sdist' (npm only) withholds them and forces the
+# from-source fallback. Mirrors tasks.sh's _validate_registry_install.
+function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
+    if (-not $env:CBCI_VERSION) { Die "validate: CBCI_VERSION required when CBCI_PACKAGING_INDEX is set" }
+    $spec = "$($env:CBCI_VALIDATE_PACKAGE_NAME)@$($env:CBCI_VERSION)"
+    $pm = $env:CBCI_VALIDATE_PACKAGE_MANAGER
+    $ignoreScripts = $env:CBCI_VALIDATE_IGNORE_SCRIPTS -eq 'true'
+    Log "validate: $pm install $spec from $($env:CBCI_VALIDATE_REGISTRY) (ignore_scripts=$($env:CBCI_VALIDATE_IGNORE_SCRIPTS))"
+    # npm and yarn classic both read npm_config_registry; it outranks any ~/.npmrc.
+    Set-ScopedEnv 'npm_config_registry' $env:CBCI_VALIDATE_REGISTRY
+    switch ($pm) {
+        'npm' {
+            # [string[]] up front: an @() built in an if/else can unwrap to a String, and
+            # += would then concatenate instead of append.
+            [string[]]$npmArgs = @('install', '--save')
+            if ($itype -eq 'sdist') { $npmArgs += '--omit=optional' }
+            if ($ignoreScripts) { $npmArgs += '--ignore-scripts' }
+            Invoke-Checked $NPM_BIN ($npmArgs + $spec)
             # Join-String is absent on PowerShell 5.1, so the listing is collapsed with -join.
             $listing = (& $NPM_BIN @('list', '--depth=1') 2>&1) -join "`n"
             Write-Host $listing
@@ -702,6 +720,48 @@ function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
             if ($itype -eq 'sdist' -and $listing -match "@$($env:CBCI_VALIDATE_PACKAGE_NAME)/") {
                 Die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
             }
+        }
+        'yarn' {
+            Initialize-ValidateYarn $root
+            # Berry treats the nearest lockfile as the project root.
+            New-Item -ItemType File -Force -Path 'yarn.lock' | Out-Null
+            # YARN_* env outranks every .yarnrc.yml, including a stale one in the agent's home.
+            Set-ScopedEnv 'YARN_NPM_REGISTRY_SERVER' $env:CBCI_VALIDATE_REGISTRY
+            Set-ScopedEnv 'YARN_NODE_LINKER' $env:CBCI_VALIDATE_YARN_LINKER
+            if ($env:CBCI_VALIDATE_REGISTRY_HTTP_HOST) {
+                Set-ScopedEnv 'YARN_UNSAFE_HTTP_WHITELIST' $env:CBCI_VALIDATE_REGISTRY_HTTP_HOST
+            }
+            # Berry has no --ignore-scripts flag; enableScripts is the equivalent.
+            if ($ignoreScripts) { Set-ScopedEnv 'YARN_ENABLE_SCRIPTS' 'false' }
+            Log "validate: yarn nodeLinker=$($env:CBCI_VALIDATE_YARN_LINKER)"
+            Invoke-Checked 'yarn' @('add', $spec)
+            & yarn info $env:CBCI_VALIDATE_PACKAGE_NAME | Out-Host
+        }
+        'yarn-classic' {
+            Initialize-ValidateYarn $root
+            New-Item -ItemType File -Force -Path 'yarn.lock' | Out-Null
+            [string[]]$yarnArgs = @('add', $spec, '--registry', $env:CBCI_VALIDATE_REGISTRY)
+            # Classic fails outright on an engines mismatch (cmake-js's floor) where npm
+            # and Berry only warn.
+            if ($env:CBCI_VALIDATE_IGNORE_ENGINES -eq 'true') { $yarnArgs += '--ignore-engines' }
+            if ($ignoreScripts) { $yarnArgs += '--ignore-scripts' }
+            Invoke-Checked 'yarn' $yarnArgs
+            & yarn list --depth=1 | Out-Host
+        }
+        default { Die "validate: unknown package manager: $pm (npm|yarn|yarn-classic)" }
+    }
+}
+
+function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+    $proj = Join-Path $root 'proj'
+    New-Item -ItemType Directory -Force -Path $proj | Out-Null
+    Log "validate: install_type=$itype package_manager=$($env:CBCI_VALIDATE_PACKAGE_MANAGER) in $root"
+    Push-Location $proj
+    try {
+        Invoke-Checked $NPM_BIN @('init', '-y') | Out-Null
+        if ($env:CBCI_PACKAGING_INDEX) {
+            Invoke-ValidateRegistryInstall $itype $root
         } elseif ($itype -eq 'prebuild') {
             $prebuildDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
             New-Item -ItemType Directory -Force -Path $prebuildDir | Out-Null
@@ -716,62 +776,30 @@ function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
         } else {
             Die "validate: unknown install_type: $itype (prebuild|sdist)"
         }
-        # LITERAL here-string (@' ... '@): nothing inside is expanded, so the JS may use $
-        # and backticks freely. Mirrors tasks.sh's _validate_smoke_js - keep the two in step.
-        # On failure it names the cause instead of leaving you with the SDK's own message,
-        # which reports only what the loader WANTED: resolvePrebuild() throws "Could not find
-        # native build for platform=..., arch=..., runtime=..., sslType=..." after swallowing
-        # the real error, and never says what was actually present. A failed validate never
-        # reaches archiving, so this in-process look is the only one anyone gets.
-        $smokeScript = @'
-const fs = require('fs');
-const path = require('path');
 
-function dumpAddons() {
-  const facts = [`node ${process.versions.node}`, `Node-API ${process.versions.napi}`,
-    `${process.platform}/${process.arch}`, `ssl=${process.env.CBCI_VALIDATE_SSL || '?'}`];
-  console.error(`[validate] load failed on ${facts.join(', ')}`);
+        # Before the smoke, so the smoke proves the pruned install still loads. npm only:
+        # `npm explore` needs a node_modules tree, which Yarn PnP never creates.
+        if ($env:CBCI_VALIDATE_PRUNE -eq 'true' -and $env:CBCI_VALIDATE_PACKAGE_MANAGER -eq 'npm') {
+            Log 'validate: help-prune'
+            Invoke-Checked $NPM_BIN @('explore', $env:CBCI_VALIDATE_PACKAGE_NAME, '--', 'npm', 'run', 'help-prune')
+        } elseif ($env:CBCI_VALIDATE_PRUNE -eq 'true') {
+            Log "validate: help-prune is npm-only; skipped for $($env:CBCI_VALIDATE_PACKAGE_MANAGER)"
+        }
 
-  const found = [];
-  const walk = (dir) => {
-    let entries;
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const e of entries) {
-      const p = path.join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.node')) found.push(p);
-    }
-  };
-  walk('node_modules');
-
-  if (!found.length) {
-    console.error('[validate]   shipped: NO .node addon anywhere under node_modules/ '
-      + '(the prebuild never landed, or a source build was expected and did not produce one)');
-    return;
-  }
-  // The loader matches on the FILENAME's tokens, so the name is the diagnosis:
-  //   couchbase-v<pkg>-<runtime>-v<abi>-<platform>-<arch>-<ssl>.node
-  // A mismatch in any one of them (openssl3 vs boringssl, arch) presents as "no native
-  // build found", identical to nothing having shipped at all.
-  for (const p of found) console.error(`[validate]   shipped: ${p}`);
-}
-
-const mod = process.env.CBCI_VALIDATE_IMPORT;
-try {
-  const pkg = require(mod);
-  if (typeof pkg.connect !== 'function') {
-    console.error('[validate] couchbase module missing connect()');
-    process.exit(1);
-  }
-  console.log(`[validate] required ${mod} OK, connect() present`);
-} catch (err) {
-  dumpAddons();
-  throw err;
-}
-'@
-        # Staged in $tmp, not the system temp dir: require() resolves from the script's own
-        # directory, so it has to sit beside the node_modules the install just created.
-        Invoke-NodeScript $smokeScript $tmp
+        # Staged as a file in the install dir: under Yarn PnP the script has to sit inside the
+        # project for `yarn node` to resolve the package for it. A file, never `node -e`:
+        # PowerShell 5.1 does not escape the double quotes inside a native argument, so the
+        # first `"` in the JS would end it. Captured and rewritten rather than redirected
+        # with `>`, which writes UTF-16 on 5.1.
+        $smokeJs = & $NODE_BIN $ENGINE validate-smoke
+        if ($LASTEXITCODE -ne 0) { Die 'validate: failed to emit the smoke script' }
+        $smoke = Join-Path $proj '__cbci_validate_smoke.cjs'
+        [System.IO.File]::WriteAllText($smoke, ($smokeJs -join "`n"), (New-Object System.Text.UTF8Encoding $false))
+        if ($env:CBCI_VALIDATE_PACKAGE_MANAGER -eq 'yarn') {
+            & yarn node $smoke
+        } else {
+            & $NODE_BIN $smoke
+        }
         $exitCode = $LASTEXITCODE
         if ($exitCode -ne 0) {
             # Hex as well: a teardown fault is an NTSTATUS (0xC0000005, 0xC0000409, ...) that is
@@ -781,19 +809,29 @@ try {
         }
     } finally {
         Pop-Location
-        Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
+        Restore-ScopedEnv
+        Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
     }
 }
 
 function Task-Validate {
     Set-Location $PROJECT_ROOT
     $out = & $NODE_BIN $ENGINE validate-env
+    if ($LASTEXITCODE -ne 0) { Die 'failed to resolve validate-env' }
     Import-EnvPairs $out
     if ($env:CBCI_INSTALL_TYPE) { $env:CBCI_VALIDATE_INSTALL_TYPES = $env:CBCI_INSTALL_TYPE }
+    # Shared by every validate run on this agent, so the GoCAVES binary downloads once.
+    $env:CBCI_VALIDATE_CAVES_DIR = Join-Path $SCRIPT_DIR '.gocaves'
+    $pm = $env:CBCI_VALIDATE_PACKAGE_MANAGER
+    $ignoreScripts = $env:CBCI_VALIDATE_IGNORE_SCRIPTS -eq 'true'
 
     # Registry mode installs by name from the index, so there is no local artifact to find.
     $sdistPath = ''
     if (-not $env:CBCI_PACKAGING_INDEX) {
+        # A local artifact is installed by path with npm; the other knobs only mean
+        # something against a registry.
+        if ($pm -ne 'npm') { Die "validate: package manager $pm needs registry mode (CBCI_PACKAGING_INDEX)" }
+        if ($ignoreScripts) { Die 'validate: CBCI_VALIDATE_IGNORE_SCRIPTS needs registry mode; a local prebuild only installs through scripts/install.js' }
         $sdistTgz = Get-ChildItem (Join-Path $PROJECT_ROOT '*.tgz') -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $sdistTgz) { Die "validate: no *.tgz found under $PROJECT_ROOT (build sdist first?)" }
         $sdistPath = $sdistTgz.FullName
@@ -802,10 +840,16 @@ function Task-Validate {
     }
 
     foreach ($itype in ($env:CBCI_VALIDATE_INSTALL_TYPES -split ',')) {
+        if ($itype -eq 'sdist') {
+            # sdist means --omit=optional, which only npm has.
+            if ($pm -ne 'npm') { Die "validate: install_type sdist is npm-only (got $pm)" }
+            # The from-source fallback IS the install script, so this would fail by design.
+            if ($ignoreScripts) { Die 'validate: install_type sdist cannot run with CBCI_VALIDATE_IGNORE_SCRIPTS (the source build is the install script)' }
+        }
         Invoke-ValidateOne $itype $sdistPath
         Log "validate: $itype OK"
     }
-    Log "validate: all install types passed ($env:CBCI_VALIDATE_INSTALL_TYPES)"
+    Log "validate: all install types passed ($($env:CBCI_VALIDATE_INSTALL_TYPES), $pm)"
 }
 
 # --- test: NOTHING IS COMPILED HERE - `test` consumes the prebuild the `prebuild` stage

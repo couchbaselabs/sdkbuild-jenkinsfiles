@@ -713,13 +713,282 @@ def validate_env(cfg: Config) -> Dict[str, str]:
     build = cfg.raw.get("build", {})
     install_types = test.get("install_types", ["sdist", "wheel"])
     ssl = str(build.get("ssl", "boringssl")).lower()
+    kv_env = os.environ.get("CBCI_VALIDATE_KV")
+    kv = _as_bool(kv_env) if kv_env else bool((test.get("validate") or {}).get("kv_smoke", False))
+    # GoCAVES mocks the Couchbase server, so only the couchbase package has anything to
+    # round-trip against it. Elsewhere the request is dropped rather than failing the cell.
+    if kv and resolve_project(cfg) != "PYCBC":
+        print(f"[validate] KV smoke is PYCBC-only; skipped for {resolve_project(cfg)}", file=sys.stderr)
+        kv = False
     return {
         "CBCI_VALIDATE_INSTALL_TYPES": ",".join(install_types),
         "CBCI_VALIDATE_PACKAGE": names["dist"],
         "CBCI_VALIDATE_IMPORT": names["import"],
         "CBCI_VALIDATE_HAS_METADATA": "true" if names["metadata"] else "false",
         "CBCI_VALIDATE_SSL": ssl,
+        "CBCI_VALIDATE_KV": "true" if kv else "false",
+        "CBCI_VALIDATE_CAVES_VERSION": gocaves_version(cfg),
     }
+
+
+GOCAVES_URL = "https://github.com/couchbaselabs/gocaves/releases/download"
+GOCAVES_DEFAULT_VERSION = "v0.0.1-78"
+
+
+def gocaves_version(cfg: Config) -> str:
+    """The one GoCAVES release both the unit tests and the validate KV smoke run against."""
+    validate = cfg.raw.get("test", {}).get("validate") or {}
+    return str(validate.get("gocaves_version") or GOCAVES_DEFAULT_VERSION)
+
+
+# The validate smoke check, emitted by `engine.py validate-smoke` for tasks.sh and tasks.ps1
+# to run inside the CLEAN venv, so it is stdlib-only and reads every fact from env. Pure
+# ASCII, because tasks.ps1 captures it through the console encoding.
+#
+# 1. Import the package. On failure, name what shipped against what this interpreter accepts.
+# 2. In index mode, the installed version must be CBCI_VERSION exactly.
+# 3. get_metadata(detailed=True) must work. Its SSL backend is only WARNED on: the metadata
+#    schema is the C++ core's, not a contract this package makes.
+# 4. With CBCI_VALIDATE_KV=true, a KV round-trip against GoCAVES. The binary is downloaded by
+#    the task runner (CBCI_VALIDATE_CAVES_BIN): a clean venv has no certifi, and some python
+#    builds cannot verify TLS without it.
+VALIDATE_SMOKE = r'''import importlib
+import json
+import os
+import pprint
+import re
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+ENV = os.environ
+
+
+def log(msg):
+    print(f"[validate] {msg}", flush=True)
+
+
+def warn(msg):
+    print(f"[validate] WARNING: {msg}", file=sys.stderr, flush=True)
+
+
+def dump_extension_modules(mod):
+    """Name the cause of a failed import: what shipped vs what this interpreter accepts.
+
+    An extension whose FILENAME is not an importable suffix fails identically to one that
+    was never built. Windows is the trap: it has no '.abi3.pyd' suffix (only '.pyd'), so a
+    stable-ABI module named the POSIX way is invisible to the importer. Validate failing
+    also means the run never reaches archiving, so this is the only look inside the
+    artifact anyone gets.
+    """
+    import importlib.machinery as machinery
+    import importlib.util as util
+    print(f"[validate] import failed; suffixes this interpreter accepts: "
+          f"{machinery.EXTENSION_SUFFIXES}", file=sys.stderr)
+    try:
+        roots = list(util.find_spec(mod).submodule_search_locations or [])
+    except Exception as exc:
+        print(f"[validate]   could not locate '{mod}' on disk: {exc!r}", file=sys.stderr)
+        return
+    found = 0
+    for root in roots:
+        for dirpath, _, names in os.walk(root):
+            for name in sorted(names):
+                if os.path.splitext(name)[1].lower() in (".so", ".pyd", ".dylib"):
+                    found += 1
+                    rel = os.path.join(os.path.relpath(dirpath, root), name)
+                    print(f"[validate]   shipped: {rel}", file=sys.stderr)
+    if not found:
+        print(f"[validate]   shipped: NO extension modules under {roots} "
+              f"(the build produced none, or they were left out of the artifact)", file=sys.stderr)
+
+
+def canonical_version(v):
+    """Enough of PEP 440 normalization that '4.3.4.rc1' and '4.3.4rc1' compare equal."""
+    v = v.strip().lower().lstrip("v").replace("-", ".").replace("_", ".")
+    v = re.sub(r"(?<![a-z])(alpha|beta|preview|pre|c)(?=\.?\d)",
+               lambda m: {"alpha": "a", "beta": "b"}.get(m.group(1), "rc"), v)
+    return re.sub(r"\.?(a|b|rc)\.?(\d)", r"\1\2", v)
+
+
+def check_version(dist):
+    from importlib import metadata
+    got = metadata.version(dist)
+    log(f"installed {dist}=={got}")
+    # Index mode only: a local artifact is whatever was just built, so there is nothing to
+    # compare it against.
+    want = (ENV.get("CBCI_VERSION") or "").strip() if ENV.get("CBCI_PACKAGING_INDEX") else ""
+    if want and canonical_version(got) != canonical_version(want):
+        raise SystemExit(f"[validate] installed {dist}=={got}, expected {want}")
+
+
+def check_ssl(md):
+    want = (ENV.get("CBCI_VALIDATE_SSL") or "").strip().lower()
+    got = str(md.get("openssl_runtime") or "") if isinstance(md, dict) else ""
+    if not want or not got:
+        warn(f"cannot check the SSL backend (expected '{want}', openssl_runtime '{got}')")
+    elif (want == "boringssl") != ("boringssl" in got.lower()):
+        warn(f"expected ssl backend '{want}', metadata openssl_runtime is '{got}'")
+    else:
+        log(f"ssl backend: {got}")
+
+
+class CavesControl:
+    """GoCAVES control protocol: we listen, GoCAVES connects to --control-port and greets
+    with {"type":"hello"}; every message either way is JSON terminated by a NUL byte."""
+
+    def __init__(self, sock):
+        self._sock = sock
+        self._buf = b""
+
+    def next(self):
+        while b"\0" not in self._buf:
+            chunk = self._sock.recv(65536)
+            if not chunk:
+                raise RuntimeError("GoCAVES closed the control connection")
+            self._buf += chunk
+        msg, self._buf = self._buf.split(b"\0", 1)
+        return json.loads(msg.decode("utf-8"))
+
+    def send(self, cmd):
+        self._sock.sendall(json.dumps(cmd).encode("utf-8") + b"\0")
+        return self.next()
+
+
+def dump_caves_output(out):
+    out.seek(0)
+    lines = out.read().decode("utf-8", "replace").rstrip().splitlines()[-40:]
+    if not lines:
+        print("[validate] GoCAVES wrote no output", file=sys.stderr)
+        return
+    print("[validate] GoCAVES output (last 40 lines):", file=sys.stderr)
+    # GoCAVES logs whole packets; the head of each line is the part that reads.
+    for line in lines:
+        print(f"[validate]   {line[:240]}", file=sys.stderr)
+
+
+def expect_error(op, cls):
+    # Any other error propagates as itself, so a timeout stays visible to the retry.
+    try:
+        op()
+    except cls:
+        return
+    raise AssertionError(f"expected {cls.__name__}, but the operation succeeded")
+
+
+def check(cond, what):
+    if not cond:
+        raise AssertionError(what)
+
+
+def kv_ops(cbex, cluster, key):
+    """One attempt, on its own key: a timed-out insert may still have landed, so a retry on
+    the same key could fail with DocumentExistsException for a reason that is not the SDK's."""
+    coll = cluster.bucket("default").default_collection()
+    doc = {"a": "aa", "b": 1, "c": ["foo", "bar"], "what": "insert"}
+    expect_error(lambda: coll.get(key), cbex.DocumentNotFoundException)
+    check(coll.insert(key, doc).cas, "insert returned no cas")
+    check(coll.get(key).content_as[dict] == doc, "get after insert returned a different doc")
+    expect_error(lambda: coll.insert(key, doc), cbex.DocumentExistsException)
+    doc["what"] = "upsert"
+    check(coll.upsert(key, doc).cas, "upsert returned no cas")
+    check(coll.get(key).content_as[dict] == doc, "get after upsert returned a different doc")
+    doc["what"] = "replace"
+    check(coll.replace(key, doc).cas, "replace returned no cas")
+    check(coll.get(key).content_as[dict] == doc, "get after replace returned a different doc")
+    check(coll.remove(key).cas, "remove returned no cas")
+    expect_error(lambda: coll.get(key), cbex.DocumentNotFoundException)
+
+
+def kv_round_trip():
+    binary = ENV.get("CBCI_VALIDATE_CAVES_BIN") or ""
+    if not os.path.isfile(binary):
+        raise SystemExit(f"[validate] CBCI_VALIDATE_CAVES_BIN is not a file: '{binary}'")
+
+    from couchbase import exceptions as cbex
+    from couchbase.auth import PasswordAuthenticator
+    from couchbase.cluster import Cluster
+    from couchbase.options import ClusterOptions
+    timeouts = tuple(getattr(cbex, n) for n in
+                     ("AmbiguousTimeoutException", "UnAmbiguousTimeoutException", "TimeoutException")
+                     if hasattr(cbex, n))
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+    listener.settimeout(30)
+    out = tempfile.TemporaryFile()
+    proc = subprocess.Popen([binary, f"--control-port={listener.getsockname()[1]}"],
+                            stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT)
+    sock = None
+    try:
+        try:
+            sock, _ = listener.accept()
+        except socket.timeout:
+            raise RuntimeError("GoCAVES never connected to the control port")
+        sock.settimeout(30)
+        caves = CavesControl(sock)
+        hello = caves.next()
+        check(hello.get("type") == "hello", f"GoCAVES did not greet: {hello}")
+        created = caves.send({"type": "createcluster", "id": "validate"})
+        check(created.get("connstr"), f"createcluster returned no connstr: {created}")
+
+        # Timeouts only, connect included, which a slow agent or a mock still settling can
+        # produce. Any other error is a real failure and is not retried.
+        attempts = 5
+        for i in range(1, attempts + 1):
+            try:
+                cluster = Cluster.connect(created["connstr"],
+                                          ClusterOptions(PasswordAuthenticator("Administrator", "password")))
+                try:
+                    kv_ops(cbex, cluster, f"cbci-validate-{i}")
+                finally:
+                    cluster.close()
+                break
+            except timeouts as exc:
+                if i >= attempts:
+                    raise
+                warn(f"KV attempt {i}/{attempts} timed out ({exc}); retrying")
+                time.sleep(i)
+    except BaseException:
+        dump_caves_output(out)
+        raise
+    finally:
+        if sock is not None:
+            sock.close()
+        listener.close()
+        proc.kill()
+        proc.wait()
+        out.close()
+
+
+def main():
+    mod = ENV["CBCI_VALIDATE_IMPORT"]
+    try:
+        m = importlib.import_module(mod)
+    except ImportError:
+        dump_extension_modules(mod)
+        raise
+    log(f"imported {mod} from {getattr(m, '__file__', '?')}")
+    check_version(ENV["CBCI_VALIDATE_PACKAGE"])
+
+    if ENV.get("CBCI_VALIDATE_HAS_METADATA") == "true":
+        md = m.get_metadata(detailed=True)
+        log("get_metadata(detailed=True):")
+        pprint.pprint(md)
+        sys.stdout.flush()
+        check_ssl(md)
+
+    if ENV.get("CBCI_VALIDATE_KV") == "true":
+        kv_round_trip()
+        log("KV round-trip against GoCAVES OK")
+
+    log("smoke OK")
+
+
+main()
+'''
 
 
 def _resolve_publish_dry_run(cfg: Config) -> bool:
@@ -1311,8 +1580,8 @@ def _build_test_config_ini(prefix: str, cfg: Config) -> str:
         "",
         "[gocaves]",
         f"enabled = {mock_enabled}",
-        "version = v0.0.1-78",
-        "url = https://github.com/couchbaselabs/gocaves/releases/download",
+        f"version = {gocaves_version(cfg)}",
+        f"url = {GOCAVES_URL}",
         "",
     ])
 
@@ -1558,6 +1827,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub.add_parser("validate-config", help="load + merge + validate config, exit non-zero on error")
     sub.add_parser("project-env", help="emit CBCI_* project facts as KEY=VALUE pairs")
     sub.add_parser("validate-env", help="emit CBCI_VALIDATE_* facts for the validate stage")
+    sub.add_parser("validate-smoke", help="emit the validate smoke script (stdlib-only Python)")
     sub.add_parser("publish-env", help="emit CBCI_PUBLISH_* facts for the publish stage")
 
     p_build_env = sub.add_parser("build-env", help="emit {PREFIX}_* build knobs as KEY=VALUE pairs")
@@ -1594,6 +1864,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         _emit_pairs(project_env(cfg))
     elif args.cmd == "validate-env":
         _emit_pairs(validate_env(cfg))
+    elif args.cmd == "validate-smoke":
+        sys.stdout.write(VALIDATE_SMOKE)
     elif args.cmd == "publish-env":
         _emit_pairs(publish_env(cfg))
     elif args.cmd == "build-env":

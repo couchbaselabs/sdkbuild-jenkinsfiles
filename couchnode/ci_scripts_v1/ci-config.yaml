@@ -65,6 +65,17 @@ test:
   cluster: mock                          # mock (CouchbaseMock.jar) | realserver
   skip_integration: true                 # gate for the (later) integration pipeline
 
+  # The validate stage: install, require, cbppMetadata, and optionally a KV round-trip.
+  validate:
+    kv_smoke: false                # KV round-trip against GoCAVES; release-verify turns it on
+    gocaves_version: v0.0.1-78
+    yarn_linker: pnp               # pnp | node-modules (Berry only; pnp is Berry's own default)
+    # corepack specs for registry-mode installs with CBCI_VALIDATE_PACKAGE_MANAGER=yarn|yarn-classic
+    yarn:
+      berry: stable                # Node >= 18.12
+      berry_below_node18: 3.6.1    # Yarn 4 needs Node >= 18.12
+      classic: 1.22.22
+
   mocha:
     cmd: "npm run test"
     # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1

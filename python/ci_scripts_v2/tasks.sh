@@ -1462,7 +1462,9 @@ _install_built_artifact() {
     if [[ -n "${index}" ]]; then
         local index_uc; index_uc="$(printf '%s' "${index}" | tr '[:lower:]' '[:upper:]')"
         case "${index_uc}" in
-            PYPI)      src=("${pkg}${CBCI_VERSION:+==${CBCI_VERSION}}") ;;
+            # Stated even for PyPI: a stale pip.conf index-url or PIP_INDEX_URL on the agent
+            # would otherwise decide where the release under verification comes from.
+            PYPI)      src=(-i https://pypi.org/simple "${pkg}${CBCI_VERSION:+==${CBCI_VERSION}}") ;;
             TEST_PYPI) src=(-i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "${pkg}${CBCI_VERSION:+==${CBCI_VERSION}}") ;;
             *) die "install: unknown CBCI_PACKAGING_INDEX: ${index} (PYPI|TEST_PYPI)" ;;
         esac
@@ -1484,80 +1486,36 @@ _install_built_artifact() {
     fi
 }
 
-# Smoke-check the INSTALLED package in a clean venv: import it, and (PYCBC/columnar)
-# call get_metadata(detailed=True). The import proves the C extension loads + its
-# dynamic deps (BoringSSL/OpenSSL) resolve; get_metadata proves it INITIALIZES and
-# surfaces the SSL backend + version we assert against. Dependency-free (runs in the
-# clean venv where only the SDK is installed); facts arrive via env.
-_validate_smoke() {
-    local vpy="$1"
-    # -X faulthandler: names the frame when the extension faults instead of raising. The
-    # teardown path is the one that needs it (couchbase's atexit hook leaves a console logger
-    # sink to static teardown on purpose), where the process can die after the last print.
-    "${vpy}" -X faulthandler - <<'PY'
-import importlib, os, pprint, sys
-
-
-def dump_extension_modules(mod):
-    """Name the cause of a failed import: what shipped vs what this interpreter accepts.
-
-    An extension whose FILENAME is not an importable suffix fails identically to one that
-    was never built. Windows is the trap: it has no '.abi3.pyd' suffix (only '.pyd'), so a
-    stable-ABI module named the POSIX way is invisible to the importer. Validate failing
-    also means the run never reaches archiving, so this is the only look inside the
-    artifact anyone gets.
-    """
-    import importlib.machinery as machinery
-    import importlib.util as util
-    print(f"[validate] import failed; suffixes this interpreter accepts: "
-          f"{machinery.EXTENSION_SUFFIXES}", file=sys.stderr)
-    try:
-        roots = list(util.find_spec(mod).submodule_search_locations or [])
-    except Exception as exc:
-        print(f"[validate]   could not locate '{mod}' on disk: {exc!r}", file=sys.stderr)
-        return
-    found = 0
-    for root in roots:
-        for dirpath, _, names in os.walk(root):
-            for name in sorted(names):
-                if os.path.splitext(name)[1].lower() in (".so", ".pyd", ".dylib"):
-                    found += 1
-                    rel = os.path.join(os.path.relpath(dirpath, root), name)
-                    print(f"[validate]   shipped: {rel}", file=sys.stderr)
-    if not found:
-        print(f"[validate]   shipped: NO extension modules under {roots} "
-              f"(the build produced none, or they were left out of the artifact)", file=sys.stderr)
-
-
-mod = os.environ["CBCI_VALIDATE_IMPORT"]
-try:
-    m = importlib.import_module(mod)
-except ImportError:
-    dump_extension_modules(mod)
-    raise
-print(f"[validate] imported {mod} from {getattr(m, '__file__', '?')}")
-
-if os.environ.get("CBCI_VALIDATE_HAS_METADATA") == "true":
-    md = m.get_metadata(detailed=True)
-    print("[validate] get_metadata(detailed=True):")
-    pprint.pprint(md)
-    blob = repr(md).lower()
-
-    # Version: metadata formatting varies across SDK versions -> tolerant (warn).
-    want_ver = (os.environ.get("CBCI_VERSION") or "").strip().lower()
-    if want_ver and want_ver not in blob:
-        print(f"[validate] WARNING: version '{want_ver}' not found in metadata", file=sys.stderr)
-
-    # SSL backend: the build-correctness signal. Tolerant (warn) until the get_metadata
-    # schema is confirmed against a real CI build, then promote to a hard failure.
-    want_ssl = (os.environ.get("CBCI_VALIDATE_SSL") or "").strip().lower()
-    if want_ssl and want_ssl not in blob:
-        print(f"[validate] WARNING: expected ssl backend '{want_ssl}' not evident in metadata", file=sys.stderr)
-
-    print("[validate] smoke OK (extension imported + initialized)")
-else:
-    print("[validate] smoke OK (import only)")
-PY
+# The GoCAVES binary for this OS/arch, cached under the CI-core dir by version, so it
+# downloads once per agent. Fetched here rather than in the smoke: the clean venv has no
+# certifi, and some python builds cannot verify TLS without it. Prints the path.
+_validate_caves_bin() {
+    local version="${CBCI_VALIDATE_CAVES_VERSION:?validate: CBCI_VALIDATE_CAVES_VERSION unset}" asset
+    case "$(uname -s)/$(uname -m)" in
+        Linux/x86_64)          asset="gocaves-linux-amd64" ;;
+        Linux/aarch64|Linux/arm64) asset="gocaves-linux-arm64" ;;
+        Darwin/arm64)          asset="gocaves-macos-arm64" ;;
+        Darwin/x86_64)         asset="gocaves-macos" ;;
+        *) die "validate: no GoCAVES build for $(uname -s)/$(uname -m)" ;;
+    esac
+    local dir="${SCRIPT_DIR}/.gocaves/${version}"
+    local bin="${dir}/${asset}"
+    if [[ ! -s "${bin}" ]]; then
+        mkdir -p "${dir}"
+        local url="https://github.com/couchbaselabs/gocaves/releases/download/${version}/${asset}"
+        local partial="${bin}.$$.partial"
+        log "validate: fetching ${url}" >&2
+        # A temp name and a rename, so an interrupted fetch never leaves a truncated binary
+        # for the next run to trust.
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL --retry 3 -o "${partial}" "${url}" || die "validate: failed to fetch ${url}"
+        else
+            wget -q -O "${partial}" "${url}" || die "validate: failed to fetch ${url}"
+        fi
+        chmod +x "${partial}"
+        mv -f "${partial}" "${bin}"
+    fi
+    printf '%s\n' "${bin}"
 }
 
 task_validate() {
@@ -1576,6 +1534,10 @@ task_validate() {
     # Per-job fan-out: the adapter sets CBCI_INSTALL_TYPE to run ONE type per Jenkins
     # job; unset (local runs) -> all types from config.
     [[ -n "${CBCI_INSTALL_TYPE:-}" ]] && CBCI_VALIDATE_INSTALL_TYPES="${CBCI_INSTALL_TYPE}"
+    if [[ "${CBCI_VALIDATE_KV}" == "true" ]]; then
+        CBCI_VALIDATE_CAVES_BIN="$(_validate_caves_bin)" || exit 1
+        export CBCI_VALIDATE_CAVES_BIN
+    fi
 
     local itype venvroot venv vpy
     IFS=',' read -ra _types <<<"${CBCI_VALIDATE_INSTALL_TYPES}"
@@ -1584,11 +1546,17 @@ task_validate() {
         venvroot="$(mktemp -d)"; venv="${venvroot}/venv"
         _make_clean_venv "${venv}"; vpy="${venv}/bin/python"
         _install_built_artifact "${vpy}" "${itype}"
-        # Run the smoke check from a SOURCE-FREE dir: `python -` puts CWD first on
-        # sys.path, and PROJECT_ROOT holds the SDK checkout, so `import couchbase` from
-        # here would resolve to the (uncompiled) repo source instead of the installed
-        # wheel -> ModuleNotFoundError on pycbc_core._core. venvroot has only venv/.
-        ( cd "${venvroot}" && _validate_smoke "${vpy}" )
+        # The smoke sits in venvroot and runs from there, a SOURCE-FREE dir: the script's
+        # own dir goes first on sys.path, and PROJECT_ROOT holds the SDK checkout, so
+        # `import couchbase` from there would resolve to the (uncompiled) repo source
+        # instead of the installed wheel -> ModuleNotFoundError on pycbc_core._core.
+        "${PYTHON}" "${ENGINE}" validate-smoke > "${venvroot}/smoke.py" \
+            || die "validate: failed to emit the smoke script"
+        # -X faulthandler: names the frame when the extension faults instead of raising. The
+        # teardown path is the one that needs it (couchbase's atexit hook leaves a console
+        # logger sink to static teardown on purpose), where the process can die after the
+        # last print.
+        ( cd "${venvroot}" && "${vpy}" -X faulthandler smoke.py )
         rm -rf "${venvroot}"
         log "validate: ${itype} OK"
     done

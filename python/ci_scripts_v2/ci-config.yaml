@@ -62,6 +62,10 @@ test:
   cluster: mock                                      # mock (gocaves) | realserver
   skip_integration: true       # gate for the integration pipeline
 
+  validate:
+    kv_smoke: false            # KV round-trip against GoCAVES (PYCBC only); release-verify turns it on
+    gocaves_version: v0.0.1-78 # also the version the unit tests' mock runs
+
   pytest:
     log_level: ""            # SDK log level during tests (trace|debug|info|warning|error|critical); "" = off. Overridden by TEST_LOGGING -> CBCI_TEST_LOG_LEVEL.
     # Default = couchbase (classic) API only: it's the most widely used, so it gates every build.

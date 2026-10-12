@@ -470,13 +470,54 @@ export function prebuildSelectEnv(cfg) {
   return out;
 }
 
-/** Facts tasks.sh needs to drive `validate` (install the built prebuild into a
- * clean env and smoke-require it). */
-export function validateEnv(cfg) {
+export const VALID_PACKAGE_MANAGERS = ['npm', 'yarn', 'yarn-classic'];
+export const VALID_YARN_LINKERS = ['pnp', 'node-modules'];
+const DEFAULT_NPM_REGISTRY = 'https://registry.npmjs.org';
+
+// Yarn 4 needs Node >= 18.12; below that, Berry is pinned to the last 3.x.
+const YARN4_MIN_NODE = '18.12.0';
+
+// cmake-js@8's engines field (^20.17.0 || >=22.9.0). Yarn classic enforces engines as a hard
+// error, so below this floor it needs --ignore-engines; npm and Berry only warn.
+function meetsCmakeJsEngines(nodeVersion) {
+  const major = parseInt(String(nodeVersion).split('.')[0], 10);
+  if (major === 20) return cmpVersionTriples(nodeVersion, '20.17.0') >= 0;
+  return cmpVersionTriples(nodeVersion, '22.9.0') >= 0;
+}
+
+/** Facts tasks.sh needs to drive `validate` (install the built prebuild, or in registry
+ * mode the published package, into a clean env and smoke it). `nodeVersion` is the node
+ * running this, which is the node the install runs under: it picks the yarn release and
+ * whether yarn classic needs --ignore-engines. */
+export function validateEnv(cfg, nodeVersion = process.versions.node) {
   const test = cfg.raw.test || {};
   const build = cfg.raw.build || {};
+  const validate = test.validate || {};
+  const yarn = validate.yarn || {};
   const installTypes = test.install_types || ['prebuild', 'sdist'];
   const ssl = String(build.ssl || 'boringssl').toLowerCase();
+
+  const pm = String(process.env.CBCI_VALIDATE_PACKAGE_MANAGER || 'npm').trim().toLowerCase();
+  if (!VALID_PACKAGE_MANAGERS.includes(pm)) {
+    throw new Error(`CBCI_VALIDATE_PACKAGE_MANAGER must be ${VALID_PACKAGE_MANAGERS.join('|')} (got '${pm}')`);
+  }
+  const linker = String(process.env.CBCI_VALIDATE_YARN_LINKER || validate.yarn_linker || 'pnp')
+    .trim().toLowerCase();
+  if (!VALID_YARN_LINKERS.includes(linker)) {
+    throw new Error(`CBCI_VALIDATE_YARN_LINKER must be ${VALID_YARN_LINKERS.join('|')} (got '${linker}')`);
+  }
+  let pmSpec = '';
+  if (pm === 'yarn') {
+    const berry = cmpVersionTriples(nodeVersion, YARN4_MIN_NODE) >= 0
+      ? (yarn.berry || 'stable') : (yarn.berry_below_node18 || '3.6.1');
+    pmSpec = `yarn@${berry}`;
+  } else if (pm === 'yarn-classic') {
+    pmSpec = `yarn@${yarn.classic || '1.22.22'}`;
+  }
+
+  const registry = String(process.env.CBCI_NPM_REGISTRY || DEFAULT_NPM_REGISTRY).trim();
+  const kv = process.env.CBCI_VALIDATE_KV !== undefined && process.env.CBCI_VALIDATE_KV !== ''
+    ? asBool(process.env.CBCI_VALIDATE_KV) : Boolean(validate.kv_smoke);
   return {
     CBCI_VALIDATE_INSTALL_TYPES: installTypes.join(','),
     // The npm install spec, unscoped. The scope '@couchbase' belongs to the platform
@@ -485,7 +526,347 @@ export function validateEnv(cfg) {
     CBCI_VALIDATE_PACKAGE_NAME: 'couchbase',
     CBCI_VALIDATE_IMPORT: 'couchbase',
     CBCI_VALIDATE_SSL: ssl,
+    CBCI_VALIDATE_PACKAGE_MANAGER: pm,
+    // A corepack spec ('yarn@stable', 'yarn@1.22.22'); empty for npm.
+    CBCI_VALIDATE_PM_SPEC: pmSpec,
+    CBCI_VALIDATE_YARN_LINKER: linker,
+    CBCI_VALIDATE_IGNORE_ENGINES: String(pm === 'yarn-classic' && !meetsCmakeJsEngines(nodeVersion)),
+    CBCI_VALIDATE_IGNORE_SCRIPTS: String(asBool(process.env.CBCI_VALIDATE_IGNORE_SCRIPTS || '')),
+    CBCI_VALIDATE_PRUNE: String(asBool(process.env.CBCI_VALIDATE_PRUNE || '')),
+    CBCI_VALIDATE_KV: String(kv),
+    CBCI_VALIDATE_CAVES_VERSION: String(validate.gocaves_version || 'v0.0.1-78'),
+    // Registry mode only. Always explicit, so a stale registry in an agent's ~/.npmrc or
+    // ~/.yarnrc.yml cannot decide where the package comes from.
+    CBCI_VALIDATE_REGISTRY: registry,
+    // Yarn Berry refuses plain-http registries unless the host is whitelisted.
+    CBCI_VALIDATE_REGISTRY_HTTP_HOST: registry.startsWith('http://') ? new URL(registry).host : '',
   };
+}
+
+/* The validate smoke check. Never called here: validateSmokeScript() emits its source, which
+ * tasks.sh/tasks.ps1 stage in the install dir and run with `node` (or `yarn node`, so Yarn
+ * PnP can resolve). Plain CommonJS that runs on every supported Node (16+), and pure ASCII
+ * because tasks.ps1 captures it through the console encoding.
+ *
+ * 1. require the package. On failure, name what actually shipped: the loader's own error
+ *    ("Could not find native build for platform=...") reports only what it WANTED.
+ * 2. In registry mode, the installed version must be CBCI_VERSION exactly.
+ * 3. cbppMetadata must parse as JSON. It comes from the native binding, so this also proves
+ *    the addon loaded rather than just the JS wrapper. Its SSL backend is only WARNED on:
+ *    the metadata schema is the C++ core's, not a contract this package makes.
+ * 4. With CBCI_VALIDATE_KV=true, a KV round-trip against a GoCAVES mock. GoCAVES ships one
+ *    static binary per platform, so the agent needs nothing installed (no java). */
+function validateSmoke() {
+  const fs = require('fs');
+  const path = require('path');
+  const https = require('https');
+  const net = require('net');
+  const assert = require('assert');
+  const { spawn } = require('child_process');
+  const { createRequire } = require('module');
+  const env = process.env;
+
+  function dumpAddons() {
+    const facts = [`node ${process.versions.node}`, `Node-API ${process.versions.napi}`,
+      `${process.platform}/${process.arch}`, `ssl=${env.CBCI_VALIDATE_SSL || '?'}`];
+    if (process.platform === 'linux') {
+      // Only linux splits the prebuild's platform token by libc, and it is the token most
+      // likely to be wrong (a manylinux binary in an alpine container, or the reverse).
+      const report = typeof process.report?.getReport === 'function' ? process.report.getReport() : null;
+      const glibc = report?.header?.glibcVersionRuntime;
+      facts.push(glibc ? `glibc ${glibc}` : 'musl (no glibc runtime reported)');
+    }
+    console.error(`[validate] load failed on ${facts.join(', ')}`);
+
+    const found = [];
+    const walk = (dir) => {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+      for (const e of entries) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (e.name.endsWith('.node')) found.push(p);
+      }
+    };
+    // Yarn PnP has no node_modules; packages with native files are unplugged instead.
+    walk('node_modules');
+    walk(path.join('.yarn', 'unplugged'));
+
+    if (!found.length) {
+      console.error('[validate]   shipped: NO .node addon under node_modules/ or .yarn/unplugged/ '
+        + '(the prebuild never landed, or a source build was expected and did not produce one)');
+      return;
+    }
+    // The loader matches on the FILENAME's tokens, so the name is the diagnosis:
+    //   couchbase-v<pkg>-<runtime>-v<abi>-<platform|libc>-<arch>-<ssl>.node
+    // A mismatch in any one of them (musl vs glibc, openssl3 vs boringssl, arch) presents
+    // as "no native build found", identical to nothing having shipped at all.
+    for (const p of found) console.error(`[validate]   shipped: ${p}`);
+  }
+
+  function cavesAsset() {
+    const arm = process.arch === 'arm64';
+    if (process.platform === 'linux') return arm ? 'gocaves-linux-arm64' : 'gocaves-linux-amd64';
+    if (process.platform === 'darwin') return arm ? 'gocaves-macos-arm64' : 'gocaves-macos';
+    if (process.platform === 'win32') return arm ? 'gocaves-windows-arm64.exe' : 'gocaves-windows.exe';
+    throw new Error(`no GoCAVES build for ${process.platform}/${process.arch}`);
+  }
+
+  function download(url, dest, redirects) {
+    return new Promise((resolve, reject) => {
+      const req = https.get(url, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          res.resume();
+          if (redirects >= 5) { reject(new Error(`too many redirects fetching ${url}`)); return; }
+          resolve(download(new URL(res.headers.location, url).toString(), dest, redirects + 1));
+          return;
+        }
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`GET ${url} returned HTTP ${res.statusCode}`));
+          return;
+        }
+        const out = fs.createWriteStream(dest);
+        res.pipe(out);
+        out.on('finish', () => out.close(resolve));
+        out.on('error', reject);
+        res.on('error', reject);
+      });
+      req.setTimeout(120000, () => req.destroy(new Error(`timed out fetching ${url}`)));
+      req.on('error', reject);
+    });
+  }
+
+  // Cached across runs on the same agent, keyed by version. Downloaded to a temp name and
+  // renamed, so an interrupted fetch never leaves a truncated binary behind for the next run.
+  async function cavesBinary() {
+    const version = env.CBCI_VALIDATE_CAVES_VERSION;
+    const asset = cavesAsset();
+    const dir = path.join(env.CBCI_VALIDATE_CAVES_DIR || path.join(require('os').tmpdir(), 'cbci-gocaves'), version);
+    const bin = path.join(dir, asset);
+    if (fs.existsSync(bin) && fs.statSync(bin).size > 0) return bin;
+    fs.mkdirSync(dir, { recursive: true });
+    const url = `https://github.com/couchbaselabs/gocaves/releases/download/${version}/${asset}`;
+    console.log(`[validate] fetching ${url}`);
+    const partial = `${bin}.${process.pid}.partial`;
+    await download(url, partial, 0);
+    fs.chmodSync(partial, 0o755);
+    fs.renameSync(partial, bin);
+    return bin;
+  }
+
+  // GoCAVES control protocol: we listen, GoCAVES connects to --control-port and greets with
+  // {"type":"hello"}; every message either way is JSON terminated by a NUL byte.
+  function startCaves(bin) {
+    return new Promise((resolve, reject) => {
+      const server = net.createServer();
+      let proc;
+      const timer = setTimeout(() => {
+        server.close();
+        if (proc) {
+          dumpCavesOutput(proc);
+          proc.kill();
+        }
+        reject(new Error('GoCAVES never connected to the control port'));
+      }, 30000);
+      server.once('connection', (sock) => {
+        clearTimeout(timer);
+        server.close();
+        let buf = Buffer.alloc(0);
+        const waiters = [];
+        sock.on('data', (d) => {
+          buf = Buffer.concat([buf, d]);
+          let i;
+          while ((i = buf.indexOf(0)) >= 0) {
+            const msg = JSON.parse(buf.subarray(0, i).toString());
+            buf = buf.subarray(i + 1);
+            const w = waiters.shift();
+            if (w) w(msg);
+          }
+        });
+        const next = () => new Promise((res) => waiters.push(res));
+        const send = (cmd) => { sock.write(`${JSON.stringify(cmd)}\0`); return next(); };
+        resolve({ proc, sock, next, send });
+      });
+      server.on('error', reject);
+      server.listen(0, '127.0.0.1', () => {
+        proc = spawn(bin, [`--control-port=${server.address().port}`],
+          { stdio: ['ignore', 'pipe', 'pipe'] });
+        // Kept for the failure report only. Bounded, and always drained so a chatty mock
+        // can never block on a full pipe.
+        proc.output = '';
+        const keep = (d) => { proc.output = (proc.output + d.toString()).slice(-65536); };
+        proc.stdout.on('data', keep);
+        proc.stderr.on('data', keep);
+        proc.on('error', (err) => { clearTimeout(timer); server.close(); reject(err); });
+      });
+    });
+  }
+
+  function dumpCavesOutput(proc) {
+    const lines = (proc?.output || '').trimEnd().split('\n').slice(-40);
+    if (!lines[0]) {
+      console.error('[validate] GoCAVES wrote no output');
+      return;
+    }
+    console.error('[validate] GoCAVES output (last 40 lines):');
+    // GoCAVES logs whole packets; the head of each line is the part that reads.
+    for (const line of lines) console.error(`[validate]   ${line.slice(0, 240)}`);
+  }
+
+  // assert.rejects would turn a timeout into an AssertionError, hiding it from the retry.
+  // Any error other than the expected one is rethrown as itself.
+  async function expectError(promise, cls) {
+    try {
+      await promise;
+    } catch (err) {
+      if (err instanceof cls) return;
+      throw err;
+    }
+    throw new assert.AssertionError({ message: `expected ${cls.name}, but the operation succeeded` });
+  }
+
+  // One attempt, on its own key: a timed-out insert may still have landed, so a retry on
+  // the same key could fail with DocumentExistsError for a reason that is not the SDK's.
+  async function kvOps(couchbase, cluster, key) {
+    const coll = cluster.bucket('default').defaultCollection();
+    const doc = { a: 'aa', b: 1, c: ['foo', 'bar'], what: 'insert' };
+    await expectError(coll.get(key), couchbase.DocumentNotFoundError);
+    assert.ok((await coll.insert(key, doc)).cas, 'insert returned no cas');
+    assert.deepStrictEqual((await coll.get(key)).content, doc);
+    await expectError(coll.insert(key, doc), couchbase.DocumentExistsError);
+    doc.what = 'upsert';
+    assert.ok((await coll.upsert(key, doc)).cas, 'upsert returned no cas');
+    assert.deepStrictEqual((await coll.get(key)).content, doc);
+    doc.what = 'replace';
+    assert.ok((await coll.replace(key, doc)).cas, 'replace returned no cas');
+    assert.deepStrictEqual((await coll.get(key)).content, doc);
+    assert.ok((await coll.remove(key)).cas, 'remove returned no cas');
+    await expectError(coll.get(key), couchbase.DocumentNotFoundError);
+  }
+
+  async function kvRoundTrip(couchbase) {
+    const caves = await startCaves(await cavesBinary());
+    try {
+      const hello = await caves.next();
+      assert.strictEqual(hello.type, 'hello', `GoCAVES did not greet: ${JSON.stringify(hello)}`);
+      const created = await caves.send({ type: 'createcluster', id: 'validate' });
+      assert.ok(created.connstr, `createcluster returned no connstr: ${JSON.stringify(created)}`);
+
+      // Timeouts only, connect included, which a slow agent or a mock still settling can
+      // produce. Any other error is a real failure and is not retried.
+      const attempts = 5;
+      for (let i = 1; ; i++) {
+        try {
+          const cluster = await couchbase.connect(created.connstr,
+            { username: 'Administrator', password: 'password' });
+          try {
+            await kvOps(couchbase, cluster, `cbci-validate-${i}`);
+          } finally {
+            await cluster.close();
+          }
+          break;
+        } catch (err) {
+          if (i >= attempts || !(err instanceof couchbase.TimeoutError)) throw err;
+          console.error(`[validate] KV attempt ${i}/${attempts} timed out (${err.message}); retrying`);
+          await new Promise((r) => setTimeout(r, 1000 * i));
+        }
+      }
+    } catch (err) {
+      dumpCavesOutput(caves.proc);
+      throw err;
+    } finally {
+      caves.sock.destroy();
+      caves.proc.kill();
+    }
+  }
+
+  // The package's own package.json. Requiring it directly is the common case; walking up
+  // from the entry point covers a package whose `exports` map does not list it.
+  function installedVersion(req, mod) {
+    try {
+      return req(`${mod}/package.json`).version;
+    } catch {
+      let dir = path.dirname(req.resolve(mod));
+      for (;;) {
+        const p = path.join(dir, 'package.json');
+        if (fs.existsSync(p)) {
+          const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+          if (pkg.name === mod) return pkg.version;
+        }
+        const up = path.dirname(dir);
+        if (up === dir) return undefined;
+        dir = up;
+      }
+    }
+  }
+
+  function checkSsl(meta) {
+    const want = (env.CBCI_VALIDATE_SSL || '').toLowerCase();
+    const got = String(meta.openssl_runtime || '');
+    if (!want || !got) {
+      console.error(`[validate] WARNING: cannot check the SSL backend (expected '${want}', `
+        + `openssl_runtime '${got}')`);
+      return;
+    }
+    const isBoring = /boringssl/i.test(got);
+    if ((want === 'boringssl') !== isBoring) {
+      console.error(`[validate] WARNING: expected ssl backend '${want}', `
+        + `metadata openssl_runtime is '${got}'`);
+    } else {
+      console.log(`[validate] ssl backend: ${got}`);
+    }
+  }
+
+  async function main() {
+    const mod = env.CBCI_VALIDATE_IMPORT || 'couchbase';
+    // Resolve from the install dir (cwd), never from this script's own location.
+    const req = createRequire(path.join(process.cwd(), 'package.json'));
+    let pkg;
+    try {
+      pkg = req(mod);
+    } catch (err) {
+      dumpAddons();
+      throw err;
+    }
+    if (typeof pkg.connect !== 'function') throw new Error(`${mod} module missing connect()`);
+    console.log(`[validate] required ${mod} OK, connect() present`);
+
+    const version = installedVersion(req, mod);
+    console.log(`[validate] installed ${mod}@${version}`);
+    // Registry mode only: a local artifact is whatever was just packed, so there is nothing
+    // to compare it against.
+    const want = env.CBCI_PACKAGING_INDEX ? env.CBCI_VERSION : '';
+    if (want && version !== want) {
+      throw new Error(`installed ${mod}@${version}, expected ${want}`);
+    }
+
+    let meta;
+    try {
+      meta = JSON.parse(pkg.cbppMetadata);
+    } catch (err) {
+      throw new Error(`cbppMetadata is not valid JSON: ${err.message}`);
+    }
+    console.log(`[validate] cbppMetadata: ${JSON.stringify(meta)}`);
+    checkSsl(meta);
+
+    if (env.CBCI_VALIDATE_KV === 'true') {
+      await kvRoundTrip(pkg);
+      console.log('[validate] KV round-trip against GoCAVES OK');
+    }
+  }
+
+  // Explicit exits: a lingering handle (a socket, the child) must not hang the stage, and a
+  // failure must never end with exit 0.
+  main().then(() => process.exit(0), (err) => {
+    console.error('[validate] smoke failed:', err);
+    process.exit(1);
+  });
+}
+
+/** Source of the validate smoke check, as a standalone CommonJS script. */
+export function validateSmokeScript() {
+  return `'use strict';\n(${validateSmoke.toString()})();\n`;
 }
 
 function resolvePublishDryRun(cfg) {
@@ -705,6 +1086,11 @@ export function validateConfig(cfg) {
     warnings.push('build.ssl=openssl but build.openssl_version is unset');
   }
 
+  const validate = cfg.raw.test?.validate || {};
+  if (validate.yarn_linker !== undefined && !VALID_YARN_LINKERS.includes(validate.yarn_linker)) {
+    errors.push(`test.validate.yarn_linker must be ${VALID_YARN_LINKERS.join('|')} (got '${validate.yarn_linker}')`);
+  }
+
   const napi = build.napi_version;
   if (napi !== undefined && (!Number.isInteger(napi) || napi < 1)) {
     errors.push(`build.napi_version must be a positive integer (got ${JSON.stringify(napi)})`);
@@ -784,7 +1170,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|validate-env|publish-env|test-cmds|requires-java>\n'
+    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|requires-java>\n'
   );
 }
 
@@ -833,7 +1219,15 @@ export function main(argv = process.argv.slice(2)) {
       emitLines(prebuildSelectEnv(cfg));
       break;
     case 'validate-env':
-      emitPairs(validateEnv(cfg));
+      try {
+        emitPairs(validateEnv(cfg));
+      } catch (err) {
+        process.stderr.write(`ERROR: ${err.message}\n`);
+        return 1;
+      }
+      break;
+    case 'validate-smoke':
+      process.stdout.write(validateSmokeScript());
       break;
     case 'publish-env':
       emitPairs(publishEnv(cfg));
