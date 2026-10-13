@@ -413,6 +413,37 @@ def matrices(config_path: Optional[str] = None) -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+_PUBLISH_TARGETS = ("both", "pypi", "test_pypi")
+
+
+def _apply_publish_target(flags: Dict[str, bool]) -> Dict[str, bool]:
+    """Narrow the index flags to CBCI_PUBLISH_TARGET (the publish workflow's choice input).
+
+    Empty or `both` leaves the config's flags as they are. `pypi` drops TestPyPI. `test_pypi`
+    drops PyPI and the API docs too: the docs are published for a version on PyPI, and a
+    TestPyPI-only run (an RC rehearsal, a trusted-publishing check) puts nothing there.
+
+    Like the promoted vars, this narrows only. Naming an index the config already turned off
+    is fatal rather than a run that publishes nothing and still reports green.
+    """
+    target = (os.environ.get("CBCI_PUBLISH_TARGET") or "").strip().lower()
+    if target in ("", "both"):
+        return flags
+    if target not in _PUBLISH_TARGETS:
+        _fail(f"CBCI_PUBLISH_TARGET must be one of {list(_PUBLISH_TARGETS)}; got: {target}")
+    want = "publish_pypi" if target == "pypi" else "publish_test_pypi"
+    if not flags[want]:
+        _fail(f"CBCI_PUBLISH_TARGET={target}, but the merged config sets {want}: false, "
+              f"so the run would publish nothing")
+    out = dict(flags)
+    if target == "pypi":
+        out["publish_test_pypi"] = False
+    else:
+        out["publish_pypi"] = False
+        out["publish_api_docs"] = False
+    return out
+
+
 def publish_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     """Which publish jobs this run should execute, as the `{"publish_config": {...}}` blob
     the publish workflow reads at `fromJson(...).publish_config.<key>`.
@@ -423,7 +454,8 @@ def publish_config(config_path: Optional[str] = None) -> Dict[str, Any]:
 
     The four booleans come from the merged ci-config `publish` block (so CBCI_CONFIG_OVERRIDE
     reaches them like anything else); dry-run additionally honours CBCI_PUBLISH_DRY_RUN,
-    resolved by the core. The last two are pure GHA plumbing:
+    resolved by the core, and the two index flags are then narrowed by CBCI_PUBLISH_TARGET
+    (see _apply_publish_target). The last two are pure GHA plumbing:
 
       set_git_tag   the version to tag, empty when this is not a release
       tests_run_id  a previous tests run to reuse instead of re-running the suite
@@ -433,11 +465,14 @@ def publish_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     # Via publish_env rather than the raw key, so dry-run has exactly one resolution path
     # (config, then CBCI_PUBLISH_DRY_RUN) shared with the stage that performs the upload.
     dry_run = engine.publish_env(cfg).get("CBCI_PUBLISH_DRY_RUN") == "true"
+    flags = _apply_publish_target({
+        "publish_pypi": bool(pub.get("publish_pypi", True)),
+        "publish_test_pypi": bool(pub.get("publish_test_pypi", True)),
+        "publish_api_docs": bool(pub.get("publish_api_docs", True)),
+    })
     return {
         "publish_config": {
-            "publish_pypi": bool(pub.get("publish_pypi", True)),
-            "publish_test_pypi": bool(pub.get("publish_test_pypi", True)),
-            "publish_api_docs": bool(pub.get("publish_api_docs", True)),
+            **flags,
             "publish_dry_run": dry_run,
             # Empty string, not null: the workflow compares with `!= ''` in an expression,
             # where a JSON null renders as the literal "null" and reads as set.
