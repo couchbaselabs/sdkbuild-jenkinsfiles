@@ -124,9 +124,11 @@ test:
     cbdino:
       # Keep in step with integration.server_versions above; same provenance (45afa73).
       # The `image:` key v1 carried alongside it is deliberately absent: cbdinocluster
-      # >= v0.0.80 resolves the image from the version, and the workflows pin v0.0.80, so
-      # stating one would only be a second thing to bump. v1 had already commented it out
-      # for exactly that reason.
+      # >= v0.0.80 resolves the image from the version (the workflows pin it via
+      # CBCI_CBDINO_VERSION), so stating one would only be a second thing to bump. v1 had
+      # already commented it out for exactly that reason. Moving to an Operational Insights
+      # 3.x build needs cbdinocluster >= v0.0.127, the first to map 3.x to the
+      # operational-insights image.
       version: "2.2.0-1314"
       # Both true for this project, unlike every other: the client talks to the analytics
       # service over TLS through the load balancer, and dino_certs makes the cluster serve
