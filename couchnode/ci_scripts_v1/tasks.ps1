@@ -586,8 +586,9 @@ function Task-Prebuild {
     Log "prebuild: unpacking $($sdistTgz.Name)"
     Unpack-Tarball $sdistTgz.FullName
     Clear-NodeModules
-    Log 'prebuild: restoring devDependencies (npm install --ignore-scripts)'
-    Invoke-Checked $NPM_BIN @('install', '--ignore-scripts')
+    # --legacy-peer-deps: see tasks.sh's task_prebuild (lock-file-less npm crashes on vitest's peer set).
+    Log 'prebuild: restoring devDependencies (npm install --ignore-scripts --legacy-peer-deps)'
+    Invoke-Checked $NPM_BIN @('install', '--ignore-scripts', '--legacy-peer-deps')
 
     $buildEnv = & $NODE_BIN $ENGINE build-env prebuild
     Log "prebuild build-env: $buildEnv"

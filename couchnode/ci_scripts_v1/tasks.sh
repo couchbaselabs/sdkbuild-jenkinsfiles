@@ -729,9 +729,12 @@ task_prebuild() {
     # --ignore-scripts skips the package's own "install": "node ./scripts/install.js",
     # which would otherwise build against the AMBIENT runtime before build-env and
     # prebuild-select-env below set the real target (CN_PREBUILD_RUNTIME_VERSION).
+    # --legacy-peer-deps: without a lock file, npm 8-10 crash resolving vitest's peer set
+    # ("Cannot read properties of null (reading 'edgesOut')"). The build needs only
+    # `dependencies`, whose resolved tree is the same with or without the flag.
     _clear_node_modules
-    log "prebuild: restoring devDependencies (npm install --ignore-scripts)"
-    "${NPM_BIN}" install --ignore-scripts
+    log "prebuild: restoring devDependencies (npm install --ignore-scripts --legacy-peer-deps)"
+    "${NPM_BIN}" install --ignore-scripts --legacy-peer-deps
 
     local build_env
     build_env="$("${NODE_BIN}" "${ENGINE}" build-env prebuild)" || die "failed to resolve prebuild build-env"
