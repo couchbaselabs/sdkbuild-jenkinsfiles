@@ -925,12 +925,21 @@ function Task-Test {
     Log 'installing dependencies (npm ci --ignore-scripts)'
     Invoke-Checked $NPM_BIN @('ci', '--ignore-scripts')
 
+    $junit = (& $NODE_BIN $ENGINE test-junit)
+    if ($LASTEXITCODE -ne 0 -or -not $junit) { Die 'test: could not resolve the test runner' }
+    $junit = "$junit".Trim()
+    $junitEnv = (& $NODE_BIN $ENGINE test-junit-env)
+    if ($LASTEXITCODE -ne 0) { Die 'test: could not resolve the test runner' }
+    $junitEnv = "$junitEnv".Trim()
+
     # --ignore-scripts is load-bearing here, not tidiness. Without it npm reifies the whole
     # tree and runs the lifecycle scripts the `npm ci --ignore-scripts` above deliberately
     # skipped, which builds every native devDependency from source inside a stage that
     # compiles nothing. The reporter itself is pure JS and carries no install script.
-    Log 'installing mocha-multi-reporters for test reporting'
-    try { & $NPM_BIN install --no-save --ignore-scripts mocha-multi-reporters } catch { Log 'WARNING: failed to install mocha-multi-reporters' }
+    if ($junit -eq 'mocha-multi-reporters') {
+        Log 'installing mocha-multi-reporters for test reporting'
+        try { & $NPM_BIN install --no-save --ignore-scripts mocha-multi-reporters } catch { Log 'WARNING: failed to install mocha-multi-reporters' }
+    }
 
     Log 'installing the prebuilt binary (npm run install)'
     Invoke-Checked $NPM_BIN @('run', 'install')
@@ -953,10 +962,19 @@ function Task-Test {
     # wrote.
     Remove-Item 'xunit.xml' -Force -ErrorAction SilentlyContinue
 
-    $injectedReporter = $false
+    # Absolute, because the suite resolves a relative path against its own config root.
+    if ($junitEnv) {
+        $xunitPath = Join-Path (Get-Location).Path 'xunit.xml'
+        Set-Item -Path "env:$junitEnv" -Value $xunitPath
+        Log "test: $junitEnv=$xunitPath"
+    }
+
+    # The text match still applies to mocha so a CBCI_TEST_COMMAND override that is not an
+    # npm/mocha command (or names its own reporter) is left alone.
+    $expectXunit = ($junit -eq 'inline')
     foreach ($cmd in $cmds) {
         $runCmd = $cmd
-        if (($cmd -like '*npm run test*' -or $cmd -like '*mocha*') -and $cmd -notlike '*-R*' -and $cmd -notlike '*--reporter*') {
+        if ($junit -eq 'mocha-multi-reporters' -and ($cmd -like '*npm run test*' -or $cmd -like '*mocha*') -and $cmd -notlike '*-R*' -and $cmd -notlike '*--reporter*') {
             # The QUOTES around -- are load-bearing. PowerShell reads a bare `--` as its own
             # end-of-parameters token and drops it before the callee sees it, and `npm` here
             # resolves through PowerShell's command discovery, which on some agents finds
@@ -966,17 +984,19 @@ function Task-Test {
             # pattern"). The suite still runs green under the default reporter and writes no
             # xunit.xml. Quoting makes it a plain string argument, immune to either shim.
             $runCmd = "$cmd '--' -R mocha-multi-reporters"
-            $injectedReporter = $true
+            $expectXunit = $true
         }
         Log "test: run: $runCmd"
         Invoke-Expression $runCmd
-        if ($LASTEXITCODE -ne 0) { Die "test: mocha failed (rc=$LASTEXITCODE)" }
+        if ($LASTEXITCODE -ne 0) { Die "test: suite failed (rc=$LASTEXITCODE)" }
     }
 
     # Verified, not trusted. A reporter that never loaded leaves a passing suite and nothing
     # to publish, which is indistinguishable from success everywhere except here.
-    if ($injectedReporter -and -not (Test-Path 'xunit.xml')) {
-        Die 'test: the suite passed but wrote no xunit.xml, so the mocha-multi-reporters reporter never loaded; check how the reporter argument survived in the run line above'
+    if ($expectXunit -and -not (Test-Path 'xunit.xml')) {
+        $hint = 'check how the reporter argument survived in the run line above'
+        if ($junitEnv) { $hint = "check that the suite's config still reads $junitEnv" }
+        Die "test: the suite passed but wrote no xunit.xml (junit=$junit), so its junit reporter never ran; $hint"
     }
     if ((Test-Path 'xunit.xml') -and $env:CBCI_JUNIT_DIR) {
         Move-Item 'xunit.xml' (Join-Path $env:CBCI_JUNIT_DIR 'xunit.xml') -Force

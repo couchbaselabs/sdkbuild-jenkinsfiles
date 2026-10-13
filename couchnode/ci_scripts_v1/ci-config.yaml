@@ -76,11 +76,39 @@ test:
       berry_below_node18: 3.6.1    # Yarn 4 needs Node >= 18.12
       classic: 1.22.22
 
-  mocha:
-    cmd: "npm run test"
-    # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1
-    # check for it before falling back to a real cluster via CNCSTR.
-    require_java: true
+  # Test runners, in selection order: the first whose `when_exists` file is in the SDK
+  # checkout wins, so each sha picks the suite it carries with no edit here. `opt_in`
+  # entries run only when CBCI_TEST_RUNNER (the TEST_RUNNER job param) names them.
+  #   junit: mocha-multi-reporters  tasks.sh/tasks.ps1 install and append that reporter
+  #   junit: inline                 cmd writes xunit.xml itself; the task checks it did
+  #   junit_env                     the task sets this env var to xunit.xml's absolute path
+  #                                 (couchnode's CNJUNIT: its own reporter, which keeps skip
+  #                                 reasons). The cmd must not pass --reporter, which would
+  #                                 replace the config's reporters.
+  #   min_node                      test cells below this Node major are dropped; build
+  #                                 and validate keep the full node_versions list
+  # The Vitest commands list the three default projects instead of `--project '!periodic'`:
+  # npm and npx run through cmd.exe on Windows, where single quotes are literal.
+  runners:
+    - name: vitest
+      when_exists: test/vitest.config.mts
+      cmd: "npx vitest run --config test/vitest.config.mts --project unit --project integration --project exclusive"
+      junit: inline
+      junit_env: CNJUNIT
+      min_node: 20               # vitest 4 engines: ^20 || ^22 || >=24
+    - name: vitest-v2            # test/v2 before it replaces test/
+      opt_in: true
+      when_exists: test/v2/vitest.config.mts
+      cmd: "npx vitest run --config test/v2/vitest.config.mts --project unit --project integration --project exclusive"
+      junit: inline
+      junit_env: CNJUNIT
+      min_node: 20
+    - name: mocha                # fallback: pre-cutover shas and maintenance branches
+      cmd: "npm run test"
+      junit: mocha-multi-reporters
+      # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1
+      # check for it before falling back to a real cluster via CNCSTR.
+      require_java: true
 
   # Neutral real-cluster spec. Provisioning stays adapter/groovy-only (cbdyncluster on
   # Jenkins) and is not implemented yet.

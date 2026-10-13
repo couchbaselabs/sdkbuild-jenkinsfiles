@@ -978,9 +978,10 @@ task_validate() {
     log "validate: all install types passed (${CBCI_VALIDATE_INSTALL_TYPES}, ${CBCI_VALIDATE_PACKAGE_MANAGER})"
 }
 
-# --- test: run the mocha suite against the CouchbaseMock.jar backend (default) or a real
-# cluster. With CNCSTR unset here, test/harness.js falls back to the mock. require_java is
-# a real dependency: test/jcbmock.js spawns `java` directly to run the mock jar.
+# --- test: run the SDK's test suite against its mock (CouchbaseMock.jar for mocha, GoCAVES
+# for Vitest) or a real cluster. engine.mjs picks the runner from the checkout (ci-config
+# test.runners). For mocha, with CNCSTR unset, test/harness.js falls back to the mock, and
+# require_java is a real dependency: test/jcbmock.js spawns `java` to run the mock jar.
 #
 # NOTHING IS COMPILED HERE. `test` consumes the prebuild the `prebuild` stage already
 # produced, the same contract as `validate`:
@@ -1091,12 +1092,19 @@ task_test() {
     log "installing dependencies (npm ci --ignore-scripts)"
     "${NPM_BIN}" ci --ignore-scripts
 
+    local junit
+    junit="$("${NODE_BIN}" "${ENGINE}" test-junit)" || die "test: could not resolve the test runner"
+    local junit_env
+    junit_env="$("${NODE_BIN}" "${ENGINE}" test-junit-env)" || die "test: could not resolve the test runner"
+
     # --ignore-scripts is load-bearing here, not tidiness. Without it npm reifies the whole
     # tree and runs the lifecycle scripts the `npm ci --ignore-scripts` above deliberately
     # skipped, which builds every native devDependency from source inside a stage that
     # compiles nothing. The reporter itself is pure JS and carries no install script.
-    log "installing mocha-multi-reporters for test reporting"
-    "${NPM_BIN}" install --no-save --ignore-scripts mocha-multi-reporters || true
+    if [[ "${junit}" == "mocha-multi-reporters" ]]; then
+        log "installing mocha-multi-reporters for test reporting"
+        "${NPM_BIN}" install --no-save --ignore-scripts mocha-multi-reporters || true
+    fi
 
     log "installing the prebuilt binary (npm run install)"
     "${NPM_BIN}" run install
@@ -1119,14 +1127,23 @@ task_test() {
     # wrote.
     rm -f xunit.xml
 
-    local cmd rc=0 injected_reporter=0
+    # Absolute, because the suite resolves a relative path against its own config root.
+    if [[ -n "${junit_env}" ]]; then
+        export "${junit_env}=${PWD}/xunit.xml"
+        log "test: ${junit_env}=${PWD}/xunit.xml"
+    fi
+
+    # The text match still applies to mocha so a CBCI_TEST_COMMAND override that is not an
+    # npm/mocha command (or names its own reporter) is left alone.
+    local cmd rc=0 expect_xunit=0
+    [[ "${junit}" == "inline" ]] && expect_xunit=1
     for cmd in "${cmds[@]}"; do
         local run_cmd="${cmd}"
-        if [[ "${cmd}" == *"npm run test"* || "${cmd}" == *"mocha"* ]]; then
-            if [[ "${cmd}" != *"-R"* && "${cmd}" != *"--reporter"* ]]; then
-                run_cmd="${cmd} -- -R mocha-multi-reporters"
-                injected_reporter=1
-            fi
+        if [[ "${junit}" == "mocha-multi-reporters" ]] \
+            && [[ "${cmd}" == *"npm run test"* || "${cmd}" == *"mocha"* ]] \
+            && [[ "${cmd}" != *"-R"* && "${cmd}" != *"--reporter"* ]]; then
+            run_cmd="${cmd} -- -R mocha-multi-reporters"
+            expect_xunit=1
         fi
         log "test: run: ${run_cmd}"
         eval "${run_cmd}" || rc=$?
@@ -1134,8 +1151,10 @@ task_test() {
 
     # Verified, not trusted. A reporter that never loaded leaves a passing suite and nothing
     # to publish, which is indistinguishable from success everywhere except here.
-    if [[ "${rc}" -eq 0 && "${injected_reporter}" -eq 1 && ! -f xunit.xml ]]; then
-        die "test: the suite passed but wrote no xunit.xml, so the mocha-multi-reporters reporter never loaded; check how the reporter argument survived in the run line above"
+    if [[ "${rc}" -eq 0 && "${expect_xunit}" -eq 1 && ! -f xunit.xml ]]; then
+        local hint="check how the reporter argument survived in the run line above"
+        [[ -n "${junit_env}" ]] && hint="check that the suite's config still reads ${junit_env}"
+        die "test: the suite passed but wrote no xunit.xml (junit=${junit}), so its junit reporter never ran; ${hint}"
     fi
 
     if [[ -f xunit.xml && -n "${CBCI_JUNIT_DIR:-}" ]]; then
@@ -1143,7 +1162,7 @@ task_test() {
         log "test: moved xunit.xml -> ${CBCI_JUNIT_DIR}/xunit.xml"
     fi
 
-    [[ "${rc}" -eq 0 ]] || die "test: mocha failed (rc=${rc})"
+    [[ "${rc}" -eq 0 ]] || die "test: suite failed (rc=${rc})"
     log "test: OK"
 }
 

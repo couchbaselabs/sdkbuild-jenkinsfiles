@@ -11,7 +11,7 @@
 // (jenkins.mjs, gha.mjs). The core must NEVER import an adapter. See ../CONVENTIONS.md.
 
 import { parseArgs } from 'node:util';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve as resolvePath } from 'node:path';
@@ -922,6 +922,8 @@ function isUnsupportedCombo(support, platform, arch, runtime) {
  *     electron_versions span incompatible floors.
  *   * validate / test_unit: per (platform, arch, runtime, version, install_type), a wide
  *     fan-out proving every declared Node/Electron version actually loads the prebuilds.
+ *     test_unit drops Node versions below the selected test runner's `min_node`, since the
+ *     suite itself may need a newer Node than the package supports.
  * libc (manylinux/musllinux) is present only for linux/alpine units, never macos/windows.
  */
 export function buildPlan(cfg) {
@@ -938,6 +940,7 @@ export function buildPlan(cfg) {
   const buildType = String(build.build_type || 'RelWithDebInfo');
   const napiVersion = build.napi_version ?? 8;
   const installTypes = test.install_types || ['prebuild', 'sdist'];
+  const testNodeVers = testNodeVersions(cfg);
 
   const keyed = (platform, arch, libc) => {
     const d = { platform, arch };
@@ -973,7 +976,7 @@ export function buildPlan(cfg) {
             const cell = keyed(platform, arch, libc);
             Object.assign(cell, { runtime, version, install_type: itype });
             validateUnits.push({ ...cell });
-            testUnits.push({ ...cell });
+            if (runtime === 'electron' || testNodeVers.includes(version)) testUnits.push({ ...cell });
           }
         }
       }
@@ -1086,6 +1089,45 @@ export function validateConfig(cfg) {
     warnings.push('build.ssl=openssl but build.openssl_version is unset');
   }
 
+  // --- test runners ----------------------------------------------------------
+  const runners = configuredRunners(cfg);
+  for (const r of runners) {
+    if (!r.name || !r.cmd) errors.push(`test.runners entry ${JSON.stringify(r)} needs a name and a cmd`);
+    if (r.junit !== undefined && !VALID_JUNIT_MODES.includes(r.junit)) {
+      errors.push(`test runner '${r.name}': junit must be ${VALID_JUNIT_MODES.join('|')} (got '${r.junit}')`);
+    }
+    if (r.junit_env !== undefined) {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(r.junit_env))) {
+        errors.push(`test runner '${r.name}': junit_env must be an environment variable name (got ${JSON.stringify(r.junit_env)})`);
+      } else if (r.junit !== 'inline') {
+        errors.push(`test runner '${r.name}': junit_env needs junit: inline (got '${r.junit}')`);
+      }
+      if (/(^|\s)--reporter\b/.test(r.cmd || '')) {
+        errors.push(`test runner '${r.name}': cmd passes --reporter, which replaces the reporter junit_env enables`);
+      }
+    }
+    if (r.min_node !== undefined && (!Number.isInteger(r.min_node) || r.min_node < 1)) {
+      errors.push(`test runner '${r.name}': min_node must be a Node major (got ${JSON.stringify(r.min_node)})`);
+    }
+  }
+  if (!runners.some((r) => !r.when_exists && !r.opt_in)) {
+    errors.push('test.runners has no fallback (an entry with neither when_exists nor opt_in), so some checkouts match no runner');
+  }
+  // Selection reads the SDK tree. Without one every when_exists misses and the fallback
+  // wins, which is a plausible-looking but possibly wrong plan.
+  const root = process.env.CBCI_PROJECT_ROOT || process.cwd();
+  if (runners.some((r) => r.when_exists) && !existsSync(join(root, 'test'))) {
+    warnings.push(`no SDK test/ directory at ${root}, so test-runner selection falls back to the default runner`);
+  }
+  try {
+    const r = testRunner(cfg);
+    if (!testNodeVersions(cfg).length) {
+      errors.push(`test runner '${r.name}' needs Node >= ${r.min_node}, and no support.node_versions entry qualifies`);
+    }
+  } catch (err) {
+    errors.push(err.message);
+  }
+
   const validate = cfg.raw.test?.validate || {};
   if (validate.yarn_linker !== undefined && !VALID_YARN_LINKERS.includes(validate.yarn_linker)) {
     errors.push(`test.validate.yarn_linker must be ${VALID_YARN_LINKERS.join('|')} (got '${validate.yarn_linker}')`);
@@ -1130,23 +1172,85 @@ export function validateConfig(cfg) {
 // Test-command generation
 // ---------------------------------------------------------------------------
 
-/** Mocha invocation for the test-unit stage, from ci-config test.mocha. One command line,
- * since couchnode's test suite is a single mocha run, honoring the CBCI_TEST_COMMAND /
- * CBCI_TEST_ARGS overrides. */
+const VALID_JUNIT_MODES = ['mocha-multi-reporters', 'inline'];
+
+/** The configured test runners, in selection order. `test.runners` is an ordered list;
+ * a config that still has only `test.mocha` is read as a single mocha runner. */
+function configuredRunners(cfg) {
+  const test = cfg.raw.test || {};
+  if (Array.isArray(test.runners) && test.runners.length) return test.runners;
+  return [{ name: 'mocha', cmd: 'npm run test', junit: 'mocha-multi-reporters', ...(test.mocha || {}) }];
+}
+
+/** Pick the test runner for the SDK checkout: CBCI_TEST_RUNNER names one outright,
+ * otherwise the first runner that is not `opt_in` and whose `when_exists` file is present
+ * (or that has no `when_exists`).
+ *
+ * Keyed on files rather than a commit gate, so the cutover patchset selects its own runner
+ * before its sha exists, and maintenance branches keep the runner their tree carries.
+ * Throws when CBCI_TEST_RUNNER names an unknown runner or one whose file is missing. */
+export function testRunner(cfg, projectRoot) {
+  const root = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
+  const runners = configuredRunners(cfg);
+  const present = (r) => !r.when_exists || existsSync(join(root, r.when_exists));
+  const forced = (process.env.CBCI_TEST_RUNNER || '').trim();
+  if (forced) {
+    const r = runners.find((x) => x.name === forced);
+    if (!r) {
+      throw new Error(`CBCI_TEST_RUNNER='${forced}' is not a configured test runner (${runners.map((x) => x.name).join(', ')})`);
+    }
+    if (!present(r)) {
+      throw new Error(`CBCI_TEST_RUNNER='${forced}' needs ${r.when_exists}, which is not in the checkout at ${root}`);
+    }
+    return r;
+  }
+  const r = runners.find((x) => !x.opt_in && present(x));
+  if (!r) throw new Error(`no test runner matches the checkout at ${root}; add a fallback runner without when_exists`);
+  return r;
+}
+
+/** node_versions the selected runner can test: support.node_versions minus anything below
+ * the runner's `min_node` major. Build and validate keep the full list. */
+export function testNodeVersions(cfg, projectRoot) {
+  const versions = cfg.raw.support?.node_versions || [];
+  const floor = testRunner(cfg, projectRoot).min_node;
+  if (!floor) return versions;
+  return versions.filter((v) => parseInt(String(v).split('.')[0], 10) >= floor);
+}
+
+/** The test-unit command line for the selected runner. One line, since each runner is a
+ * single suite run, honoring the CBCI_TEST_COMMAND / CBCI_TEST_ARGS overrides. */
 export function testCmds(cfg) {
   const overrideCmd = process.env.CBCI_TEST_COMMAND;
   const overrideArgs = process.env.CBCI_TEST_ARGS || '';
   if (overrideCmd) {
     return [`${overrideCmd} ${overrideArgs}`.trim()];
   }
-  const mocha = cfg.raw.test?.mocha || {};
-  const cmd = mocha.cmd || 'npm run test';
+  const cmd = testRunner(cfg).cmd || 'npm run test';
   return [overrideArgs ? `${cmd} ${overrideArgs}`.trim() : cmd];
+}
+
+/** How the test run produces xunit.xml, for tasks.sh/tasks.ps1:
+ *   mocha-multi-reporters  the task installs that reporter and appends it
+ *   inline                 the runner's cmd writes xunit.xml itself; the task only checks it
+ *   none                   nothing to vouch for (a CBCI_TEST_COMMAND override of an inline
+ *                          runner may not write it) */
+export function testJunit(cfg) {
+  const junit = testRunner(cfg).junit || 'none';
+  if (junit === 'inline' && process.env.CBCI_TEST_COMMAND) return 'none';
+  return junit;
+}
+
+/** The env var the task points at xunit.xml's absolute path, or '' when the runner's cmd
+ * names the file itself. Set under a CBCI_TEST_COMMAND override too: it costs nothing, and
+ * an override that keeps the suite's config still writes the same file. */
+export function testJunitEnv(cfg) {
+  return testRunner(cfg).junit_env || '';
 }
 
 /** Whether the test agent needs a `java` runtime (CouchbaseMock.jar fallback). */
 export function requiresJava(cfg) {
-  return Boolean(cfg.raw.test?.mocha?.require_java);
+  return Boolean(testRunner(cfg).require_java);
 }
 
 // ---------------------------------------------------------------------------
@@ -1170,7 +1274,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|requires-java>\n'
+    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|requires-java>\n'
   );
 }
 
@@ -1189,6 +1293,15 @@ export function main(argv = process.argv.slice(2)) {
 
   const cfg = loadConfig(values.config, GATE_REPORT_DOMAINS[cmd] || []);
 
+  try {
+    return dispatch(cmd, positionals, cfg);
+  } catch (err) {
+    process.stderr.write(`ERROR: ${err.message}\n`);
+    return 1;
+  }
+}
+
+function dispatch(cmd, positionals, cfg) {
   switch (cmd) {
     case 'plan':
       emit(buildPlan(cfg));
@@ -1234,6 +1347,12 @@ export function main(argv = process.argv.slice(2)) {
       break;
     case 'test-cmds':
       for (const line of testCmds(cfg)) console.log(line);
+      break;
+    case 'test-junit':
+      console.log(testJunit(cfg));
+      break;
+    case 'test-junit-env':
+      console.log(testJunitEnv(cfg));
       break;
     case 'requires-java':
       console.log(requiresJava(cfg) ? 'true' : 'false');

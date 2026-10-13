@@ -566,12 +566,12 @@ function _resolveServerVersions(spec) {
   return versions;
 }
 
+/** `nodeVers` is already the test-eligible list: NODE_VERSIONS (applied by loadConfig)
+ * or node_versions, minus anything below the test runner's min_node. */
 function _resolveIntegrationNodeVersions(nodeVers) {
-  const envOverride = (process.env.NODE_VERSIONS || '').trim();
-  if (envOverride) {
-    const versions = envOverride.replace(/,/g, ' ').split(/\s+/).filter(Boolean);
-    process.stderr.write(`[integration-tags] NODE_VERSIONS override: testing ${JSON.stringify(versions)}\n`);
-    return versions;
+  if ((process.env.NODE_VERSIONS || '').trim()) {
+    process.stderr.write(`[integration-tags] NODE_VERSIONS override: testing ${JSON.stringify(nodeVers)}\n`);
+    return nodeVers;
   }
   if (!nodeVers || nodeVers.length <= 1) {
     return nodeVers || [];
@@ -589,7 +589,12 @@ function _resolveIntegrationNodeVersions(nodeVers) {
 export function integrationTags(configPath = null) {
   const cfg = engine.loadConfig(configPath);
   const spec = cfg.raw.test?.integration || {};
-  const nodeVers = _resolveIntegrationNodeVersions(cfg.raw.support?.node_versions || []);
+  const runner = engine.testRunner(cfg);
+  const eligible = engine.testNodeVersions(cfg);
+  if (!eligible.length) {
+    throw new Error(`test runner '${runner.name}' needs Node >= ${runner.min_node}, and no node_versions entry qualifies`);
+  }
+  const nodeVers = _resolveIntegrationNodeVersions(eligible);
   const serverVersions = _resolveServerVersions(spec);
 
   const buildJobs = [];
