@@ -68,6 +68,36 @@ const LABEL_NODE_MAJORS = {
   ),
 };
 
+// Agent defects that break specific cells until the fleet is fixed. Unlike
+// LABEL_NODE_MAJORS these are not supported ranges but known breakage, so each match is
+// reported every run instead of dropped silently. Delete an entry once its agent is fixed.
+//   label    the agent label
+//   node     Node major (omit for every version)
+//   runners  test runner names it applies to (omit for every runner)
+//   stages   validate | test | verify (omit for all three)
+const KNOWN_AGENT_GAPS = [
+  {
+    label: 'almalinux8',
+    node: 26,
+    reason: "Node 26's linux binary needs libatomic.so.1, which the almalinux8 image lacks",
+  },
+  {
+    label: 'alpine-node-22-arm64',
+    runners: ['vitest', 'vitest-v2'],
+    stages: ['test'],
+    reason: 'the agent runs its system Node 22.5.1, and vite/rolldown need >= 22.12.0',
+  },
+];
+
+/** The KNOWN_AGENT_GAPS entry that drops this cell, or undefined. */
+function knownAgentGap(label, version, stage, runner) {
+  const major = parseInt(String(version).split('.')[0], 10);
+  return KNOWN_AGENT_GAPS.find((g) => g.label === label
+    && (g.node === undefined || g.node === major)
+    && (!g.runners || g.runners.includes(runner))
+    && (!g.stages || g.stages.includes(stage)));
+}
+
 /** Does agent `label` support this Node version? Unlisted labels support everything. */
 function labelSupportsNodeVersion(label, version) {
   const range = LABEL_NODE_MAJORS[label];
@@ -496,7 +526,7 @@ function buildJobsFromPlan(plan, cfg) {
  * selects its labels for this cell's arch, so
  * listing amzn2 tests its x64 box AND its Graviton boxes. Empty PLATFORMS = every
  * label on the cell's platform. */
-function checkJobs(units, requested) {
+function checkJobs(units, requested, stage, runner) {
   const jobs = [];
   for (const u of units) {
     for (const label of checkLabels(u.platform, u.arch, requested, u.version)) {
@@ -505,6 +535,14 @@ function checkJobs(units, requested) {
       // the unsupported pairs here is what keeps validate/test off cells that would fail
       // to even start Node. See LABEL_NODE_MAJORS.
       if (u.runtime === 'node' && !labelSupportsNodeVersion(label, u.version)) {
+        continue;
+      }
+      const gap = u.runtime === 'node' && knownAgentGap(label, u.version, stage, runner);
+      if (gap) {
+        process.stderr.write(
+          `[jenkins] SKIPPING ${stage} ${label} node${u.version} ${u.install_type}: `
+          + `known agent gap: ${gap.reason}\n`
+        );
         continue;
       }
       const env = {
@@ -667,7 +705,7 @@ export function verifyTags(configPath) {
   const requested = requestedTokens();
   const { plan } = narrowedPlan(configPath, requested);
   const units = plan.validate.units.filter((u) => u.runtime === 'node');
-  return { verify: checkJobs(units, requested) };
+  return { verify: checkJobs(units, requested, 'verify') };
 }
 
 /** Full pipeline: build the neutral plan (narrowed to the requested platforms) and
@@ -679,8 +717,8 @@ export function tags(configPath) {
   return {
     sdist: { label: JENKINS_SDIST_LABEL, stage: 'sdist', env: {} },
     build: buildJobsFromPlan(plan, cfg),
-    validate: checkJobs(plan.validate.units, requested),
-    test_unit: checkJobs(plan.test_unit.units, requested),
+    validate: checkJobs(plan.validate.units, requested, 'validate'),
+    test_unit: checkJobs(plan.test_unit.units, requested, 'test', engine.testRunner(cfg).name),
   };
 }
 

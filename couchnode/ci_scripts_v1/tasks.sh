@@ -39,6 +39,17 @@ load_project_env() {
 _node_platform() { "${NODE_BIN}" -p 'process.platform'; }
 _node_arch() { "${NODE_BIN}" -p 'process.arch'; }
 _node_major() { "${NODE_BIN}" -p 'process.versions.node.split(".")[0]'; }
+
+# A cell whose Node is not the one it asked for still runs, but its results are for the
+# Node it got. Agents CI cannot install Node on (alpine arm64) run their own, whatever the
+# cell's label says.
+warn_node_mismatch() {
+    local stage="$1" want="${CBCI_TEST_VERSION:-}" have
+    [[ -n "${want}" ]] || return 0
+    have="$("${NODE_BIN}" -p 'process.versions.node')"
+    [[ "${have}" == "${want}" ]] && return 0
+    log "WARNING: ${stage}: this cell asked for Node ${want} but is running Node ${have} ($(command -v "${NODE_BIN}" || echo "${NODE_BIN}")); its results are for ${have}"
+}
 _pkg_version() { "${NODE_BIN}" -p "require('${PROJECT_ROOT}/package.json').version"; }
 
 # Clear node_modules before an npm install/ci writes a new one into this workspace.
@@ -938,6 +949,7 @@ _validate_one() {
 
 task_validate() {
     cd "${PROJECT_ROOT}"
+    warn_node_mismatch validate
     local out
     out="$("${NODE_BIN}" "${ENGINE}" validate-env)" || die "failed to resolve validate-env"
     # shellcheck disable=SC2086,SC2163
@@ -1049,6 +1061,7 @@ _assert_prebuild_installed() {
 
 task_test() {
     cd "${PROJECT_ROOT}"
+    warn_node_mismatch test
 
     if [[ -n "${CBCI_TEST_HOST:-}" && -z "${CNCSTR:-}" ]]; then
         export CNCSTR="couchbase://${CBCI_TEST_HOST}"

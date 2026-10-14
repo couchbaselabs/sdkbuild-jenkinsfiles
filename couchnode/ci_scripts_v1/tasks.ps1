@@ -62,6 +62,17 @@ function Node-Major() {
     $v = (& $NODE_BIN -p 'process.versions.node.split(".")[0]').Trim()
     return [int]$v
 }
+# A cell whose Node is not the one it asked for still runs, but its results are for the
+# Node it got. See tasks.sh's warn_node_mismatch.
+function Warn-NodeMismatch([string]$stage) {
+    $want = $env:CBCI_TEST_VERSION
+    if (-not $want) { return }
+    $have = (& $NODE_BIN -p 'process.versions.node').Trim()
+    if ($have -eq $want) { return }
+    $where = (Get-Command $NODE_BIN -ErrorAction SilentlyContinue).Source
+    if (-not $where) { $where = $NODE_BIN }
+    Log "WARNING: ${stage}: this cell asked for Node $want but is running Node $have ($where); its results are for $have"
+}
 function Pkg-Version() {
     $pkgPath = (Join-Path $PROJECT_ROOT 'package.json') -replace '\\', '/'
     (& $NODE_BIN -p "require('$pkgPath').version").Trim()
@@ -817,6 +828,7 @@ function Invoke-ValidateOne([string]$itype, [string]$sdistTgz) {
 
 function Task-Validate {
     Set-Location $PROJECT_ROOT
+    Warn-NodeMismatch 'validate'
     $out = & $NODE_BIN $ENGINE validate-env
     if ($LASTEXITCODE -ne 0) { Die 'failed to resolve validate-env' }
     Import-EnvPairs $out
@@ -861,6 +873,7 @@ function Task-Validate {
 # prebuilds.buildBinary() when it cannot resolve a prebuild.
 function Task-Test {
     Set-Location $PROJECT_ROOT
+    Warn-NodeMismatch 'test'
 
     if ($env:CBCI_TEST_HOST -and -not $env:CNCSTR) {
         $env:CNCSTR = "couchbase://$env:CBCI_TEST_HOST"
@@ -972,6 +985,7 @@ function Task-Test {
     # The text match still applies to mocha so a CBCI_TEST_COMMAND override that is not an
     # npm/mocha command (or names its own reporter) is left alone.
     $expectXunit = ($junit -eq 'inline')
+    $rc = 0
     foreach ($cmd in $cmds) {
         $runCmd = $cmd
         if ($junit -eq 'mocha-multi-reporters' -and ($cmd -like '*npm run test*' -or $cmd -like '*mocha*') -and $cmd -notlike '*-R*' -and $cmd -notlike '*--reporter*') {
@@ -988,12 +1002,12 @@ function Task-Test {
         }
         Log "test: run: $runCmd"
         Invoke-Expression $runCmd
-        if ($LASTEXITCODE -ne 0) { Die "test: suite failed (rc=$LASTEXITCODE)" }
+        if ($LASTEXITCODE -ne 0) { $rc = $LASTEXITCODE }
     }
 
     # Verified, not trusted. A reporter that never loaded leaves a passing suite and nothing
     # to publish, which is indistinguishable from success everywhere except here.
-    if ($expectXunit -and -not (Test-Path 'xunit.xml')) {
+    if ($rc -eq 0 -and $expectXunit -and -not (Test-Path 'xunit.xml')) {
         $hint = 'check how the reporter argument survived in the run line above'
         if ($junitEnv) { $hint = "check that the suite's config still reads $junitEnv" }
         Die "test: the suite passed but wrote no xunit.xml (junit=$junit), so its junit reporter never ran; $hint"
@@ -1003,6 +1017,8 @@ function Task-Test {
         Log "test: moved xunit.xml -> $env:CBCI_JUNIT_DIR/xunit.xml"
     }
 
+    # Only after the move: a failing suite's results are the ones worth publishing.
+    if ($rc -ne 0) { Die "test: suite failed (rc=$rc)" }
     Log 'test: OK'
 }
 
