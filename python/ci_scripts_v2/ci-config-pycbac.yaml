@@ -30,6 +30,7 @@ support:
     - "3.12"
     - "3.13"
     - "3.14"
+    - "3.15"
   # 3.10 rather than the newest: the floor is what a universal wheel must keep working on,
   # so single-node stages (sdist, docs, publish) run there by default. Matches the SDK's
   # own CBCI_DEFAULT_PYTHON.
