@@ -85,10 +85,20 @@ set_client_version() {
 
     local version="${CBCI_VERSION:-}"
     if [[ -n "${version}" ]]; then
-        log "tagging client version ${version}"
-        git config user.name "Couchbase SDK Team"
-        git config user.email "sdk_dev@couchbase.com"
-        git tag -a "${version}" -m "Release of client version ${version}"
+        # Idempotent: sdist and wheel both call this in the same checkout, so the second
+        # call finds the tag the first one made. A tag on a DIFFERENT commit is still fatal,
+        # since stamping that version onto this commit would mislabel the artifacts.
+        local tagged
+        if tagged="$(git rev-parse -q --verify "refs/tags/${version}^{commit}")"; then
+            [[ "${tagged}" == "$(git rev-parse HEAD)" ]] \
+                || die "tag ${version} already exists on ${tagged}, not HEAD"
+            log "client version tag ${version} already on HEAD"
+        else
+            log "tagging client version ${version}"
+            git config user.name "Couchbase SDK Team"
+            git config user.email "sdk_dev@couchbase.com"
+            git tag -a "${version}" -m "Release of client version ${version}"
+        fi
         git tag --sort=-version:refname | head -n 10
     fi
 

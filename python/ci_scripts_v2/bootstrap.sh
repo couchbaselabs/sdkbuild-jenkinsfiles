@@ -85,7 +85,7 @@ get_expected_hash() {
         "engine.py")           echo "bd26037e93121c9ec9e7819f13b77d22835120757cb8879138ecf707eafa2074" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
         "gha.py")              echo "d9d02a9b1c49fd9a3f0b5ff8c85288771b696fe5108f710dd03120a9987448ec" ;;
-        "tasks.sh")            echo "daf7e917e8496b83e437ee28338235ce1bda7b710caaeb792ba63005f9c74b63" ;;
+        "tasks.sh")            echo "670827c15a928c954a848064d2d441fc94c956ae5efb7a7a2cf9a39bfd6caafa" ;;
         "tasks.ps1")           echo "fa92f100f8f04d2d5e19df4eb328d5f0be29291f66799d3b90274348ee5ad935" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ci-config.yaml")      echo "1bb75a739fe18add6dec4adc1f6f397cff75abd8672fdd71034f591d220fb7aa" ;;
