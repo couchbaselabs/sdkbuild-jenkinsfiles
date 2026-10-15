@@ -255,7 +255,7 @@ pipeline {
                     // change under test as broken. The clone timeout bounds how
                     // long one attempt may hang before the retry gets its turn.
                     retry(3) {
-                        checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]], extensions: [[$class: 'CloneOption', timeout: 30, honorRefspec: true]]])
+                        checkout([$class: 'GitSCM', branches: [[name: '$SHA']], userRemoteConfigs: [[refspec: "$GERRIT_REFSPEC", url: '$REPO', poll: false]], extensions: [[$class: 'CloneOption', timeout: 30]]])
                     }
                     script {
                         VERSION = new Version(sh(script: 'git describe --long --abbrev=10', returnStdout: true))
