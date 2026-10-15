@@ -881,6 +881,12 @@ function Task-Test {
         if (-not $env:CNPASS) { $env:CNPASS = 'password' }
     }
 
+    # See tasks.sh's task_test: the tier travels as an env var so it reaches every platform.
+    if ($env:CBCI_TEST_TIER -and -not $env:CNTIER) {
+        $env:CNTIER = $env:CBCI_TEST_TIER
+        Log "test: CNTIER=$($env:CNTIER)"
+    }
+
     # test/harness.js treats CNCSTR and CNCVER as a pair: either one without the other is a
     # fatal assertion at import time. CBCI_CLUSTER_VERSION is the x.y.z the provisioned
     # cluster reports, supplied by whichever CI entity allocated it. Keyed on CNCSTR, since

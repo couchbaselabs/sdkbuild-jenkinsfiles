@@ -1069,6 +1069,12 @@ task_test() {
         export CNPASS="${CNPASS:-password}"
     fi
 
+    # An env var reaches every platform; a CNTIER= prefix on TEST_COMMAND only works under eval.
+    if [[ -n "${CBCI_TEST_TIER:-}" && -z "${CNTIER:-}" ]]; then
+        export CNTIER="${CBCI_TEST_TIER}"
+        log "test: CNTIER=${CNTIER}"
+    fi
+
     # Keyed on CNCSTR, not on CBCI_TEST_CLUSTER: the mock path must leave CNCVER unset, and
     # harness.js decides mock-vs-real on CNCSTR alone. Only integration runs reach this; the
     # build pipeline's `test` stage sets neither CBCI_TEST_HOST nor CNCSTR and stays on the mock
