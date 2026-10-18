@@ -1368,7 +1368,8 @@ PROJECT_TEST_LAYOUT = {
         # Additional test trees, copied exactly as `tests` is (per-api and top-level) and
         # given their own rendered test_config.ini, but only when the checkout carries them:
         # an absent one is skipped, so one CI-core serves branches on either side of the
-        # change. TEMPORARY: delete this key when tests_v2 takes over the `tests` name.
+        # change. TEMPORARY: master has renamed tests_v2 to `tests`; delete this key once no
+        # change based before that rename still needs building.
         "extra_test_dirs": ["tests_v2"],
         "dev_requirements": "dev_requirements.txt",
         # pytest-xdist is INSTALLED, not switched on: `-n` comes from the per-api opts, and
@@ -1411,9 +1412,14 @@ def _load_tomllib():
 def _transform_conftest(text: str, rename: Dict[str, str]) -> str:
     """Remap API package names to the renamed test-tree dirs.
 
-    Only path refs and EQUALITY-comparison string literals are rewritten, NOT every
-    `'couchbase'`, so this never clobbers e.g. `import_module('couchbase')`. Longest API
-    name first so `couchbase` cannot partial-match inside `acouchbase`.
+    Only path refs, EQUALITY-comparison string literals and dict-KEY string literals are
+    rewritten, NOT every `'couchbase'`, so this never clobbers e.g.
+    `import_module('couchbase')`. Longest API name first so `couchbase` cannot
+    partial-match inside `acouchbase`.
+
+    The dict-key form is how the conftest maps a nodeid's first path segment to its API
+    marker (`{'couchbase': pytest.mark.pycbc_couchbase}`). Missing it leaves every test
+    unmarked, so `-m pycbc_couchbase` deselects the whole suite.
     """
     for api in sorted(rename, key=len, reverse=True):
         short = rename[api]
@@ -1423,6 +1429,8 @@ def _transform_conftest(text: str, rename: Dict[str, str]) -> str:
         # comparison literals on either side of ==/!=, single OR double quoted:
         text = re.sub(rf'(==|!=)(\s*)([\'"]){q}\3', rf'\1\2\3{short}\3', text)
         text = re.sub(rf'([\'"]){q}\1(\s*)(==|!=)', rf'\1{short}\1\2\3', text)
+        # dict keys:   'couchbase': -> 'cb':
+        text = re.sub(rf'([\'"]){q}\1(\s*):', rf'\1{short}\1\2:', text)
     return text
 
 
