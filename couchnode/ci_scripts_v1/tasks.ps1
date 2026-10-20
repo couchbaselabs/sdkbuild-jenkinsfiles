@@ -688,21 +688,18 @@ function Restore-ScopedEnv {
     $script:ScopedEnvSaved = @{}
 }
 
-# Put a corepack-managed yarn on PATH for this install only. COREPACK_HOME and the shim
-# directory both live under the run's temp dir, so nothing global changes.
+# Put an npm-installed yarn on PATH for this install only. It lives under the run's temp
+# dir, so nothing global changes. Not corepack: Node 25+ ships without it, and on Windows
+# agents its install step fails to rename into COREPACK_HOME.
 function Initialize-ValidateYarn([string]$root) {
-    if (-not (Get-Command corepack -ErrorAction SilentlyContinue)) {
-        Die "validate: corepack not found next to node; needed for $($env:CBCI_VALIDATE_PACKAGE_MANAGER)"
-    }
-    $bin = Join-Path $root 'bin'
-    New-Item -ItemType Directory -Force -Path $bin | Out-Null
-    Set-ScopedEnv 'COREPACK_HOME' (Join-Path $root 'corepack')
-    Set-ScopedEnv 'COREPACK_ENABLE_DOWNLOAD_PROMPT' '0'
-    Invoke-Checked 'corepack' @('enable', '--install-directory', $bin, 'yarn')
-    Invoke-Checked 'corepack' @('prepare', $env:CBCI_VALIDATE_PM_SPEC, '--activate')
+    $pmDir = Join-Path $root 'pm'
+    Invoke-Checked $NPM_BIN @('install', '--prefix', $pmDir, '--registry', $env:CBCI_VALIDATE_PM_REGISTRY,
+                              '--no-save', '--no-package-lock', '--no-audit', '--no-fund',
+                              $env:CBCI_VALIDATE_PM_SPEC)
+    $bin = Join-Path $pmDir (Join-Path 'node_modules' '.bin')
     Set-ScopedEnv 'PATH' "$bin$([System.IO.Path]::PathSeparator)$($env:PATH)"
     $yarnVersion = (& yarn --version) -join ''
-    Log "validate: yarn $yarnVersion ($($env:CBCI_VALIDATE_PM_SPEC)) via corepack"
+    Log "validate: yarn $yarnVersion ($($env:CBCI_VALIDATE_PM_SPEC)) via npm"
 }
 
 # Registry-mode install with the selected package manager. 'prebuild' lets it resolve the
@@ -729,7 +726,9 @@ function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
             Write-Host $listing
             # An --omit=optional install that still resolved a platform package would be
             # testing the prebuild path twice and reporting the source path as covered.
-            if ($itype -eq 'sdist' -and $listing -match "@$($env:CBCI_VALIDATE_PACKAGE_NAME)/") {
+            # Checked on disk: npm list names every withheld optional as UNMET.
+            $scopeDir = Join-Path 'node_modules' "@$($env:CBCI_VALIDATE_PACKAGE_NAME)"
+            if ($itype -eq 'sdist' -and @(Get-ChildItem -Path $scopeDir -Directory -ErrorAction SilentlyContinue).Count -gt 0) {
                 Die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
             }
         }

@@ -504,6 +504,15 @@ const DEFAULT_NPM_REGISTRY = 'https://registry.npmjs.org';
 // Yarn 4 needs Node >= 18.12; below that, Berry is pinned to the last 3.x.
 const YARN4_MIN_NODE = '18.12.0';
 
+// Yarn is npm-installed, which has no 'stable' tag to resolve, so config pins exact versions.
+function exactYarnVersion(v) {
+  const s = String(v).trim();
+  if (!/^\d+\.\d+\.\d+$/.test(s)) {
+    throw new Error(`test.validate.yarn versions must be exact x.y.z (got '${s}')`);
+  }
+  return s;
+}
+
 // cmake-js@8's engines field (^20.17.0 || >=22.9.0). Yarn classic enforces engines as a hard
 // error, so below this floor it needs --ignore-engines; npm and Berry only warn.
 function meetsCmakeJsEngines(nodeVersion) {
@@ -533,13 +542,14 @@ export function validateEnv(cfg, nodeVersion = process.versions.node) {
   if (!VALID_YARN_LINKERS.includes(linker)) {
     throw new Error(`CBCI_VALIDATE_YARN_LINKER must be ${VALID_YARN_LINKERS.join('|')} (got '${linker}')`);
   }
+  // npm install specs. Berry's npm package is @yarnpkg/cli-dist; 'yarn' on npm is classic.
   let pmSpec = '';
   if (pm === 'yarn') {
     const berry = cmpVersionTriples(nodeVersion, YARN4_MIN_NODE) >= 0
-      ? (yarn.berry || 'stable') : (yarn.berry_below_node18 || '3.6.1');
-    pmSpec = `yarn@${berry}`;
+      ? (yarn.berry || '4.18.1') : (yarn.berry_below_node18 || '3.6.1');
+    pmSpec = `@yarnpkg/cli-dist@${exactYarnVersion(berry)}`;
   } else if (pm === 'yarn-classic') {
-    pmSpec = `yarn@${yarn.classic || '1.22.22'}`;
+    pmSpec = `yarn@${exactYarnVersion(yarn.classic || '1.22.22')}`;
   }
 
   const registry = String(process.env.CBCI_NPM_REGISTRY || DEFAULT_NPM_REGISTRY).trim();
@@ -554,8 +564,11 @@ export function validateEnv(cfg, nodeVersion = process.versions.node) {
     CBCI_VALIDATE_IMPORT: 'couchbase',
     CBCI_VALIDATE_SSL: ssl,
     CBCI_VALIDATE_PACKAGE_MANAGER: pm,
-    // A corepack spec ('yarn@stable', 'yarn@1.22.22'); empty for npm.
+    // The yarn to npm-install ('@yarnpkg/cli-dist@4.18.1', 'yarn@1.22.22'); empty for npm.
     CBCI_VALIDATE_PM_SPEC: pmSpec,
+    // Where that yarn comes from: always the public registry, so a bare test registry
+    // (NPM_REGISTRY) only has to serve the SDK.
+    CBCI_VALIDATE_PM_REGISTRY: DEFAULT_NPM_REGISTRY,
     CBCI_VALIDATE_YARN_LINKER: linker,
     CBCI_VALIDATE_IGNORE_ENGINES: String(pm === 'yarn-classic' && !meetsCmakeJsEngines(nodeVersion)),
     CBCI_VALIDATE_IGNORE_SCRIPTS: String(asBool(process.env.CBCI_VALIDATE_IGNORE_SCRIPTS || '')),

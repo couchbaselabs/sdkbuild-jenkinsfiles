@@ -31,8 +31,6 @@ support:
     - { version: "18.20.4", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
     - { version: "20.20.2", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
     - { version: "22.14.0", min_commit: "8350f7c7eb4674f553072a4790d5a88a4a2e970c" }
-    # PENDING: v4.6.0, until a 4.6.0 release-verify on Node 24/26 confirms it. Fall back to
-    # v4.7.0 (7378b6e1d2681b9b52f547c36eb3df1971f98fbc) if it does not.
     - { version: "24.21.0", min_commit: "15a72e9a8df92cca32bc780d98935d22bc26f523" }
     - { version: "26.11.1", min_commit: "15a72e9a8df92cca32bc780d98935d22bc26f523" }
   electron_versions: []   # populated per-run; empty = electron runtime not exercised
@@ -89,9 +87,10 @@ test:
     kv_smoke: false                # KV round-trip against GoCAVES; release-verify turns it on
     gocaves_version: v0.0.1-78
     yarn_linker: pnp               # pnp | node-modules (Berry only; pnp is Berry's own default)
-    # corepack specs for registry-mode installs with CBCI_VALIDATE_PACKAGE_MANAGER=yarn|yarn-classic
+    # Exact yarn versions for registry-mode installs with CBCI_VALIDATE_PACKAGE_MANAGER=yarn|yarn-classic,
+    # npm-installed into the run's temp dir (Node 25+ ships no corepack)
     yarn:
-      berry: stable                # Node >= 18.12
+      berry: 4.18.1                # Node >= 18.12
       berry_below_node18: 3.6.1    # Yarn 4 needs Node >= 18.12
       classic: 1.22.22
 

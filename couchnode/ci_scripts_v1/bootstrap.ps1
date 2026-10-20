@@ -51,11 +51,11 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.mjs'        = '6abdca3f081bcc5800da037fadab7d49951ec5079f22fe43943eaf274333bf49'
+    'engine.mjs'        = '6f2924d14790b44688c7e73c9bd6224931f338c84b2ed56a81e85b7cf1c78c5e'
     'jenkins.mjs'       = 'd414f0c1e4e0946d865257f153ddf4c3c3d1712bec50049b3321b4e60db3ddfe'
-    'tasks.sh'          = 'dd051a97ef41dd63d07e6a2d48d223cd1c2100a3ce90ab9bf213343941ddc5ae'
-    'tasks.ps1'         = '7c2d5b3229f52175ee057982557e0a374de9773d63ee5bde19c3ac33ee4d7e04'
-    'ci-config.yaml'    = '45d5d9c03f339d03710e2cf8af41bd1fc1bbae25a6b7c5c4edaa7d0b3b4b6baf'
+    'tasks.sh'          = 'f739987a6c02228be5ee29a96420c7d6d9e3753fa1b0fef9a1e95df87aa875bc'
+    'tasks.ps1'         = '05884236e444540c4169b1b6a44f4b657f36a97a11660b585e6ee379e1ce2924'
+    'ci-config.yaml'    = '20b2cc3dd29c0d2381a3e14307d4a4f61705324d47793561923e0e4321451a9d'
     'package.json'      = '723bd7b31c52ee5afc5dcca12b0a4f8c9209ff2d8801ead2355d846eb936206d'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'
 }

@@ -829,19 +829,16 @@ task_prebuild() {
 # `engine.mjs validate-smoke`: require, cbppMetadata, and with CBCI_VALIDATE_KV a KV
 # round-trip against GoCAVES.
 
-# Put a corepack-managed yarn on PATH for this install only. COREPACK_HOME and the shim
-# directory both live under the run's temp dir, so nothing global changes and no agent
-# needs sudo. Runs inside _validate_one's subshell, so the exports die with it.
+# Put an npm-installed yarn on PATH for this install only. It lives under the run's temp
+# dir, so nothing global changes and no agent needs sudo. Not corepack: Node 25+ ships
+# without it, and on Windows agents its install step fails to rename into COREPACK_HOME.
+# Runs inside _validate_one's subshell, so the PATH export dies with it.
 _validate_setup_yarn() {
     local root="$1"
-    command -v corepack >/dev/null 2>&1 \
-        || die "validate: corepack not found next to node ($(command -v "${NODE_BIN}")); needed for ${CBCI_VALIDATE_PACKAGE_MANAGER}"
-    export COREPACK_HOME="${root}/corepack" COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-    mkdir -p "${root}/bin"
-    corepack enable --install-directory "${root}/bin" yarn
-    corepack prepare "${CBCI_VALIDATE_PM_SPEC}" --activate
-    export PATH="${root}/bin:${PATH}"
-    log "validate: yarn $(yarn --version) (${CBCI_VALIDATE_PM_SPEC}) via corepack"
+    "${NPM_BIN}" install --prefix "${root}/pm" --registry "${CBCI_VALIDATE_PM_REGISTRY}" \
+        --no-save --no-package-lock --no-audit --no-fund "${CBCI_VALIDATE_PM_SPEC}"
+    export PATH="${root}/pm/node_modules/.bin:${PATH}"
+    log "validate: yarn $(yarn --version) (${CBCI_VALIDATE_PM_SPEC}) via npm"
 }
 
 # Registry-mode install with the selected package manager. 'prebuild' lets it resolve the
@@ -864,8 +861,9 @@ _validate_registry_install() {
             "${NPM_BIN}" list --depth=1 || true
             # An --omit=optional install that still resolved a platform package would be
             # testing the prebuild path twice and reporting the source path as covered.
+            # Checked on disk: npm list names every withheld optional as UNMET.
             if [[ "${itype}" == "sdist" ]] \
-               && "${NPM_BIN}" list --depth=1 2>/dev/null | grep -q "@${CBCI_VALIDATE_PACKAGE_NAME}/"; then
+               && compgen -G "node_modules/@${CBCI_VALIDATE_PACKAGE_NAME}/*" >/dev/null; then
                 die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
             fi
             ;;
