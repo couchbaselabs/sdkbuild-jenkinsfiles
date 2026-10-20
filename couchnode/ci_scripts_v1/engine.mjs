@@ -22,8 +22,8 @@ const CONFIG_FILENAME = 'ci-config.yaml';
 
 // Promoted override vars (empty = use file). Map 1:1 to Jenkins params / GHA inputs.
 export const PROMOTED_VARS = [
-  'PLATFORMS', 'ARCHES', 'NODE_VERSIONS', 'ELECTRON_VERSIONS', 'RUNTIMES',
-  'USE_OPENSSL', 'OPENSSL_VERSION', 'INSTALL_TYPES',
+  'PLATFORMS', 'ARCHES', 'NODE_VERSIONS', 'VALIDATE_NODE_VERSIONS', 'BUILD_NODE_VERSION',
+  'ELECTRON_VERSIONS', 'RUNTIMES', 'USE_OPENSSL', 'OPENSSL_VERSION', 'INSTALL_TYPES',
 ];
 
 const VALID_RUNTIMES = ['node', 'electron'];
@@ -32,6 +32,9 @@ const VALID_INSTALL_TYPES = ['prebuild', 'sdist'];
 
 // Where commit-gate bookkeeping lives on the merged config.
 const GATE_KEY = '_gates';
+// Which version lists a promoted var replaced outright. An explicit list is taken as given:
+// it outranks a runner's own node_versions and skips the engines filter.
+const PINNED_KEY = '_pinned';
 
 // Which gated domains each CLI command actually reads. A gate decision is only WORTH
 // reporting where the value it produces gets consumed: every per-unit command runs on an
@@ -39,9 +42,10 @@ const GATE_KEY = '_gates';
 // describes a matrix nobody reads. Commands absent from this map report nothing; the
 // resolution itself (and its `indeterminate` bookkeeping) is unconditional, so
 // validate-config still fails hard on a gate it could not evaluate.
+const ALL_GATE_DOMAINS = ['node_versions', 'validate_node_versions', 'runner_node_versions', 'electron_versions'];
 export const GATE_REPORT_DOMAINS = {
-  plan: ['node_versions', 'electron_versions'],
-  'validate-config': ['node_versions', 'electron_versions'],
+  plan: ALL_GATE_DOMAINS,
+  'validate-config': ALL_GATE_DOMAINS,
 };
 
 // ---------------------------------------------------------------------------
@@ -174,9 +178,23 @@ function applyPromotedVars(cfg) {
     }
   }
 
+  // NODE_VERSIONS is the TEST list for whichever runner is selected, so it also replaces a
+  // runner's own node_versions (see testNodeVersions). VALIDATE_NODE_VERSIONS replaces the
+  // validate pool and skips the engines filter. BUILD_NODE_VERSION replaces the build floor.
+  const pinned = (cfg[PINNED_KEY] ||= {});
   const nodeVersions = (process.env.NODE_VERSIONS || '').trim();
   if (nodeVersions) {
     support.node_versions = parseList(nodeVersions);
+    pinned.node_versions = true;
+  }
+  const validateVersions = (process.env.VALIDATE_NODE_VERSIONS || '').trim();
+  if (validateVersions) {
+    support.validate_node_versions = parseList(validateVersions);
+    pinned.validate_node_versions = true;
+  }
+  const buildNode = (process.env.BUILD_NODE_VERSION || '').trim();
+  if (buildNode) {
+    build.node_version = buildNode;
   }
 
   const electronVersions = (process.env.ELECTRON_VERSIONS || '').trim();
@@ -274,7 +292,7 @@ function isCommitAncestor(commitSha, projectRoot) {
  *
  * `report` only silences the narration (see GATE_REPORT_DOMAINS); what the gate decides,
  * and what it records, is identical either way. */
-function evalVersionEntry(entry, keyName, projectRoot, gates, report = true) {
+function evalVersionEntry(entry, keyName, projectRoot, gates, report = true, domain = keyName) {
   if (typeof entry === 'string') return entry.trim();
   if (!entry || typeof entry !== 'object') return null;
   const version = String(entry.version || '').trim();
@@ -285,7 +303,7 @@ function evalVersionEntry(entry, keyName, projectRoot, gates, report = true) {
     const msg = `${keyName} '${version}': ${kind} '${sha.slice(0, 7)}' could not be evaluated `
       + `(no git repo, or sha absent, at ${where})`;
     if (report) process.stderr.write(`[engine] WARNING: ${msg}\n`);
-    if (gates) (gates.indeterminate ||= []).push({ domain: keyName, msg });
+    if (gates) (gates.indeterminate ||= []).push({ domain, msg });
   };
 
   if (entry.min_commit) {
@@ -325,19 +343,28 @@ export function resolveCommitGatedVersions(cfg, projectRoot, reportDomains = nul
   const gates = (cfg[GATE_KEY] ||= {});
   const reports = (domain) => reportDomains === null || reportDomains.includes(domain);
 
+  const resolveList = (list, keyName, domain) => {
+    const resolved = [];
+    for (const item of list) {
+      const v = evalVersionEntry(item, keyName, projectRoot, gates, reports(domain), domain);
+      if (v && !resolved.includes(v)) {
+        resolved.push(v);
+      }
+    }
+    return resolved;
+  };
+
   const support = cfg.support;
   if (support && typeof support === 'object') {
-    for (const key of ['node_versions', 'electron_versions']) {
+    for (const key of ['node_versions', 'validate_node_versions', 'electron_versions']) {
       if (Array.isArray(support[key])) {
-        const resolved = [];
-        for (const item of support[key]) {
-          const v = evalVersionEntry(item, key, projectRoot, gates, reports(key));
-          if (v && !resolved.includes(v)) {
-            resolved.push(v);
-          }
-        }
-        support[key] = resolved;
+        support[key] = resolveList(support[key], key, key);
       }
+    }
+  }
+  for (const r of Array.isArray(cfg.test?.runners) ? cfg.test.runners : []) {
+    if (r && Array.isArray(r.node_versions)) {
+      r.node_versions = resolveList(r.node_versions, `test.runners[${r.name}].node_versions`, 'runner_node_versions');
     }
   }
   return cfg;
@@ -922,15 +949,16 @@ function isUnsupportedCombo(support, platform, arch, runtime) {
  *     electron_versions span incompatible floors.
  *   * validate / test_unit: per (platform, arch, runtime, version, install_type), a wide
  *     fan-out proving every declared Node/Electron version actually loads the prebuilds.
- *     test_unit drops Node versions below the selected test runner's `min_node`, since the
- *     suite itself may need a newer Node than the package supports.
+ *     The two take their Node versions from different lists: validate from
+ *     validateNodeVersions() (the pool, narrowed to the SDK's engines range), test_unit
+ *     from testNodeVersions() (the selected runner's list), since the suite itself may need
+ *     a newer Node than the package supports.
  * libc (manylinux/musllinux) is present only for linux/alpine units, never macos/windows.
  */
 export function buildPlan(cfg) {
   const support = cfg.raw.support || {};
   const build = cfg.raw.build || {};
   const test = cfg.raw.test || {};
-  const nodeVersions = support.node_versions || [];
   const electronVersions = support.electron_versions || [];
   const runtimes = support.runtimes || ['node'];
   const arches = support.architectures || [];
@@ -940,6 +968,7 @@ export function buildPlan(cfg) {
   const buildType = String(build.build_type || 'RelWithDebInfo');
   const napiVersion = build.napi_version ?? 8;
   const installTypes = test.install_types || ['prebuild', 'sdist'];
+  const validateNodeVers = validateNodeVersions(cfg);
   const testNodeVers = testNodeVersions(cfg);
 
   const keyed = (platform, arch, libc) => {
@@ -963,22 +992,24 @@ export function buildPlan(cfg) {
           continue;
         }
 
-        const versions = runtime === 'electron' ? electronVersions : nodeVersions;
-        if (runtime === 'electron' && versions.length === 0) continue; // nothing declared to build
+        if (runtime === 'electron' && electronVersions.length === 0) continue; // nothing declared to build
 
         const unit = keyed(platform, arch, libc);
         Object.assign(unit, { ssl, runtime, build_type: buildType });
         if (runtime === 'node') unit.napi_version = napiVersion;
         buildUnits.push(unit);
 
-        for (const version of versions) {
-          for (const itype of installTypes) {
-            const cell = keyed(platform, arch, libc);
-            Object.assign(cell, { runtime, version, install_type: itype });
-            validateUnits.push({ ...cell });
-            if (runtime === 'electron' || testNodeVers.includes(version)) testUnits.push({ ...cell });
+        const cells = (versions, out) => {
+          for (const version of versions) {
+            for (const itype of installTypes) {
+              const cell = keyed(platform, arch, libc);
+              Object.assign(cell, { runtime, version, install_type: itype });
+              out.push(cell);
+            }
           }
-        }
+        };
+        cells(runtime === 'electron' ? electronVersions : validateNodeVers, validateUnits);
+        cells(runtime === 'electron' ? electronVersions : testNodeVers, testUnits);
       }
     }
   }
@@ -1032,6 +1063,81 @@ function nodeSupportsNapi(nodeVersion, napi) {
   return major >= row.allFrom;
 }
 
+// ---------------------------------------------------------------------------
+// The SDK's engines.node range
+// ---------------------------------------------------------------------------
+
+/** Compile a package.json `engines.node` range into a predicate over Node versions.
+ *
+ * Hand-written rather than a semver dependency, so it covers only what an engines field
+ * realistically holds: `||` alternatives of space-separated comparators, each one of
+ * `>=` `>` `<=` `<` `=` `^` `~` or a bare version, with partial versions (`>=16`, `20`).
+ * Anything else (hyphen ranges, `x`/`*` wildcards, prerelease tags) throws, since guessing
+ * would quietly validate the wrong matrix. */
+export function parseNodeRange(range) {
+  const text = String(range).trim();
+  const fail = (why) => { throw new Error(`unsupported engines.node range '${text}': ${why}`); };
+  const alternatives = text.split('||').map((alt) => {
+    const parts = alt.trim().replace(/(>=|<=|>|<|=|\^|~)\s+/g, '$1').split(/\s+/).filter(Boolean);
+    if (!parts.length) fail('empty alternative');
+    return parts.flatMap((part) => {
+      const m = /^(>=|<=|>|<|=|\^|~)?v?(\d+)(?:\.(\d+))?(?:\.(\d+))?$/.exec(part);
+      if (!m) fail(`cannot read comparator '${part}'`);
+      const [, op = '', M, mi, pa] = m;
+      const major = Number(M);
+      const minor = mi === undefined ? undefined : Number(mi);
+      const patch = pa === undefined ? undefined : Number(pa);
+      const low = `${major}.${minor ?? 0}.${patch ?? 0}`;
+      // The first version past a partial: 20 -> 21.0.0, 20.17 -> 20.18.0.
+      const past = minor === undefined ? `${major + 1}.0.0` : `${major}.${minor + 1}.0`;
+      const full = patch !== undefined;
+      switch (op) {
+        case '>=': return [['>=', low]];
+        case '<': return [['<', low]];
+        case '>': return [full ? ['>', low] : ['>=', past]];
+        case '<=': return [full ? ['<=', low] : ['<', past]];
+        case '~': return [['>=', low], ['<', past]];
+        case '^': {
+          let upper;
+          if (major > 0 || minor === undefined) upper = `${major + 1}.0.0`;
+          else if (minor > 0 || patch === undefined) upper = `0.${minor + 1}.0`;
+          else upper = `0.0.${patch + 1}`;
+          return [['>=', low], ['<', upper]];
+        }
+        default: return full ? [['=', low]] : [['>=', low], ['<', past]];
+      }
+    });
+  });
+  const holds = (v, [op, bound]) => {
+    const c = cmpVersionTriples(v, bound);
+    return { '>=': c >= 0, '>': c > 0, '<=': c <= 0, '<': c < 0, '=': c === 0 }[op];
+  };
+  return (version) => alternatives.some((alt) => alt.every((cmp) => holds(version, cmp)));
+}
+
+/** The checkout's `engines.node`, or null when there is no SDK package.json to read (no
+ * checkout, or a different package such as CI-core's own) or it declares none. */
+export function projectEnginesNode(projectRoot) {
+  const root = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
+  const path = join(root, 'package.json');
+  if (!existsSync(path)) return null;
+  const pkg = JSON.parse(readFileSync(path, 'utf8'));
+  if (pkg.name !== 'couchbase') return null;
+  return pkg.engines?.node ? String(pkg.engines.node) : null;
+}
+
+/** Node versions the validate stage installs on: support.validate_node_versions (falling
+ * back to node_versions), narrowed to the checkout's engines.node so a branch is only
+ * validated where it claims to run. A VALIDATE_NODE_VERSIONS override is taken as given. */
+export function validateNodeVersions(cfg, projectRoot) {
+  const support = cfg.raw.support || {};
+  const pool = support.validate_node_versions || support.node_versions || [];
+  if (cfg.raw[PINNED_KEY]?.validate_node_versions) return pool;
+  const range = projectEnginesNode(projectRoot);
+  if (!range) return pool;
+  return pool.filter(parseNodeRange(range));
+}
+
 /** Coherence-check the MERGED config. Returns {errors, warnings}. Errors are
  * fatal (e.g. an override emptied the matrix); warnings are advisory. */
 export function validateConfig(cfg) {
@@ -1049,7 +1155,12 @@ export function validateConfig(cfg) {
   // and its indeterminacy is only advisory - that is how a pipeline with no SDK checkout
   // stays legitimate without a bypass flag a source-building pipeline could inherit.
   const gates = cfg.raw[GATE_KEY] || {};
-  const PIN_VAR = { node_versions: 'NODE_VERSIONS', electron_versions: 'ELECTRON_VERSIONS' };
+  const PIN_VAR = {
+    node_versions: 'NODE_VERSIONS',
+    runner_node_versions: 'NODE_VERSIONS',
+    validate_node_versions: 'VALIDATE_NODE_VERSIONS',
+    electron_versions: 'ELECTRON_VERSIONS',
+  };
   for (const rec of gates.indeterminate || []) {
     const pinned = Boolean((process.env[PIN_VAR[rec.domain]] || '').trim());
     const suffix = pinned ? ' (superseded by an explicit override)' : '';
@@ -1058,6 +1169,32 @@ export function validateConfig(cfg) {
 
   if (!support.node_versions || support.node_versions.length === 0) {
     errors.push('support.node_versions is empty (an override may have dropped everything)');
+  }
+
+  // --- validate pool vs the SDK's engines range ------------------------------
+  const pinnedValidate = Boolean(cfg.raw[PINNED_KEY]?.validate_node_versions);
+  let enginesRange = null;
+  try {
+    enginesRange = projectEnginesNode();
+  } catch (err) {
+    errors.push(`cannot read the SDK package.json: ${err.message}`);
+  }
+  if (!pinnedValidate && support.validate_node_versions && enginesRange === null) {
+    warnings.push('no SDK package.json with engines.node (CBCI_PROJECT_ROOT or cwd), so the validate pool is not narrowed to it');
+  }
+  try {
+    const pool = support.validate_node_versions || support.node_versions || [];
+    if (pool.length && !validateNodeVersions(cfg).length) {
+      errors.push(`engines.node '${enginesRange}' matches none of the validate pool [${pool.join(', ')}]; `
+        + 'add a version it allows to support.validate_node_versions, or set VALIDATE_NODE_VERSIONS');
+    }
+  } catch (err) {
+    errors.push(err.message);
+  }
+
+  const buildNode = build.node_version;
+  if (buildNode !== undefined && buildNode !== null && !/^\d+\.\d+\.\d+$/.test(String(buildNode))) {
+    errors.push(`build.node_version must be an exact x.y.z Node version (got ${JSON.stringify(buildNode)})`);
   }
   if (!support.architectures || support.architectures.length === 0) {
     errors.push('support.architectures is empty');
@@ -1109,6 +1246,11 @@ export function validateConfig(cfg) {
     if (r.min_node !== undefined && (!Number.isInteger(r.min_node) || r.min_node < 1)) {
       errors.push(`test runner '${r.name}': min_node must be a Node major (got ${JSON.stringify(r.min_node)})`);
     }
+    // min_node trims an override; the runner's own list should never need trimming.
+    const below = (r.node_versions || []).filter((v) => r.min_node && parseInt(String(v).split('.')[0], 10) < r.min_node);
+    if (below.length) {
+      errors.push(`test runner '${r.name}': node_versions [${below.join(', ')}] are below its min_node ${r.min_node}`);
+    }
   }
   if (!runners.some((r) => !r.when_exists && !r.opt_in)) {
     errors.push('test.runners has no fallback (an entry with neither when_exists nor opt_in), so some checkouts match no runner');
@@ -1122,7 +1264,8 @@ export function validateConfig(cfg) {
   try {
     const r = testRunner(cfg);
     if (!testNodeVersions(cfg).length) {
-      errors.push(`test runner '${r.name}' needs Node >= ${r.min_node}, and no support.node_versions entry qualifies`);
+      errors.push(`test runner '${r.name}' has no Node version to test on`
+        + (r.min_node ? ` (it needs Node >= ${r.min_node})` : ''));
     }
   } catch (err) {
     errors.push(err.message);
@@ -1137,10 +1280,14 @@ export function validateConfig(cfg) {
   if (napi !== undefined && (!Number.isInteger(napi) || napi < 1)) {
     errors.push(`build.napi_version must be a positive integer (got ${JSON.stringify(napi)})`);
   } else if (napi !== undefined) {
-    // The whole "ONE prebuild serves every node_versions entry" claim rests on every
-    // configured version implementing the compiled Node-API level. A version below it
-    // gets a binary it cannot load, and nothing before the validate stage says so.
-    const nodeVersions = support.node_versions || [];
+    // The whole "ONE prebuild serves every Node version" claim rests on every configured
+    // version implementing the compiled Node-API level. A version below it gets a binary it
+    // cannot load, and nothing before the validate stage says so.
+    const nodeVersions = [...new Set([
+      ...(support.node_versions || []),
+      ...(support.validate_node_versions || []),
+      ...runners.flatMap((r) => r.node_versions || []),
+    ])];
     const unknown = [];
     for (const v of nodeVersions) {
       const ok = nodeSupportsNapi(v, napi);
@@ -1148,7 +1295,7 @@ export function validateConfig(cfg) {
         unknown.push(v);
       } else if (!ok) {
         errors.push(
-          `support.node_versions entry '${v}' does not implement Node-API ${napi} `
+          `configured Node version '${v}' does not implement Node-API ${napi} `
           + '(the level the addon is compiled against), so it cannot load the prebuild. '
           + 'Drop the entry, or lower build.napi_version and CMakeLists.txt\'s NAPI_VERSION together.');
       }
@@ -1209,11 +1356,14 @@ export function testRunner(cfg, projectRoot) {
   return r;
 }
 
-/** node_versions the selected runner can test: support.node_versions minus anything below
- * the runner's `min_node` major. Build and validate keep the full list. */
+/** Node versions the selected runner tests on: NODE_VERSIONS when set, else the runner's
+ * own node_versions, else support.node_versions. Anything below the runner's `min_node`
+ * major is dropped, so an override cannot put the suite on a Node it cannot start on. */
 export function testNodeVersions(cfg, projectRoot) {
-  const versions = cfg.raw.support?.node_versions || [];
-  const floor = testRunner(cfg, projectRoot).min_node;
+  const runner = testRunner(cfg, projectRoot);
+  const pinned = cfg.raw[PINNED_KEY]?.node_versions;
+  const versions = (!pinned && runner.node_versions) || cfg.raw.support?.node_versions || [];
+  const floor = runner.min_node;
   if (!floor) return versions;
   return versions.filter((v) => parseInt(String(v).split('.')[0], 10) >= floor);
 }

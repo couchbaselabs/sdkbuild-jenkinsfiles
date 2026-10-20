@@ -139,47 +139,59 @@ function buildNodeWindow(platform, arch) {
   return window;
 }
 
-/** Narrow `nodeVersions` to those a BUILD on (platform, arch) may pick as its driver Node.
+const nodeMajor = (v) => parseInt(String(v).split('.')[0], 10);
+
+/** Every Node version this run validates or tests on, oldest first. */
+function nodeVersionsInPlay(cfg) {
+  const all = [...engine.validateNodeVersions(cfg), ...engine.testNodeVersions(cfg)];
+  return [...new Set(all)].sort(compareVersions);
+}
+
+/** The Node a BUILD on (platform, arch) runs cmake-js under.
  *
- * FLOOR ONLY, deliberately. There are exactly two cases: the globally OLDEST configured
- * version (centos7/grav2/macos/windows), and the oldest version >= 18 for alpine arm64,
- * whose agents start at Node 18. Neither applies a ceiling.
+ * build.node_version (BUILD_NODE_VERSION) is a FLOOR: N-API makes the binary built there
+ * load on every newer Node, so the oldest Node is the safe default. Where this platform's
+ * agents cannot start it (alpine arm64 begins at 18), it is raised to the oldest version in
+ * play at or above the agent floor. With no build.node_version the oldest version in play
+ * is the floor.
  *
- * A ceiling would be wrong here: on the validate/test side a `max` means "skip this cell",
- * but a build has only ONE floor agent, so an over-max representative is a misconfiguration
- * rather than a cell to drop. `warnBuildDriverNode` reports it instead of silently emitting
- * a job with no pinned version. */
-function filterNodeVersionsForPlatform(nodeVersions, platform, arch) {
+ * FLOOR ONLY, deliberately. A ceiling would be wrong here: on the validate/test side a
+ * `max` means "skip this cell", but a build has only ONE floor agent, so an over-max driver
+ * is a misconfiguration rather than a cell to drop. `warnBuildDriverNode` reports it. */
+function buildDriverNode(cfg, platform, arch) {
+  const inPlay = nodeVersionsInPlay(cfg);
+  const configured = cfg.raw.build?.node_version;
+  const floor = configured ? String(configured) : inPlay[0];
   const { min } = buildNodeWindow(platform, arch);
-  if (min === undefined) return nodeVersions;
-  const kept = [];
-  const dropped = [];
-  for (const v of nodeVersions) {
-    const major = parseInt(String(v).split('.')[0], 10);
-    (Number.isNaN(major) || major >= min ? kept : dropped).push(v);
+  if (floor && (min === undefined || nodeMajor(floor) >= min)) return floor;
+  const raised = inPlay.find((v) => nodeMajor(v) >= min && (!floor || compareVersions(v, floor) >= 0));
+  // No driver Node means nothing to install. Emitting the job anyway hands groovy a null
+  // `node_version` and the failure surfaces as an unexplained installNode error on the
+  // agent; name the cause here instead, where the config is in hand.
+  if (!raised) {
+    throw new Error(
+      `no usable build driver Node for ${platform}:${arch} - the build floor `
+      + `(Node ${floor || 'none'}) is below that platform's agent floor (Node ${min}), and no `
+      + `validate or test version [${inPlay.join(', ') || 'none'}] is at or above it. `
+      + 'Set BUILD_NODE_VERSION to one that floor can run, or drop the platform.');
   }
-  // Say what was narrowed. Silent truncation reads as "we considered everything" when the
-  // driver pick was in fact taken from a smaller list, and the pick is the ONE thing that
-  // decides which agent compiles the prebuild.
-  if (dropped.length) {
-    process.stderr.write(
-      `[jenkins] ${platform}:${arch} build driver: ignoring node_versions `
-      + `[${dropped.join(', ')}] (below this platform's agent floor, Node ${min}) - `
-      + `choosing from [${kept.join(', ') || 'nothing left'}]\n`
-    );
-  }
-  return kept;
+  // Say so: the pick decides which agent compiles the prebuild.
+  process.stderr.write(
+    `[jenkins] ${platform}:${arch} build driver: raising Node ${floor} to ${raised} `
+    + `(this platform's agents start at Node ${min})\n`
+  );
+  return raised;
 }
 
 /** Warn when a build's chosen driver Node exceeds what its floor agent can run: say
- * NODE_VERSIONS='20.15.1 22.14.0' pinning Node 20 on centos7 (glibc < 2.28), which cannot
+ * BUILD_NODE_VERSION=20.20.2 pinning Node 20 on centos7 (glibc < 2.28), which cannot
  * start it. */
 function warnBuildDriverNode(label, version) {
   if (version && !labelSupportsNodeVersion(label, version)) {
     const r = LABEL_NODE_MAJORS[label];
     process.stderr.write(
       `WARNING: build driver Node ${version} is outside agent '${label}''s supported range ` +
-      `(${r.min ?? '*'}..${r.max ?? '*'}); configure a node_versions entry that '${label}' ` +
+      `(${r.min ?? '*'}..${r.max ?? '*'}); set a build.node_version that '${label}' ` +
       `can run, or the prebuild job will fail to install Node\n`
     );
   }
@@ -365,8 +377,8 @@ function electronBuildBuckets(electronVersions) {
 }
 
 // Node/OpenSSL ABI floor table. ONLY applies when build.ssl == 'openssl'. BoringSSL builds
-// never fan out by node_versions; they collapse to ONE build using the single oldest
-// configured entry. This table is the OpenSSL-specific exception: pre-18 and 18+ Node link
+// never fan out by Node version; they collapse to ONE build on the build floor (see
+// buildDriverNode). This table is the OpenSSL-specific exception: pre-18 and 18+ Node link
 // against different OpenSSL majors (1.1 vs 3), so each side of that cutoff needs its own
 // prebuild. Same shape as ELECTRON_NODE_ABI_TABLE; macOS/Windows keep their direct label
 // but still split into two jobs, exactly like the electron case.
@@ -382,7 +394,7 @@ function opensslFloorFor(nodeMajor) {
   return OPENSSL_NODE_FLOOR_TABLE.find((e) => nodeMajor <= e.maxNodeMajor);
 }
 
-/** Group configured node_versions by which OpenSSL floor they need (openssl builds
+/** Group the Node versions in play by which OpenSSL floor they need (openssl builds
  * only). Mirrors electronBuildBuckets's shape/dedup logic. */
 function opensslBuildBuckets(nodeVersions) {
   const byFloorIdx = new Map();
@@ -426,7 +438,6 @@ function abstractPlatforms(tokens) {
 function buildJobsFromPlan(plan, cfg) {
   const jobs = [];
   const electronVersions = cfg.raw.support?.electron_versions || [];
-  const nodeVersions = cfg.raw.support?.node_versions || [];
   const ssl = String(cfg.raw.build?.ssl || 'boringssl').toLowerCase();
 
   for (const u of plan.build.units) {
@@ -434,8 +445,8 @@ function buildJobsFromPlan(plan, cfg) {
     if (u.runtime === 'node') {
       if (ssl === 'openssl') {
         // OpenSSL: fan out by the Node-18 ABI floor (see OPENSSL_NODE_FLOOR_TABLE), one
-        // job per floor actually required by the configured node_versions.
-        for (const { floor, versions, representative } of opensslBuildBuckets(nodeVersions)) {
+        // job per floor actually required by the Node versions in play.
+        for (const { floor, versions, representative } of opensslBuildBuckets(nodeVersionsInPlay(cfg))) {
           let label;
           if (platform === 'linux' || platform === 'alpine') {
             label = floor.linuxLabel[normArchKey(arch)] || jenkinsLabel(platform, arch);
@@ -459,22 +470,10 @@ function buildJobsFromPlan(plan, cfg) {
         continue;
       }
 
-      // BoringSSL (the default): ONE job per (platform, arch), with representative = the
-      // single oldest configured node_versions entry. N-API makes that binary
-      // ABI-compatible with every newer major, so no node-major cutoff applies. Filter out
-      // versions below the platform floor (e.g. Node 16 on alpine:arm64).
-      const validVersions = filterNodeVersionsForPlatform(nodeVersions, platform, arch);
-      const representative = validVersions.length ? [...validVersions].sort(compareVersions)[0] : undefined;
-      // No representative means no driver Node to install. Emitting the job anyway hands
-      // groovy a null `node_version` and the failure surfaces as an unexplained installNode
-      // error on the agent; name the cause here instead, where the config is in hand.
-      if (!representative) {
-        throw new Error(
-          `no usable build driver Node for ${platform}:${arch} - every configured `
-          + `node_versions entry [${nodeVersions.join(', ') || 'none'}] is below that `
-          + `platform's agent floor (Node ${buildNodeWindow(platform, arch).min}). `
-          + 'Add a NODE_VERSIONS entry that floor can run, or drop the platform.');
-      }
+      // BoringSSL (the default): ONE job per (platform, arch), driven by the build floor.
+      // N-API makes that binary ABI-compatible with every newer major, so no node-major
+      // cutoff applies.
+      const representative = buildDriverNode(cfg, platform, arch);
       const env = { CBCI_BUILD_PLATFORM: platform, CBCI_BUILD_ARCH: arch, CBCI_BUILD_RUNTIME: 'node' };
       if (libc) env.CBCI_BUILD_LIBC = libc;
       env.CBCI_BUILD_NODE_VERSION = representative;

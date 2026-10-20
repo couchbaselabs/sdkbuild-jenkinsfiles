@@ -71,11 +71,11 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.mjs")         echo "6aea79154098525961b2324edbdcd328c5e7b375a2ce0792d946069b21c58862" ;;
-        "jenkins.mjs")        echo "09d77d185f29b9329db1a1cfe8fa54585c1d22a034c8655c9e7e8e52646d057a" ;;
+        "engine.mjs")         echo "6abdca3f081bcc5800da037fadab7d49951ec5079f22fe43943eaf274333bf49" ;;
+        "jenkins.mjs")        echo "d414f0c1e4e0946d865257f153ddf4c3c3d1712bec50049b3321b4e60db3ddfe" ;;
         "tasks.sh")           echo "dd051a97ef41dd63d07e6a2d48d223cd1c2100a3ce90ab9bf213343941ddc5ae" ;;
         "tasks.ps1")          echo "7c2d5b3229f52175ee057982557e0a374de9773d63ee5bde19c3ac33ee4d7e04" ;;
-        "ci-config.yaml")     echo "381b75218f49823924df65a147c99b212f76fad5e94ecc17107e0b0056321f95" ;;
+        "ci-config.yaml")     echo "45d5d9c03f339d03710e2cf8af41bd1fc1bbae25a6b7c5c4edaa7d0b3b4b6baf" ;;
         "package.json")       echo "723bd7b31c52ee5afc5dcca12b0a4f8c9209ff2d8801ead2355d846eb936206d" ;;
         "package-lock.json")  echo "8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372" ;;
         *)                    echo "" ;;

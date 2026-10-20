@@ -2,7 +2,8 @@
 #
 # Source of truth, read by CI *and* local runs. Reviewable + gated in CI-core.
 # Override at runtime via promoted vars (PLATFORMS/ARCHES/NODE_VERSIONS/
-# ELECTRON_VERSIONS/RUNTIMES/USE_OPENSSL) or the CBCI_CONFIG_OVERRIDE JSON string.
+# VALIDATE_NODE_VERSIONS/BUILD_NODE_VERSION/ELECTRON_VERSIONS/RUNTIMES/USE_OPENSSL) or the
+# CBCI_CONFIG_OVERRIDE JSON string.
 # Merge precedence (most specific wins): this file < CBCI_CONFIG_OVERRIDE < promoted vars.
 #
 # IMPORTANT: this file holds ABSTRACT dimensions only. Concrete runner labels
@@ -14,14 +15,26 @@ project: COUCHNODE
 # --- support matrix ----------------------------------------------------------
 support:
   # Node ships prebuilt N-API binaries always. A prebuild is ABI-stable across every
-  # Node major version sharing the same napi_version, so node_versions and
-  # electron_versions drive TEST fan-out only, never build fan-out (see
-  # build.napi_version below).
-  node_versions:
+  # Node major version sharing the same napi_version, so these lists drive validate and
+  # test fan-out only, never build fan-out (see build.napi_version and build.node_version).
+  #
+  # node_versions: the test cells of any runner without its own node_versions (Vitest).
+  # NODE_VERSIONS replaces the list of whichever runner is selected.
+  node_versions: ["22.14.0", "24.21.0", "26.11.1"]
+
+  # validate_node_versions: the pool the validate stage installs on, narrowed per checkout
+  # to the SDK package.json's engines.node, so each branch is validated where it claims to
+  # run. min_commit marks the commit that added support for that Node major.
+  # VALIDATE_NODE_VERSIONS replaces it and skips the engines filter.
+  validate_node_versions:
     - "16.20.2"
-    - "18.20.4"
-    - "20.15.1"
+    - { version: "18.20.4", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
+    - { version: "20.20.2", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
     - { version: "22.14.0", min_commit: "8350f7c7eb4674f553072a4790d5a88a4a2e970c" }
+    # PENDING: v4.6.0, until a 4.6.0 release-verify on Node 24/26 confirms it. Fall back to
+    # v4.7.0 (7378b6e1d2681b9b52f547c36eb3df1971f98fbc) if it does not.
+    - { version: "24.21.0", min_commit: "15a72e9a8df92cca32bc780d98935d22bc26f523" }
+    - { version: "26.11.1", min_commit: "15a72e9a8df92cca32bc780d98935d22bc26f523" }
   electron_versions: []   # populated per-run; empty = electron runtime not exercised
 
   runtimes: ["node", "electron"]
@@ -46,6 +59,12 @@ build:
   set_cpm_cache: true       # bake the C++ core's CPM cache (deps/couchbase-cxx-cache)
                             # into the sdist tarball before it's built into prebuilds
   verbose_makefile: false
+
+  # node_version: the Node the prebuild build runs cmake-js under. A FLOOR: the oldest Node
+  # is the safe default, and where a platform's agents cannot start it (alpine arm64 begins
+  # at 18) jenkins.mjs raises it to the oldest validate/test version they can.
+  # BUILD_NODE_VERSION replaces it.
+  node_version: "16.20.2"
 
   # napi_version: the N-API level the C++ addon targets. Informational only, since it is
   # HARDCODED at compile time (CMakeLists.txt: `-DNAPI_VERSION=6`) rather than env-driven,
@@ -85,8 +104,11 @@ test:
   #                                 (couchnode's CNJUNIT: its own reporter, which keeps skip
   #                                 reasons). The cmd must not pass --reporter, which would
   #                                 replace the config's reporters.
-  #   min_node                      test cells below this Node major are dropped; build
-  #                                 and validate keep the full node_versions list
+  #   node_versions                 the Node versions this runner tests on (default
+  #                                 support.node_versions); gated like the support lists
+  #   min_node                      test cells below this Node major are dropped, so a
+  #                                 NODE_VERSIONS override cannot start the suite on a
+  #                                 Node it does not run on
   # The Vitest commands list the three default projects instead of `--project '!periodic'`:
   # npm and npx run through cmd.exe on Windows, where single quotes are literal.
   runners:
@@ -109,6 +131,11 @@ test:
       # CouchbaseMock.jar needs a `java` runtime on the test agent, so tasks.sh/tasks.ps1
       # check for it before falling back to a real cluster via CNCSTR.
       require_java: true
+      node_versions:
+        - "16.20.2"
+        - { version: "18.20.4", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
+        - { version: "20.20.2", min_commit: "96eec70793a68626dbf35a8ace0daef95c40b1f3" }
+        - { version: "22.14.0", min_commit: "8350f7c7eb4674f553072a4790d5a88a4a2e970c" }
 
   # Neutral real-cluster spec. Provisioning stays adapter/groovy-only (cbdyncluster on
   # Jenkins) and is not implemented yet.
