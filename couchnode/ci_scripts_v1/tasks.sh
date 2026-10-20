@@ -1068,9 +1068,13 @@ task_test() {
     fi
 
     # An env var reaches every platform; a CNTIER= prefix on TEST_COMMAND only works under eval.
-    if [[ -n "${CBCI_TEST_TIER:-}" && -z "${CNTIER:-}" ]]; then
-        export CNTIER="${CBCI_TEST_TIER}"
-        log "test: CNTIER=${CNTIER}"
+    if [[ -z "${CNTIER:-}" ]]; then
+        local tier
+        tier="$("${NODE_BIN}" "${ENGINE}" test-tier)" || die "test: could not resolve the test tier"
+        if [[ -n "${tier}" ]]; then
+            export CNTIER="${tier}"
+            log "test: CNTIER=${CNTIER}"
+        fi
     fi
 
     # Keyed on CNCSTR, not on CBCI_TEST_CLUSTER: the mock path must leave CNCVER unset, and

@@ -881,9 +881,14 @@ function Task-Test {
     }
 
     # See tasks.sh's task_test: the tier travels as an env var so it reaches every platform.
-    if ($env:CBCI_TEST_TIER -and -not $env:CNTIER) {
-        $env:CNTIER = $env:CBCI_TEST_TIER
-        Log "test: CNTIER=$($env:CNTIER)"
+    if (-not $env:CNTIER) {
+        $tier = (& $NODE_BIN $ENGINE test-tier)
+        if ($LASTEXITCODE -ne 0) { Die 'test: could not resolve the test tier' }
+        $tier = "$tier".Trim()
+        if ($tier) {
+            $env:CNTIER = $tier
+            Log "test: CNTIER=$($env:CNTIER)"
+        }
     }
 
     # test/harness.js treats CNCSTR and CNCVER as a pair: either one without the other is a

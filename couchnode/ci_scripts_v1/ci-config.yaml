@@ -108,6 +108,9 @@ test:
   #   min_node                      test cells below this Node major are dropped, so a
   #                                 NODE_VERSIONS override cannot start the suite on a
   #                                 Node it does not run on
+  #   tier                          exported as CNTIER (fast|slow|nightly) unless the
+  #                                 TEST_TIER job param or CNTIER is set. nightly matches
+  #                                 the mocha suite, which had no tiers and ran everything
   # The Vitest commands list the three default projects instead of `--project '!periodic'`:
   # npm and npx run through cmd.exe on Windows, where single quotes are literal.
   runners:
@@ -116,6 +119,7 @@ test:
       cmd: "npx vitest run --config test/vitest.config.mts --project unit --project integration --project exclusive"
       junit: inline
       junit_env: CNJUNIT
+      tier: nightly
       min_node: 20               # vitest 4 engines: ^20 || ^22 || >=24
     - name: vitest-v2            # test/v2 before it replaces test/
       opt_in: true
@@ -123,6 +127,7 @@ test:
       cmd: "npx vitest run --config test/v2/vitest.config.mts --project unit --project integration --project exclusive"
       junit: inline
       junit_env: CNJUNIT
+      tier: nightly
       min_node: 20
     - name: mocha                # fallback: pre-cutover shas and maintenance branches
       cmd: "npm run test"

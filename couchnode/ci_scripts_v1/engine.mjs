@@ -1256,6 +1256,9 @@ export function validateConfig(cfg) {
         errors.push(`test runner '${r.name}': cmd passes --reporter, which replaces the reporter junit_env enables`);
       }
     }
+    if (r.tier !== undefined && !VALID_TEST_TIERS.includes(r.tier)) {
+      errors.push(`test runner '${r.name}': tier must be ${VALID_TEST_TIERS.join('|')} (got ${JSON.stringify(r.tier)})`);
+    }
     if (r.min_node !== undefined && (!Number.isInteger(r.min_node) || r.min_node < 1)) {
       errors.push(`test runner '${r.name}': min_node must be a Node major (got ${JSON.stringify(r.min_node)})`);
     }
@@ -1333,6 +1336,7 @@ export function validateConfig(cfg) {
 // ---------------------------------------------------------------------------
 
 const VALID_JUNIT_MODES = ['mocha-multi-reporters', 'inline'];
+export const VALID_TEST_TIERS = ['fast', 'slow', 'nightly'];
 
 /** The configured test runners, in selection order. `test.runners` is an ordered list;
  * a config that still has only `test.mocha` is read as a single mocha runner. */
@@ -1411,6 +1415,19 @@ export function testJunitEnv(cfg) {
   return testRunner(cfg).junit_env || '';
 }
 
+/** The CNTIER for the run: CBCI_TEST_TIER (the TEST_TIER job param), else the runner's
+ * `tier`, else '' so the suite keeps its own default. */
+export function testTier(cfg) {
+  const forced = (process.env.CBCI_TEST_TIER || '').trim();
+  if (forced) {
+    if (!VALID_TEST_TIERS.includes(forced)) {
+      throw new Error(`CBCI_TEST_TIER must be ${VALID_TEST_TIERS.join('|')} (got '${forced}')`);
+    }
+    return forced;
+  }
+  return testRunner(cfg).tier || '';
+}
+
 /** Whether the test agent needs a `java` runtime (CouchbaseMock.jar fallback). */
 export function requiresJava(cfg) {
   return Boolean(testRunner(cfg).require_java);
@@ -1437,7 +1454,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|requires-java>\n'
+    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
   );
 }
 
@@ -1516,6 +1533,9 @@ function dispatch(cmd, positionals, cfg) {
       break;
     case 'test-junit-env':
       console.log(testJunitEnv(cfg));
+      break;
+    case 'test-tier':
+      console.log(testTier(cfg));
       break;
     case 'requires-java':
       console.log(requiresJava(cfg) ? 'true' : 'false');
