@@ -1009,7 +1009,10 @@ build_openssl() {
 }
 
 # Echo "<so_dir> <so_file>" for the current project's built core extension.
-# PYCBC handles the v4.6.0 (PYCBC-1745) relocation under couchbase/logic/pycbc_core.
+# PYCBC has moved the extension twice, so probe newest-first to serve any checkout:
+#   PYCBC-1990          -> couchbase/protocol/classic/_pycbc_core/_core*.so
+#   v4.6.0 (PYCBC-1745) -> couchbase/logic/pycbc_core/_core*.so
+#   older               -> couchbase/pycbc_core*.so
 #
 # The extension's SUFFIX is build-mode dependent, so only the stem is known up front:
 #   abi3 (PYCBC-1854)  -> <stem>.abi3.so
@@ -1022,7 +1025,9 @@ locate_core_so() {
     local root="$1" so_dir so_stem
     case "${CBCI_PROJECT_PREFIX:-PYCBC}" in
         PYCBC)
-            if [[ -d "${root}/couchbase/logic/pycbc_core" ]]; then
+            if [[ -d "${root}/couchbase/protocol/classic/_pycbc_core" ]]; then
+                so_dir="${root}/couchbase/protocol/classic/_pycbc_core"; so_stem="_core"
+            elif [[ -d "${root}/couchbase/logic/pycbc_core" ]]; then
                 so_dir="${root}/couchbase/logic/pycbc_core"; so_stem="_core"
             else
                 so_dir="${root}/couchbase"; so_stem="pycbc_core"
@@ -1776,7 +1781,8 @@ task_docs() {
         cp "${so_path}" "${target_so_path}"
 
         # The top package is the first segment of the extension's path, which covers every
-        # compiled project (couchbase/logic/pycbc_core, couchbase, couchbase_columnar/protocol).
+        # compiled project (couchbase/protocol/classic/_pycbc_core, couchbase/logic/pycbc_core,
+        # couchbase, couchbase_columnar/protocol).
         pkg_dir="${rel_so_dir%%/*}"
     fi
 
