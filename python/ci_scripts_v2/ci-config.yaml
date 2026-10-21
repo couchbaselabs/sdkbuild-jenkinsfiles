@@ -79,6 +79,21 @@ test:
     # failure, not noise; see scripted-integration-pipeline.groovy's runIntegrationTest.
     couchbase_opts: "-p no:asyncio -v -p no:warnings --reruns 2 --reruns-delay 5"
 
+    # The integration pipeline (CBCI_TEST_STAGE=integration). Each `layouts` entry whose
+    # `when_exists` file is in the SDK checkout overlays its keys on the ones above, first
+    # match wins; no match keeps them. Older test trees reject --real-server, so the options
+    # are chosen per checkout. TEST_ARGS still appends (e.g. --reruns 2 --reruns-delay 5).
+    integration:
+      layouts:
+        - name: tests-v2         # PYCBC-1850 test tree
+          when_exists: tests/hooks.py
+          # Eventing and collection history retention are left out for now: they slow the
+          # cluster enough that the run times out. They become their own suites once the
+          # SDK marks them.
+          couchbase_opts: >-
+            --real-server -n 4 --dist loadgroup -v -rs --durations=30
+            -k 'not EventingFunctionManagementTests and not (CollectionManagementTests and history_retention)'
+
   # Neutral real-cluster spec for integration testing. Jenkins realizes this via
   # cbdyncluster (jenkins.py integration-tags); GHA will realize it via cbdinocluster
   # (test.integration.cbdino). Provisioning itself is an adapter concern; this block is

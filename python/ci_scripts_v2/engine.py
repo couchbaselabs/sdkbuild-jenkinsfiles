@@ -1322,6 +1322,15 @@ def validate_config(cfg: Config) -> tuple:
             "predates abi3 support in the SDK. Drop the override (or use ABI3=auto) to let "
             "the gate decide.")
 
+    # --- pytest layouts --------------------------------------------------------
+    pytest_raw = cfg.raw.get("test", {}).get("pytest", {}) or {}
+    for scope, block in [("test.pytest", pytest_raw)] + [
+            (f"test.pytest.{k}", v) for k, v in pytest_raw.items() if isinstance(v, dict)]:
+        for i, layout in enumerate(block.get("layouts") or []):
+            if not (isinstance(layout, dict) and isinstance(layout.get("name"), str)
+                    and isinstance(layout.get("when_exists"), str)):
+                errors.append(f"{scope}.layouts[{i}] needs string 'name' and 'when_exists' keys")
+
     # --- abi3 floor coherence -------------------------------------------------
     if build.get("abi3", False) and not pure_python:
         floor = abi3_floor(cfg)
@@ -1745,19 +1754,45 @@ def pytest_config(cfg: Config, stage: Optional[str] = None) -> Dict[str, str]:
 
     PYCBAC is the marker case. Its suite tags every test `pycbac_unit` or
     `pycbac_integration` (pyproject markers), so a flat `-m pycbac_acouchbase` selects both,
-    and a unit job with no cluster would then run the integration tests. PYCBC is the flat
-    case: it separates the two by CLUSTER (gocaves vs realserver) rather than by marker, so
-    one invocation is correct for both and its config is untouched by this.
+    and a unit job with no cluster would then run the integration tests. PYCBC separates the
+    two by CLUSTER (gocaves vs realserver) rather than by marker, so its stage block only
+    changes options, through `layouts`.
 
-    Stage blocks are additive: with no `<stage>` block present this returns the flat keys
-    exactly as before, which is why adding the mechanism cannot move PYCBC.
+    Stage blocks are additive: with no `<stage>` block present this returns the flat keys.
+
+    Then the first entry of `layouts` (see pytest_layout) whose file is in the checkout
+    overlays its keys. The options a test tree accepts depend on the tree (`--real-server`
+    is an unknown argument to an older one), so they are chosen per checkout. No match
+    leaves the keys as resolved above.
     """
+    pytest_cfg = _stage_pytest(cfg, stage)
+    layout = pytest_layout(pytest_cfg)
+    if layout:
+        for key, value in layout.items():
+            if key not in ("name", "when_exists"):
+                pytest_cfg[key] = value
+    # str-only: drops the nested stage blocks and layouts, plus any non-string knob.
+    return {k: v for k, v in pytest_cfg.items() if isinstance(v, str)}
+
+
+def _stage_pytest(cfg: Config, stage: Optional[str]) -> Dict[str, Any]:
+    """`test.pytest` with the `<stage>` block's keys laid over it, before layout selection."""
     pytest_cfg = dict(cfg.raw.get("test", {}).get("pytest", {}) or {})
     if stage:
-        for key, value in (pytest_cfg.get(stage) or {}).items():
-            pytest_cfg[key] = value
-    # str-only: drops the nested stage blocks themselves, plus any non-string knob.
-    return {k: v for k, v in pytest_cfg.items() if isinstance(v, str)}
+        pytest_cfg.update(pytest_cfg.get(stage) or {})
+    return pytest_cfg
+
+
+def pytest_layout(pytest_cfg: Dict[str, Any], project_root: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """The first `layouts` entry whose `when_exists` path is in the SDK checkout, or None.
+
+    Keyed on a file rather than a commit gate, so a patchset that changes the test tree
+    selects its own options before its sha exists, and maintenance branches keep theirs."""
+    root = project_root or os.environ.get("CBCI_PROJECT_ROOT") or os.getcwd()
+    for layout in pytest_cfg.get("layouts") or []:
+        if os.path.exists(os.path.join(root, layout["when_exists"])):
+            return layout
+    return None
 
 
 def test_cmds(cfg: Config, stage: Optional[str] = None) -> List[str]:
@@ -1792,6 +1827,9 @@ def test_cmds(cfg: Config, stage: Optional[str] = None) -> List[str]:
         return [_decorate(f"{override_cmd} {opts}".strip())]
 
     pytest_cfg = pytest_config(cfg, stage)
+    layout = pytest_layout(_stage_pytest(cfg, stage))
+    if layout:
+        print(f"[engine] test layout: {layout['name']} ({layout['when_exists']} present)", file=sys.stderr)
     cmds: List[str] = []
     for api in ("acouchbase", "couchbase", "txcouchbase"):
         cmd = pytest_cfg.get(f"{api}_cmd")

@@ -48,13 +48,13 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.py'             = '27a473d932649bcaa0b2eede7812f880ac5736ceed621b6748b1f5e3df168782'
+    'engine.py'             = '8a25f24cb208be3e52607d641dbec5347bffbb3b0e357e671d68c3285cff3e2c'
     'jenkins.py'            = 'edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4'
     'gha.py'                = 'd9d02a9b1c49fd9a3f0b5ff8c85288771b696fe5108f710dd03120a9987448ec'
     'tasks.sh'              = '68cde8501919ee9638df9c3fea52f06b72e2f09530a1c25f6405805c8c73eedb'
     'tasks.ps1'             = 'fa92f100f8f04d2d5e19df4eb328d5f0be29291f66799d3b90274348ee5ad935'
     'auditwheel_patch.py'   = '402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5'
-    'ci-config.yaml'        = '1bb75a739fe18add6dec4adc1f6f397cff75abd8672fdd71034f591d220fb7aa'
+    'ci-config.yaml'        = '25483bfde74210eb08a3d4a5220007f65e6bffa93e88937d140325f3aa8e6158'
     'ci-config-pycbac.yaml' = 'd21b6752d9fe49a3769d62c89a00fd24b2f846db8b811dc16f96e1cd5ba9e82e'
 }
 
