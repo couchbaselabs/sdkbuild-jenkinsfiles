@@ -142,7 +142,7 @@ _cmake_version_of() {
 }
 
 # The unit name is the PREBUILD FILENAME MINUS ITS VERSION, e.g.
-#     napi-v6-linux-x64-boringssl        electron-v28.0.0-darwin-arm64-boringssl
+#     napi-v8-linux-x64-boringssl        electron-v28.0.0-darwin-arm64-boringssl
 # and the caller passes it in rather than this deriving one.
 #
 # Not (platform, arch, runtime), which is what buildPlan fans out on. The neutral plan's
@@ -321,10 +321,11 @@ _record_sdist_info() {
 
 # Records ONE prebuild unit, as buildInfo/<unit>.txt, where <unit> is the version-free
 # prebuild name described above. Called after the strip/split so the hashes it records are
-# the hashes of the binaries that actually ship.
+# the hashes of the binaries that actually ship. <napi> is the compiled Node-API level, or
+# n/a for electron.
 _record_build_info() {
-    local unit="${1:-}"
-    [[ -n "${unit}" ]] || die "build-info: _record_build_info needs a unit name"
+    local unit="${1:-}" napi="${2:-}"
+    [[ -n "${unit}" && -n "${napi}" ]] || die "build-info: _record_build_info needs a unit name and a napi level"
     local info_dir; info_dir="$(_build_info_dir)"
     local info="${info_dir}/${unit}.txt"
     mkdir -p "${info_dir}"
@@ -345,7 +346,7 @@ _record_build_info() {
         # representative version whose headers cmake-js built against, and the N-API level
         # below is what actually makes the result work on the others.
         echo "runtime_version=${runtime_version}"
-        echo "napi_version=$([[ "${runtime}" == "node" ]] && echo "${CN_NAPI_VERSION:-6}" || echo n/a)"
+        echo "napi_version=${napi}"
         echo "ssl=$([[ "${CN_USE_OPENSSL:-OFF}" == "ON" ]] && echo openssl || echo boringssl)"
         echo "build_type=${CN_BUILD_CONFIG:-unknown}"
         echo "package_version=$(_pkg_version 2>/dev/null || echo unknown)"
@@ -784,9 +785,9 @@ task_prebuild() {
 
     # Filename convention scripts/prebuilds.js resolves against:
     #   couchbase-v<version>-{napi|electron}-v<abi>-<nodePlatform>-<nodeArch>-<ssl>.node
-    # napi's <abi> is the hardcoded CMakeLists.txt NAPI_VERSION floor (6); electron's is
-    # the actual Electron version this job built against (CBCI_BUILD_ELECTRON_VERSION).
-    local version node_platform node_arch kind abi ssl_suffix
+    # napi's <abi> is the checkout's CMakeLists.txt NAPI_VERSION; electron's is the actual
+    # Electron version this job built against (CBCI_BUILD_ELECTRON_VERSION).
+    local version node_platform node_arch kind abi ssl_suffix napi="n/a"
     version="$(_pkg_version)"
     node_platform="$(_node_platform)"
     node_arch="$(_node_arch)"
@@ -796,7 +797,8 @@ task_prebuild() {
         kind="electron"; abi="${CBCI_BUILD_ELECTRON_VERSION}"
         ssl_suffix="boringssl"   # electron is always boringssl (ground-truthed: getPrebuildFileName)
     else
-        kind="napi"; abi="6"
+        napi="$("${NODE_BIN}" "${ENGINE}" napi-version)" || die "prebuild: cannot determine the Node-API level"
+        kind="napi"; abi="${napi}"
         if [[ "${CN_USE_OPENSSL:-OFF}" == "ON" ]]; then
             (( $(_node_major) >= 18 )) && ssl_suffix="openssl3" || ssl_suffix="openssl1"
         else
@@ -811,7 +813,7 @@ task_prebuild() {
 
     task__prebuild_repair "${built}" "${filename}"
     # After the split, so the hashes recorded are the ones that ship.
-    _record_build_info "${unit_key}"
+    _record_build_info "${unit_key}" "${napi}"
     log "prebuild: release:"; ls -alh prebuilds
     log "prebuild: debug:";   ls -alh prebuildsDebug
 }

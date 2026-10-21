@@ -413,9 +413,10 @@ function Emit-PrebuildIdentity {
 
 # Records ONE prebuild unit as buildInfo/<unit>.txt, where <unit> is the prebuild name
 # minus its version and is passed in by the caller. See tasks.sh's _build_info_unit for why
-# it is derived from the artifact name rather than from (platform, arch, runtime).
-function Write-BuildInfo([string]$unit) {
-    if (-not $unit) { Die 'build-info: Write-BuildInfo needs a unit name' }
+# it is derived from the artifact name rather than from (platform, arch, runtime). $napi is
+# the compiled Node-API level, or n/a for electron.
+function Write-BuildInfo([string]$unit, [string]$napi) {
+    if (-not $unit -or -not $napi) { Die 'build-info: Write-BuildInfo needs a unit name and a napi level' }
     $platform = if ($env:CBCI_BUILD_PLATFORM) { $env:CBCI_BUILD_PLATFORM } else { 'windows' }
     $arch = if ($env:CBCI_BUILD_ARCH) { $env:CBCI_BUILD_ARCH } else { (Node-Arch) }
     $runtime = if ($env:CBCI_BUILD_RUNTIME) { $env:CBCI_BUILD_RUNTIME } else { 'node' }
@@ -425,9 +426,6 @@ function Write-BuildInfo([string]$unit) {
     } else {
         $env:CBCI_BUILD_NODE_VERSION
     }
-    $napi = if ($runtime -eq 'node') {
-        if ($env:CN_NAPI_VERSION) { $env:CN_NAPI_VERSION } else { '6' }
-    } else { 'n/a' }
     $ssl = if ($env:CN_USE_OPENSSL -eq 'ON') { 'openssl' } else { 'boringssl' }
 
     $dir = BuildInfo-Dir
@@ -641,11 +639,14 @@ function Task-Prebuild {
     $version = Pkg-Version
     $nodePlatform = Node-Platform
     $nodeArch = Node-Arch
+    $napi = 'n/a'
     if ($runtime -eq 'electron') {
         $kind = 'electron'; $abi = $env:CBCI_BUILD_ELECTRON_VERSION
         $sslSuffix = 'boringssl'
     } else {
-        $kind = 'napi'; $abi = '6'
+        $napi = & $NODE_BIN $ENGINE napi-version
+        if ($LASTEXITCODE -ne 0 -or -not $napi) { Die 'prebuild: cannot determine the Node-API level' }
+        $kind = 'napi'; $abi = $napi
         if ($env:CN_USE_OPENSSL -eq 'ON') {
             $sslSuffix = if ((Node-Major) -ge 18) { 'openssl3' } else { 'openssl1' }
         } else {
@@ -664,7 +665,7 @@ function Task-Prebuild {
 
     Task-PrebuildRepair $built $filename
     # After the split, so the hashes recorded are the ones that ship.
-    Write-BuildInfo $unitKey
+    Write-BuildInfo $unitKey $napi
     Log 'prebuild: release:'; Get-ChildItem prebuilds | Format-Table -AutoSize
     Log 'prebuild: debug:';   Get-ChildItem prebuildsDebug -ErrorAction SilentlyContinue | Format-Table -AutoSize
 }

@@ -469,8 +469,8 @@ export function buildEnv(cfg, stage) {
  * `runtime`/`runtimeVersion` from CN_PREBUILD_RUNTIME / CN_PREBUILD_RUNTIME_VERSION,
  * falling back to 'node' and the ambient `process.version`, and pass them straight
  * through as cmake-js's `--runtime`/`--runtime-version`. There is no napi-version env
- * input: NAPI_VERSION is hardcoded in CMakeLists.txt (`-DNAPI_VERSION=6`), so nothing
- * is emitted for it here.
+ * input: NAPI_VERSION is hardcoded in CMakeLists.txt, so nothing is emitted for it here
+ * (`napi-version` reads it back for the prebuild filename).
  *
  * Build-unit dimensions are read from the env the adapter sets per unit:
  *   CBCI_BUILD_PLATFORM (linux|alpine|macos|windows), CBCI_BUILD_ARCH (x64|arm64),
@@ -1139,6 +1139,38 @@ export function projectEnginesNode(projectRoot) {
   return pkg.engines?.node ? String(pkg.engines.node) : null;
 }
 
+/** The Node-API level the checkout compiles against: CMakeLists.txt's
+ * `-DNAPI_VERSION=<n>`, the only place the level reaches the compiler. package.json's
+ * `binary.napi_versions` is declarative (nothing reads it), so it is only cross-checked
+ * here, to catch a bump that edits one file and not the other. Returns null when there is
+ * no SDK checkout; throws when there is one but the level cannot be determined. */
+export function projectNapiVersion(projectRoot) {
+  const root = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
+  const pkgPath = join(root, 'package.json');
+  if (!existsSync(pkgPath)) return null;
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  if (pkg.name !== 'couchbase') return null;
+
+  const cmakePath = join(root, 'CMakeLists.txt');
+  if (!existsSync(cmakePath)) throw new Error(`no CMakeLists.txt under ${root} to read NAPI_VERSION from`);
+  const levels = [...readFileSync(cmakePath, 'utf8').matchAll(/-DNAPI_VERSION=(\d+)\b/g)]
+    .map((m) => parseInt(m[1], 10));
+  const distinct = [...new Set(levels)];
+  if (distinct.length !== 1) {
+    throw new Error(distinct.length === 0
+      ? `no -DNAPI_VERSION=<n> in ${cmakePath}`
+      : `conflicting -DNAPI_VERSION values in ${cmakePath}: ${distinct.join(', ')}`);
+  }
+  const napi = distinct[0];
+
+  const declared = pkg.binary?.napi_versions;
+  if (declared !== undefined && !(Array.isArray(declared) && declared.includes(napi))) {
+    throw new Error(`CMakeLists.txt compiles NAPI_VERSION=${napi} but package.json `
+      + `binary.napi_versions is ${JSON.stringify(declared)}; update them together`);
+  }
+  return napi;
+}
+
 /** Node versions the validate stage installs on: support.validate_node_versions (falling
  * back to node_versions), narrowed to the checkout's engines.node so a branch is only
  * validated where it claims to run. A VALIDATE_NODE_VERSIONS override is taken as given. */
@@ -1326,6 +1358,19 @@ export function validateConfig(cfg) {
     // configured version could run. The level is hardcoded as NAPI_VERSION in
     // CMakeLists.txt, so that observation is a source-code opinion rather than a CI defect,
     // and it would fire on every healthy run.
+
+    // build.napi_version is the highest level any supported branch compiles, so the check
+    // above covers every branch. A checkout above it would escape the check.
+    let compiled = null;
+    try {
+      compiled = projectNapiVersion();
+    } catch (err) {
+      errors.push(err.message);
+    }
+    if (compiled !== null && compiled > napi) {
+      errors.push(`the checkout compiles Node-API ${compiled} but build.napi_version is ${napi}; `
+        + 'raise build.napi_version so the configured Node versions are checked against it');
+    }
   }
 
   return { errors, warnings };
@@ -1454,7 +1499,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
+    'prebuild-select-env|napi-version|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
   );
 }
 
@@ -1511,6 +1556,15 @@ function dispatch(cmd, positionals, cfg) {
     case 'prebuild-select-env':
       emitLines(prebuildSelectEnv(cfg));
       break;
+    case 'napi-version': {
+      const napi = projectNapiVersion();
+      if (napi === null) {
+        process.stderr.write('ERROR: napi-version: no couchbase package.json (CBCI_PROJECT_ROOT or cwd)\n');
+        return 1;
+      }
+      console.log(napi);
+      break;
+    }
     case 'validate-env':
       try {
         emitPairs(validateEnv(cfg));

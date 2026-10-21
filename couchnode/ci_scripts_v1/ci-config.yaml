@@ -64,12 +64,12 @@ build:
   # BUILD_NODE_VERSION replaces it.
   node_version: "16.20.2"
 
-  # napi_version: the N-API level the C++ addon targets. Informational only, since it is
-  # HARDCODED at compile time (CMakeLists.txt: `-DNAPI_VERSION=6`) rather than env-driven,
-  # so tasks.sh has nothing to pass for it. It stays in config so validateConfig can
-  # assert the "ONE build serves every node_versions entry" claim. Bumping the compiled
-  # floor is a deliberate source-code change, not a per-run knob.
-  napi_version: 6
+  # napi_version: the highest N-API level any supported branch compiles. The level itself is
+  # HARDCODED per branch (CMakeLists.txt: `-DNAPI_VERSION=<n>`), and the prebuild name reads
+  # it from the checkout, so this value never reaches a build. It exists so validateConfig
+  # can assert the "ONE build serves every node_versions entry" claim, and validate-config
+  # fails if a checkout compiles a higher level than this.
+  napi_version: 8
 
   # libc flavors per platform. Drives build-unit keys and image selection.
   libc:
