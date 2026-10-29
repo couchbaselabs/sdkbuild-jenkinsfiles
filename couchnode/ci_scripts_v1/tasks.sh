@@ -52,6 +52,37 @@ warn_node_mismatch() {
 }
 _pkg_version() { "${NODE_BIN}" -p "require('${PROJECT_ROOT}/package.json').version"; }
 
+# Stamp CBCI_VERSION into package.json (and package-lock.json). The checkout carries the
+# version under development ('4.7.2-dev'); a release build is told its version instead of
+# needing a bump commit. The tarball, the prebuild filenames and the platform packages all
+# take their version from the packed package.json, so this is the one place it is set.
+_stamp_version() {
+    local want="${CBCI_VERSION:-}"
+    [[ -n "${want}" ]] || return 0
+    [[ "${want}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] \
+        || die "CBCI_VERSION '${want}' is not MAJOR.MINOR.PATCH[-prerelease] (no leading 'v')"
+    log "stamping version $(_pkg_version) -> ${want}"
+    "${NPM_BIN}" version "${want}" --no-git-tag-version --allow-same-version --ignore-scripts >/dev/null
+    [[ "$(_pkg_version)" == "${want}" ]] || die "npm version left package.json at $(_pkg_version), not ${want}"
+}
+
+# Fail unless the tarball's packed package.json carries CBCI_VERSION. Read from the
+# tarball, not the working tree, because that copy is the one consumers install. Also
+# checks the SDK_VERSION the SDK reports at runtime, which `prepare` compiles from
+# package.json into dist/version.js; checkouts that predate that file skip it.
+_assert_packed_version() {
+    local tgz="$1" want="${CBCI_VERSION:-}" packed
+    [[ -n "${want}" ]] || return 0
+    packed="$(tar -xzOf "${tgz}" package/package.json \
+        | "${NODE_BIN}" -p "JSON.parse(require('fs').readFileSync(0)).version")"
+    [[ "${packed}" == "${want}" ]] || die "${tgz} packs version ${packed}, expected CBCI_VERSION=${want}"
+    if tar -tzf "${tgz}" package/dist/version.js >/dev/null 2>&1; then
+        tar -xzOf "${tgz}" package/dist/version.js | grep -Fq "SDK_VERSION = '${want}'" \
+            || die "${tgz}: dist/version.js does not report SDK_VERSION '${want}'"
+    fi
+    log "${tgz} carries version ${packed}"
+}
+
 # Clear node_modules before an npm install/ci writes a new one into this workspace.
 #
 # `npm ci` clears the directory itself, but it does that inside the same reify pass that
@@ -509,6 +540,7 @@ task_lint() {
 task_sdist() {
     cd "${PROJECT_ROOT}"
 
+    _stamp_version
     _clear_node_modules
     log "installing dependencies (npm ci --ignore-scripts)"
     "${NPM_BIN}" ci --ignore-scripts
@@ -540,6 +572,7 @@ task_sdist() {
     "${NPM_BIN}" pack
     log "dist contents:"
     ls -alh ./*.tgz
+    _assert_packed_version "$(ls ./*.tgz | head -1)"
 
     _record_sdist_info
 }
@@ -1239,6 +1272,19 @@ task_package() {
     compgen -G "${prebuild_dir}/*.node" >/dev/null \
         || die "package: no *.node under ${prebuild_dir} (run prebuild, or copy its artifacts, first)"
 
+    # A build that was not stamped with this release's version must not be repackaged as
+    # it: the platform packages and optionalDependencies would all carry the wrong one.
+    if [[ -n "${CBCI_VERSION:-}" ]]; then
+        local have; have="$(_pkg_version)"
+        [[ "${have}" == "${CBCI_VERSION}" ]] \
+            || die "package: sdist is version ${have}, expected CBCI_VERSION=${CBCI_VERSION} (was the build run with COUCHBASE_VERSION=${CBCI_VERSION}?)"
+        local nf
+        for nf in "${prebuild_dir}"/*.node; do
+            [[ "$(basename "${nf}")" == "${pkg_name}-v${CBCI_VERSION}-"* ]] \
+                || die "package: prebuild $(basename "${nf}") is not version ${CBCI_VERSION}"
+        done
+    fi
+
     # Inherited verbatim so a platform package carries the same provenance as the main
     # package and cannot drift from it.
     local plat_orig="${prebuild_dir}/platPkgOrig.json"
@@ -1329,6 +1375,7 @@ task_package() {
         | "${NODE_BIN}" -p "Object.keys(JSON.parse(require('fs').readFileSync(0)).optionalDependencies || {}).length")"
     (( packed_count == ${#opt_deps[@]} )) \
         || die "package: ${repacked} lists ${packed_count} optionalDependencies, expected ${#opt_deps[@]}"
+    _assert_packed_version "${repacked}"
 
     log "package: ${repacked} ready (${packed_count} platform packages)"
     ls -alh "${prebuild_dir}"

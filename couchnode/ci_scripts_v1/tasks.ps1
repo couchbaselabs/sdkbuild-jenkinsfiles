@@ -77,6 +77,19 @@ function Pkg-Version() {
     $pkgPath = (Join-Path $PROJECT_ROOT 'package.json') -replace '\\', '/'
     (& $NODE_BIN -p "require('$pkgPath').version").Trim()
 }
+# Stamp CBCI_VERSION into package.json (and package-lock.json). See tasks.sh's
+# _stamp_version.
+function Stamp-Version {
+    $want = $env:CBCI_VERSION
+    if (-not $want) { return }
+    if ($want -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') {
+        Die "CBCI_VERSION '$want' is not MAJOR.MINOR.PATCH[-prerelease] (no leading 'v')"
+    }
+    Log "stamping version $(Pkg-Version) -> $want"
+    Invoke-Checked $NPM_BIN @('version', $want, '--no-git-tag-version', '--allow-same-version', '--ignore-scripts') | Out-Host
+    $have = Pkg-Version
+    if ($have -ne $want) { Die "npm version left package.json at $have, not $want" }
+}
 
 function Clear-NodeModules {
     # Clear node_modules before an npm install/ci writes a new one into this workspace.
@@ -476,6 +489,7 @@ function Task-Lint {
 function Task-Sdist {
     Set-Location $PROJECT_ROOT
 
+    Stamp-Version
     Clear-NodeModules
     Log 'installing dependencies (npm ci --ignore-scripts)'
     Invoke-Checked $NPM_BIN @('ci', '--ignore-scripts')
@@ -503,6 +517,10 @@ function Task-Sdist {
     Invoke-Checked $NPM_BIN @('pack')
     Log 'dist contents:'
     Get-ChildItem *.tgz | Format-Table -AutoSize
+    # npm pack names the tarball from the packed version, so its name is the check here.
+    if ($env:CBCI_VERSION -and -not (Test-Path "couchbase-$($env:CBCI_VERSION).tgz")) {
+        Die "sdist: expected couchbase-$($env:CBCI_VERSION).tgz from npm pack"
+    }
 }
 
 # Copy the .pdb debug symbols (no strip on Windows - ground-truthed, see file header),
