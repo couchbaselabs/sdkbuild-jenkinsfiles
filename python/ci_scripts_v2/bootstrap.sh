@@ -54,6 +54,7 @@ CBCI_MANIFEST=(
     "tasks.sh"
     "tasks.ps1"
     "auditwheel_patch.py"
+    "ca_bundle_check.py"
     "ci-config.yaml"
     "ci-config-pycbac.yaml"
 )
@@ -82,13 +83,14 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "8a25f24cb208be3e52607d641dbec5347bffbb3b0e357e671d68c3285cff3e2c" ;;
+        "engine.py")           echo "cb82fb52989ae9845a63235eda33dc6589f8bdec73020deca64abd04f975a00f" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
         "gha.py")              echo "d9d02a9b1c49fd9a3f0b5ff8c85288771b696fe5108f710dd03120a9987448ec" ;;
-        "tasks.sh")            echo "68cde8501919ee9638df9c3fea52f06b72e2f09530a1c25f6405805c8c73eedb" ;;
-        "tasks.ps1")           echo "fa92f100f8f04d2d5e19df4eb328d5f0be29291f66799d3b90274348ee5ad935" ;;
+        "tasks.sh")            echo "383ce00c2960dfab5822c25e2f7b9ad732a1f1d02d36d21f3c5031a84fa7f7ba" ;;
+        "tasks.ps1")           echo "28fc6981fd807f43fd3a6a37a10f0db73d645dcd0ffd806ad4bf4a88e50b6dc6" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
-        "ci-config.yaml")      echo "25483bfde74210eb08a3d4a5220007f65e6bffa93e88937d140325f3aa8e6158" ;;
+        "ca_bundle_check.py")  echo "d2eb2c590ef17a4a286cf48dcf9afb2b084230db64250ed1161c9352d57c34fc" ;;
+        "ci-config.yaml")      echo "c4b7d16e8e6b6ce6a97d88ed788c78a38fdecee37279ed12c6dc8e63112c6e2c" ;;
         "ci-config-pycbac.yaml") echo "d21b6752d9fe49a3769d62c89a00fd24b2f846db8b811dc16f96e1cd5ba9e82e" ;;
         *)                     echo "" ;;
     esac

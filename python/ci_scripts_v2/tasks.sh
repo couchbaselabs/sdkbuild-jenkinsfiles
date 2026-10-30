@@ -208,6 +208,70 @@ task_lint() {
     fi
 }
 
+# --- CA bundle -----------------------------------------------------------------
+#
+# The C++ core embeds the Mozilla CA bundle the sdist bakes, so what a release trusts is
+# whatever curl.se served the day the sdist was built. ca_bundle_check.py holds the logic;
+# these wrappers decide where it runs. Every check is fatal: a failure stops the unit before
+# anything is stashed or archived, which keeps a bad bundle out of the release pipeline.
+
+# Where the sdist bake leaves the bundle (the SDK points the core's
+# COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE_ROOT here).
+_ca_bundle_file() { echo "${PROJECT_ROOT}/deps/couchbase-cxx-cache/mozilla-ca-bundle.crt"; }
+
+# Export the CA bundle policy (CBCI_CA_*) for stage $1.
+_ca_bundle_env() {
+    local ca_env
+    ca_env="$("${PYTHON}" "${ENGINE}" ca-bundle-env "$1")" || die "failed to resolve ca-bundle-env $1"
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
+    export ${ca_env}
+}
+
+# sdist: strip what the old core parser rejects (when the gate says so), then check the
+# bundle that is about to be packed.
+_ca_bundle_sdist() {
+    _ca_bundle_env sdist
+    local bundle; bundle="$(_ca_bundle_file)"
+    if [[ ! -f "${bundle}" ]]; then
+        # Without the CPM cache the core downloads its own bundle at wheel build time, so
+        # only the wheel check can see it.
+        local cpm_var="${CBCI_PROJECT_PREFIX}_SET_CPM_CACHE"
+        if [[ "${!cpm_var:-ON}" == "OFF" ]]; then
+            log "ca-bundle: no baked bundle (CPM cache off), the wheel check covers it"
+            return 0
+        fi
+        die "ca-bundle: the CPM cache bake left no bundle at ${bundle}"
+    fi
+    if [[ "${CBCI_CA_BUNDLE_NORMALIZE:-OFF}" == "ON" ]]; then
+        "${PYTHON}" "${SCRIPT_DIR}/ca_bundle_check.py" normalize "${bundle}" >/dev/null \
+            || die "ca-bundle: normalize failed"
+    else
+        log "ca-bundle: normalize off (build.ca_bundle_normalize is gated off for this checkout)"
+    fi
+    "${PYTHON}" "${SCRIPT_DIR}/ca_bundle_check.py" bundle "${bundle}" >/dev/null \
+        || die "ca-bundle: the sdist's bundle failed the policy"
+}
+
+# Check every wheel in $1 against the sdist in dist/, when there is one, under stage $3's
+# policy. $2, when given, receives the facts for build-info. It holds the last wheel's,
+# which in CI is THE wheel (one per unit).
+_ca_bundle_check_wheels() {
+    local dir="$1" facts_out="${2:-}" stage="${3:-wheel}"
+    _ca_bundle_env "${stage}"
+    local sdist; sdist="$(ls "${PROJECT_ROOT}"/dist/*.tar.gz 2>/dev/null | head -1 || true)"
+    [[ -z "${sdist}" ]] && log "ca-bundle: no sdist in dist/, wheels are checked without it"
+    if [[ -n "${facts_out}" ]]; then rm -f "${facts_out}"; fi
+    local whl facts found=0
+    for whl in "${dir}"/*.whl; do
+        [[ -e "${whl}" ]] || continue
+        found=1
+        facts="$("${PYTHON}" "${SCRIPT_DIR}/ca_bundle_check.py" wheel "${whl}" ${sdist:+--sdist "${sdist}"})" \
+            || die "ca-bundle: $(basename "${whl}") failed the policy"
+        if [[ -n "${facts_out}" ]]; then printf '%s\n' "${facts}" > "${facts_out}"; fi
+    done
+    (( found )) || die "ca-bundle: no wheels to check in ${dir}"
+}
+
 task_sdist() {
     load_project_env
     cd "${PROJECT_ROOT}"
@@ -228,6 +292,8 @@ task_sdist() {
         log "configuring C++ core CPM cache (baked into the sdist)"
         run_python setup.py configure_ext
         rm -rf ./build
+        # After the bake, before the pack: the sdist ships the bundle as it is left here.
+        _ca_bundle_sdist
     fi
 
     set_client_version
@@ -353,6 +419,9 @@ _build_info_dir() { echo "${PROJECT_ROOT}/wheelhouse/build-info"; }
 # family mapping to name the file, and it cannot go stale because every build unit opens
 # with a workspace wipe and builds exactly one image.
 _build_info_sidecar() { echo "$(_build_info_dir)/.image.env"; }
+
+# The CA bundle facts the wheel check leaves for the record. A dotfile for the same reason.
+_build_info_ca_sidecar() { echo "$(_build_info_dir)/.ca-bundle.env"; }
 
 # Mirrors bootstrap.sh's get_sha256 tool order (sha256sum / shasum / openssl), and yields
 # "unknown" instead of failing: a missing hash must not fail a green build.
@@ -628,6 +697,8 @@ _record_build_info() {
         macos)        _emit_macos_toolchain >> "${info}" ;;
     esac
     _emit_wheel_identity >> "${info}"
+    local ca_facts; ca_facts="$(_build_info_ca_sidecar)"
+    if [[ -f "${ca_facts}" ]]; then cat "${ca_facts}" >> "${info}"; fi
 
     while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
 }
@@ -673,6 +744,21 @@ _bi_base() {
     esac
 }
 
+# One line for the CA bundle every unit embedded. Like abi3, never assumed uniform: units
+# that disagree are what a rebuilt cell from another day looks like, so they read "mixed".
+_bi_ca_summary() {
+    local u d c k date="" certs="" check="pass"
+    for u in "$@"; do
+        d="$(_bi_kv "${u}" ca_bundle_date)"
+        c="$(_bi_kv "${u}" ca_certs_embedded)"
+        k="$(_bi_kv "${u}" ca_check)"
+        if [[ -z "${date}" ]]; then date="${d}"; elif [[ "${date}" != "${d}" ]]; then date="mixed"; fi
+        if [[ -z "${certs}" ]]; then certs="${c}"; elif [[ "${certs}" != "${c}" ]]; then certs="mixed"; fi
+        [[ "${k}" == "pass" ]] || check="${k}"
+    done
+    echo "ca_bundle=${date} certs=${certs} check=${check}"
+}
+
 # Header facts plus one aligned row per unit. The columns are chosen so that drift is
 # visible by scanning: two agents building one release with different SDKs differ in the
 # last column and nowhere else.
@@ -705,6 +791,7 @@ _build_info_summary() {
         echo "abi3=${abi3_seen}"
     fi
     echo "units=${#units[@]}"
+    _bi_ca_summary "${units[@]}"
     echo ""
 
     printf '%-24s %-7s %-40s %s\n' 'unit' 'python' 'toolchain' 'base/sdk'
@@ -1347,6 +1434,10 @@ task_wheel() {
     log "release wheels:"; ls -alh wheelhouse/dist
     log "debug wheels:";   ls -alh "${host_debug}" 2>/dev/null || log "  (none surfaced)"
 
+    # On the host, against the wheel that ships, so the container needs nothing extra.
+    mkdir -p "$(_build_info_dir)"
+    _ca_bundle_check_wheels "${PROJECT_ROOT}/wheelhouse/dist" "$(_build_info_ca_sidecar)"
+
     # AFTER the build, because the record hashes the wheels this unit produced. The
     # build-env string is passed in rather than re-read, so the recorded abi3 value is the
     # one the build actually consumed. Diagnostics: failure is consumed by `||`.
@@ -1414,6 +1505,9 @@ task_wheel_native() {
 
     log "wheel-native: release wheels:"; ls -alh "${PROJECT_ROOT}/wheelhouse/dist"
     log "wheel-native: debug wheels:";   ls -alh "${CBCI_DEBUG_WHEELHOUSE}" 2>/dev/null || log "  (none)"
+
+    mkdir -p "$(_build_info_dir)"
+    _ca_bundle_check_wheels "${PROJECT_ROOT}/wheelhouse/dist" "$(_build_info_ca_sidecar)"
 
     # Same record as the containerized path. This is the ONLY place macOS build-info comes
     # from: there is no `image` step on a host build, so nothing else probes that toolchain.
@@ -1869,6 +1963,12 @@ task_publish() {
     while IFS= read -r -d '' f; do artifacts+=("${f}"); done \
         < <(find "${PROJECT_ROOT}/dist" -maxdepth 1 \( -name '*.whl' -o -name '*.tar.gz' \) -print0 2>/dev/null | sort -z)
     [[ ${#artifacts[@]} -gt 0 ]] || die "publish: no dist/*.whl or dist/*.tar.gz found under ${PROJECT_ROOT}/dist (copy/build them first)"
+
+    # Re-check the exact bytes about to be uploaded, under the CURRENT policy, so a root
+    # distrusted after the build was cut still stops the release.
+    if [[ "${CBCI_IS_PURE_PYTHON:-false}" != "true" ]]; then
+        _ca_bundle_check_wheels "${PROJECT_ROOT}/dist" "" publish
+    fi
 
     "${PYTHON}" -m pip show twine >/dev/null 2>&1 || "${PYTHON}" -m pip install --upgrade twine
     log "publish: checking ${#artifacts[@]} artifact(s): ${artifacts[*]}"

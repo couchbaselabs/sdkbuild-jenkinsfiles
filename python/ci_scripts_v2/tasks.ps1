@@ -617,11 +617,44 @@ function Invoke-WheelNative {
     }
     Write-Log "wheel-native: collected $pdbCount .pdb file(s) into dist_debug"
 
+    # Fatal, unlike the record below: a wheel that fails the CA bundle policy must not be
+    # stashed. Windows is where an empty bundle hurts most (no usable system CA path).
+    $caFacts = Test-CaBundleWheels $distDir
+
     # AFTER the build, because the record hashes the wheels this unit produced. Diagnostics,
     # so a failure here is swallowed the same way tasks.sh consumes it with `||`.
-    try { Write-BuildInfo $buildEnvLines } catch { Write-Log "build-info: not recorded (non-fatal): $_" }
+    try { Write-BuildInfo $buildEnvLines $caFacts } catch { Write-Log "build-info: not recorded (non-fatal): $_" }
 
     Remove-Item -Recurse -Force $bdist -ErrorAction SilentlyContinue
+}
+
+# --- CA bundle -----------------------------------------------------------------
+#
+# Windows half of tasks.sh's _ca_bundle_check_wheels: check every wheel in $dir against the
+# sdist in dist\ (when there is one) and return the last wheel's key=value facts for the
+# build record. ca_bundle_check.py holds the logic. An empty policy means a pure-Python
+# project, which has no bundle to check.
+function Test-CaBundleWheels([string]$dir) {
+    $caEnv = & $Python $Engine ca-bundle-env wheel
+    if ($LASTEXITCODE -ne 0) { Stop-Task "failed to resolve ca-bundle-env wheel" }
+    if (-not ((@($caEnv) -join " ").Trim())) { return @() }
+    Import-EngineEnvPairs $caEnv
+
+    $checker = Join-Path $ScriptDir "ca_bundle_check.py"
+    $sdist = Get-ChildItem (Join-Path $ProjectRoot "dist\*.tar.gz") -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (-not $sdist) { Write-Log "ca-bundle: no sdist in dist\, wheels are checked without it" }
+    $wheels = @(Get-ChildItem (Join-Path $dir "*.whl") -ErrorAction SilentlyContinue)
+    if ($wheels.Count -eq 0) { Stop-Task "ca-bundle: no wheels to check in $dir" }
+
+    $facts = @()
+    foreach ($w in $wheels) {
+        $checkArgs = @($checker, "wheel", $w.FullName)
+        if ($sdist) { $checkArgs += @("--sdist", $sdist.FullName) }
+        $facts = @(& $Python @checkArgs)
+        if ($LASTEXITCODE -ne 0) { Stop-Task "ca-bundle: $($w.Name) failed the policy" }
+    }
+    return $facts
 }
 
 # --- build-info ---------------------------------------------------------------
@@ -690,11 +723,12 @@ function Get-WindowsSdkVersion {
 
 # Records ONE wheel unit, as wheelhouse\build-info\<unit>.txt, matching tasks.sh's format.
 #
+# $caFacts are the CA bundle check's key=value lines, recorded as returned.
 # $buildEnvLines is what the engine handed the build, so abi3 is recorded as the value the
 # BUILD CONSUMED rather than re-derived here. That matters: the Jenkins ABI3 parameter is
 # three-way (auto/true/false) resolved by a commit gate, so without this nothing records
 # which way "auto" fell.
-function Write-BuildInfo($buildEnvLines) {
+function Write-BuildInfo($buildEnvLines, $caFacts) {
     $prefix = if ($env:CBCI_PROJECT_PREFIX) { $env:CBCI_PROJECT_PREFIX } else { "PYCBC" }
 
     # build-env prints ALL pairs on ONE space-separated line (engine's _emit_pairs), so
@@ -816,6 +850,8 @@ function Write-BuildInfo($buildEnvLines) {
         }
         $lines += "wheel_${n}_sha256=$hash"
     }
+    # The CA bundle facts Test-CaBundleWheels returned (ca_bundle_date, ca_check, ...).
+    foreach ($f in @($caFacts)) { if ($f) { $lines += [string]$f } }
 
     # ASCII + LF, so the file is byte-identical in shape to the ones tasks.sh writes and the
     # packer does not have to care which platform produced which member.

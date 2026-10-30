@@ -15,6 +15,7 @@ adapter.
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -250,6 +251,11 @@ GATE_REPORT_DOMAINS: Dict[str, tuple] = {
     "build-env": ("abi3",),
 }
 
+# Gates only the sdist stage consumes. The sdist node has the checkout, so `ca-bundle-env
+# --stage sdist` enforces them there; elsewhere (validate-config on a node with no checkout,
+# the wheel nodes, publish) an indeterminate verdict decides nothing and is only a warning.
+_SDIST_ONLY_GATES = ("ca_bundle_normalize",)
+
 
 def _gate_pinned(domain: str) -> bool:
     """True when an EXPLICIT env override supersedes `domain`'s commit gate, making an
@@ -259,7 +265,9 @@ def _gate_pinned(domain: str) -> bool:
     if domain == "abi3":
         v = (os.environ.get("ABI3") or "").strip().lower()
         return bool(v) and v != "auto"
-    return bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
+    if domain == "python_versions":
+        return bool((os.environ.get("PYTHON_VERSIONS") or "").strip())
+    return False
 
 
 def _narrate_indeterminate(msg: str, domain: str) -> None:
@@ -287,7 +295,7 @@ def _gate_findings(cfg: Config) -> List[tuple]:
     return out
 
 
-def enforce_gates(cfg: Config, cmd: str) -> None:
+def enforce_gates(cfg: Config, cmd: str, domains: Optional[Sequence[str]] = None) -> None:
     """Fail `cmd` when a gate whose verdict it CONSUMES could not be evaluated.
 
     validate-config has always treated an unevaluatable gate as fatal, but the value-emitting
@@ -301,7 +309,8 @@ def enforce_gates(cfg: Config, cmd: str) -> None:
     fix on the adapter side is to pass the planning node's verdicts down to every node after
     it rather than to re-resolve gates without a repo to resolve them against.
     """
-    domains = GATE_REPORT_DOMAINS.get(cmd, ())
+    if domains is None:
+        domains = GATE_REPORT_DOMAINS.get(cmd, ())
     stale = [msg for domain, msg, pinned in _gate_findings(cfg)
              if not pinned and domain in domains]
     if stale:
@@ -402,6 +411,46 @@ def _eval_version_entry(entry: Union[str, Dict[str, Any]], key_name: str, projec
     return version
 
 
+# Build flags that may be a dict carrying min_commit/drop_commit. Each resolves to a plain
+# bool, and its verdict lands in cfg[_GATE_KEY][key] for validate_config to read.
+_GATED_BUILD_FLAGS = ("abi3", "ca_bundle_normalize")
+
+
+def _resolve_gated_flag(build: Dict[str, Any], key: str, project_root: Optional[str],
+                        gates: Dict[str, Any], report: bool) -> None:
+    """Resolve `build[key]` in place. A plain value is left as-is and recorded as ungated."""
+    val = build[key]
+    if not isinstance(val, dict):
+        gates[key] = "ungated"
+        return
+    enabled = bool(val.get("enabled", True))
+
+    def _gate(kind: str, sha: str, disable_when: bool) -> bool:
+        """True when this gate turns the flag off."""
+        is_anc = _is_commit_ancestor(sha, project_root)
+        if is_anc is None:
+            msg = (f"build.{key}: {kind} '{sha[:7]}' could not be evaluated "
+                   f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
+            if report:
+                _narrate_indeterminate(msg, key)
+            gates.setdefault("indeterminate", []).append({"domain": key, "msg": msg})
+            return False
+        if is_anc is disable_when:
+            if report:
+                print(f"[engine] build.{key}: disabling {key} ({kind} '{sha[:7]}' "
+                      f"{'is' if disable_when else 'is not'} in HEAD history)", file=sys.stderr)
+            return True
+        return False
+
+    for kind, disable_when in (("min_commit", False), ("drop_commit", True)):
+        sha = val.get(kind)
+        if sha and _gate(kind, str(sha).strip(), disable_when):
+            enabled = False
+
+    build[key] = enabled
+    gates[key] = "enabled" if enabled else "disabled"
+
+
 def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[str] = None,
                                    report_domains: Optional[Sequence[str]] = None) -> Dict[str, Any]:
     """Resolve commit-gated versions and build options (dict with min_commit/drop_commit) to clean values.
@@ -424,42 +473,10 @@ def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[s
         support["python_versions"] = resolved
 
     build = cfg.get("build", {})
-    if isinstance(build, dict) and "abi3" in build:
-        abi3_val = build["abi3"]
-        if isinstance(abi3_val, dict):
-            enabled = bool(abi3_val.get("enabled", True))
-            min_commit = abi3_val.get("min_commit")
-            drop_commit = abi3_val.get("drop_commit")
-            verdict = "enabled" if enabled else "disabled"
-
-            def _gate(kind: str, sha: str, disable_when: bool) -> Optional[bool]:
-                """Returns the new `enabled` value, or None to leave it unchanged."""
-                is_anc = _is_commit_ancestor(sha, project_root)
-                if is_anc is None:
-                    msg = (f"build.abi3: {kind} '{sha[:7]}' could not be evaluated "
-                           f"(no git repo, or sha absent, at {_gate_repo_dir(project_root)})")
-                    if _reports("abi3"):
-                        _narrate_indeterminate(msg, "abi3")
-                    gates.setdefault("indeterminate", []).append({"domain": "abi3", "msg": msg})
-                    return None
-                if is_anc is disable_when:
-                    if _reports("abi3"):
-                        print(f"[engine] build.abi3: disabling abi3 ({kind} '{sha[:7]}' "
-                              f"{'is' if disable_when else 'is not'} in HEAD history)", file=sys.stderr)
-                    return False
-                return None
-
-            if min_commit:
-                if _gate("min_commit", str(min_commit).strip(), False) is False:
-                    enabled, verdict = False, "disabled"
-            if drop_commit:
-                if _gate("drop_commit", str(drop_commit).strip(), True) is False:
-                    enabled, verdict = False, "disabled"
-
-            build["abi3"] = enabled
-            gates["abi3"] = verdict
-        else:
-            gates["abi3"] = "ungated"
+    if isinstance(build, dict):
+        for key in _GATED_BUILD_FLAGS:
+            if key in build:
+                _resolve_gated_flag(build, key, project_root, gates, _reports(key))
 
     return cfg
 
@@ -1068,6 +1085,53 @@ def build_env(cfg: Config, stage: str) -> Dict[str, str]:
     return out
 
 
+# Policy for ca_bundle_check.py, as CBCI_* pairs (tasks.sh consumes them, not setup.py).
+# The sdist stage also gets the normalize switch; the wheel and publish stages only check.
+_CA_BUNDLE_STAGES = ("sdist", "wheel", "publish")
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
+
+def ca_bundle_env(cfg: Config, stage: str) -> Dict[str, str]:
+    """Emit the CA bundle policy for `stage`. Empty for a pure-Python project (no bundle)."""
+    if resolve_project(cfg) in PURE_PYTHON_PROJECTS:
+        return {}
+    build = cfg.raw.get("build", {})
+    policy = build.get("ca_bundle") or {}
+    out: Dict[str, str] = {
+        "CBCI_CA_MIN_CERTS": str(policy.get("min_certs", 100)),
+        "CBCI_CA_DENIED_SHA256": ",".join(str(d).strip().lower()
+                                          for d in policy.get("denied_sha256") or []),
+    }
+    if policy.get("min_date"):
+        out["CBCI_CA_MIN_DATE"] = str(policy["min_date"])
+    if stage == "sdist":
+        out["CBCI_CA_BUNDLE_NORMALIZE"] = "ON" if build.get("ca_bundle_normalize", False) else "OFF"
+    return out
+
+
+def _ca_bundle_errors(policy: Any) -> List[str]:
+    """Shape errors in build.ca_bundle. A typo here would silently weaken a release gate."""
+    if policy is None:
+        return []
+    if not isinstance(policy, dict):
+        return ["build.ca_bundle must be a mapping"]
+    errors: List[str] = []
+    min_date = policy.get("min_date")
+    if min_date is not None:
+        try:
+            datetime.datetime.strptime(str(min_date), "%Y-%m-%d")
+        except ValueError:
+            errors.append(f"build.ca_bundle.min_date must be YYYY-MM-DD (got '{min_date}')")
+    min_certs = policy.get("min_certs")
+    if min_certs is not None and (not isinstance(min_certs, int) or isinstance(min_certs, bool)
+                                  or min_certs < 0):
+        errors.append(f"build.ca_bundle.min_certs must be a non-negative integer (got '{min_certs}')")
+    for d in policy.get("denied_sha256") or []:
+        if not _SHA256_HEX.match(str(d).strip().lower()):
+            errors.append(f"build.ca_bundle.denied_sha256: not a sha256 fingerprint: '{d}'")
+    return errors
+
+
 # ---------------------------------------------------------------------------
 # cibuildwheel selector (CIBW_*). Build-unit dimensions come from the env the vendor
 # adapter sets per unit (CBCI_BUILD_PLATFORM/ARCH/LIBC, CBCI_PYTHON_VERSION).
@@ -1287,7 +1351,8 @@ def validate_config(cfg: Config) -> tuple:
     # pure-Python project has exactly like any other.
     pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
     if pure_python:
-        for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc"):
+        for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc",
+                    "ca_bundle", "ca_bundle_normalize"):
             if key in build:
                 warnings.append(
                     f"build.{key} is set, but this project is pure Python and reads none of "
@@ -1298,6 +1363,7 @@ def validate_config(cfg: Config) -> tuple:
             errors.append(f"build.ssl must be boringssl|openssl (got '{ssl}')")
         if ssl == "openssl" and not build.get("openssl_version"):
             warnings.append("build.ssl=openssl but build.openssl_version is unset")
+        errors.extend(_ca_bundle_errors(build.get("ca_bundle")))
 
     # --- commit gates ---------------------------------------------------------
     # An unevaluatable gate is fatal, not advisory: it fails by leaving the entry in place,
@@ -1310,8 +1376,8 @@ def validate_config(cfg: Config) -> tuple:
     # installs a PUBLISHED artifact and pins its own matrix) without a bypass flag that a
     # source-building pipeline could inherit by accident.
     gates = cfg.raw.get(_GATE_KEY, {})
-    for _domain, msg, pinned in _gate_findings(cfg):
-        (warnings if pinned else errors).append(msg)
+    for domain, msg, pinned in _gate_findings(cfg):
+        (warnings if pinned or domain in _SDIST_ONLY_GATES else errors).append(msg)
 
     # ABI3=true against a checkout the gate says predates abi3 support would build the coarse
     # abi3 plan on an SDK that cannot honor it: one wheel per platform, built only on the
@@ -1876,6 +1942,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub.add_parser("validate-smoke", help="emit the validate smoke script (stdlib-only Python)")
     sub.add_parser("publish-env", help="emit CBCI_PUBLISH_* facts for the publish stage")
 
+    p_ca = sub.add_parser("ca-bundle-env", help="emit the CA bundle policy (CBCI_CA_*) as KEY=VALUE pairs")
+    p_ca.add_argument("stage", choices=_CA_BUNDLE_STAGES, help="the stage consuming the policy")
+
     p_build_env = sub.add_parser("build-env", help="emit {PREFIX}_* build knobs as KEY=VALUE pairs")
     p_build_env.add_argument("stage", choices=("sdist", "wheel"), help="build stage")
 
@@ -1893,7 +1962,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_ini.add_argument("output_dir", help="directory to write test_config.ini into")
 
     args = parser.parse_args(argv)
-    cfg = load_config(args.config, report_domains=GATE_REPORT_DOMAINS.get(args.cmd, ()))
+    report_domains = GATE_REPORT_DOMAINS.get(args.cmd, ())
+    if args.cmd == "ca-bundle-env" and args.stage == "sdist":
+        report_domains = _SDIST_ONLY_GATES
+    cfg = load_config(args.config, report_domains=report_domains)
 
     if args.cmd == "plan":
         _emit(build_plan(cfg))
@@ -1917,6 +1989,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     elif args.cmd == "build-env":
         enforce_gates(cfg, args.cmd)
         _emit_pairs(build_env(cfg, args.stage))
+    elif args.cmd == "ca-bundle-env":
+        enforce_gates(cfg, args.cmd, report_domains)
+        _emit_pairs(ca_bundle_env(cfg, args.stage))
     elif args.cmd == "wheel-env":
         enforce_gates(cfg, args.cmd)
         _emit_lines(wheel_env(cfg))
