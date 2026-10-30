@@ -394,7 +394,8 @@ _record_build_info() {
 # First value for a key in a unit record. `head -1` so a duplicated key cannot yield a
 # two-line field that shifts every column after it in the summary table.
 _bi_kv() {
-    local v; v="$(sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1)" || v=""
+    # tr: tasks.ps1's Set-Content writes CRLF, and a trailing \r breaks the cross-unit compare.
+    local v; v="$(sed -n "s/^$2=//p" "$1" 2>/dev/null | head -1 | tr -d '\r')" || v=""
     echo "${v:-unknown}"
 }
 
