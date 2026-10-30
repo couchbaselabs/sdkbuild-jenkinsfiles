@@ -353,9 +353,9 @@ _record_sdist_info() {
 # Records ONE prebuild unit, as buildInfo/<unit>.txt, where <unit> is the version-free
 # prebuild name described above. Called after the strip/split so the hashes it records are
 # the hashes of the binaries that actually ship. <napi> is the compiled Node-API level, or
-# n/a for electron.
+# n/a for electron. <ca_facts> is ca_bundle_check.mjs's key=value output for that binary.
 _record_build_info() {
-    local unit="${1:-}" napi="${2:-}"
+    local unit="${1:-}" napi="${2:-}" ca_facts="${3:-}"
     [[ -n "${unit}" && -n "${napi}" ]] || die "build-info: _record_build_info needs a unit name and a napi level"
     local info_dir; info_dir="$(_build_info_dir)"
     local info="${info_dir}/${unit}.txt"
@@ -385,6 +385,7 @@ _record_build_info() {
         echo "cxx_client_sha=$(_cxx_client_sha)"
         _emit_host_toolchain
         _emit_prebuild_identity
+        [[ -n "${ca_facts}" ]] && printf '%s\n' "${ca_facts}"
     } > "${info}"
 
     while IFS= read -r info_line; do log "  build-info: ${info_line}"; done < "${info}"
@@ -429,6 +430,23 @@ _bi_first_known() {
     echo "unknown"
 }
 
+# One line for the CA bundle every prebuild embedded. Never assumed uniform: units that
+# disagree are what a rebuilt cell from another day looks like, so they read "mixed". The
+# sdist record (runtime=none) embeds nothing and is skipped.
+_bi_ca_summary() {
+    local u d c k date="" certs="" check="pass"
+    for u in "$@"; do
+        [[ "$(_bi_kv "${u}" runtime)" == "none" ]] && continue
+        d="$(_bi_kv "${u}" ca_bundle_date)"
+        c="$(_bi_kv "${u}" ca_certs_embedded)"
+        k="$(_bi_kv "${u}" ca_check)"
+        if [[ -z "${date}" ]]; then date="${d}"; elif [[ "${date}" != "${d}" ]]; then date="mixed"; fi
+        if [[ -z "${certs}" ]]; then certs="${c}"; elif [[ "${certs}" != "${c}" ]]; then certs="mixed"; fi
+        [[ "${k}" == "pass" ]] || check="${k}"
+    done
+    echo "ca_bundle=${date:-none} certs=${certs:-none} check=${check}"
+}
+
 # Header facts plus one aligned row per unit. The columns are chosen so that drift is
 # visible by scanning: two agents building one release on different distros differ in the
 # last column and nowhere else.
@@ -441,6 +459,7 @@ _build_info_summary() {
     echo "sdk_sha=$(_bi_first_known sdk_sha "${units[@]}")"
     echo "cxx_client_sha=$(_bi_first_known cxx_client_sha "${units[@]}")"
     echo "units=${#units[@]}"
+    _bi_ca_summary "${units[@]}"
     echo ""
 
     # Widths sized for the longest name the adapter can produce, which is an electron unit
@@ -529,6 +548,55 @@ task_lint() {
     "${NPM_BIN}" run lint
 }
 
+# --- CA bundle checks (ca_bundle_check.mjs). The policy lives in ci-config.yaml; these
+# wrappers decide where it runs. Every check is fatal: a failure stops the unit before
+# anything is stashed or archived, which keeps a bad bundle out of the release pipeline.
+
+# Where the sdist bake leaves the bundle (scripts/prebuilds.js points the core's
+# COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE_ROOT here).
+_ca_bundle_file() { echo "${PROJECT_ROOT}/deps/couchbase-cxx-cache/mozilla-ca-bundle.crt"; }
+
+# Export the CA bundle policy (CBCI_CA_*) for stage $1.
+_ca_bundle_env() {
+    local ca_env
+    ca_env="$("${NODE_BIN}" "${ENGINE}" ca-bundle-env "$1")" || die "failed to resolve ca-bundle-env $1"
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
+    export ${ca_env}
+}
+
+# sdist: strip what the old core parser rejects (when the gate says so), then check the
+# bundle that is about to be packed.
+_ca_bundle_sdist() {
+    _ca_bundle_env sdist
+    local bundle; bundle="$(_ca_bundle_file)"
+    if [[ ! -f "${bundle}" ]]; then
+        # Without the CPM cache the core downloads its own bundle at prebuild time, so only
+        # the prebuild check can see it.
+        if [[ "${CN_SET_CPM_CACHE:-ON}" == "OFF" ]]; then
+            log "ca-bundle: no baked bundle (CPM cache off), the prebuild check covers it"
+            return 0
+        fi
+        die "ca-bundle: the CPM cache bake left no bundle at ${bundle}"
+    fi
+    if [[ "${CBCI_CA_BUNDLE_NORMALIZE:-OFF}" == "ON" ]]; then
+        "${NODE_BIN}" "${SCRIPT_DIR}/ca_bundle_check.mjs" normalize "${bundle}" >/dev/null \
+            || die "ca-bundle: normalize failed"
+    else
+        log "ca-bundle: normalize off (build.ca_bundle_normalize is gated off for this checkout)"
+    fi
+    "${NODE_BIN}" "${SCRIPT_DIR}/ca_bundle_check.mjs" bundle "${bundle}" >/dev/null \
+        || die "ca-bundle: the sdist's bundle failed the policy"
+}
+
+# Check one built .node ($1) against the bundle its sdist shipped ($2: the .tgz, or the
+# unpacked .crt; empty checks without it). Prints the facts for build-info.
+_ca_bundle_check_binary() {
+    local node="$1" sdist="${2:-}"
+    [[ -z "${sdist}" ]] && log "ca-bundle: no sdist bundle, $(basename "${node}") is checked without it" >&2
+    "${NODE_BIN}" "${SCRIPT_DIR}/ca_bundle_check.mjs" binary "${node}" ${sdist:+--sdist "${sdist}"} \
+        || die "ca-bundle: $(basename "${node}") failed the policy"
+}
+
 # --- sdist: configure-only pass. Bakes the C++ core's CPM cache
 # (deps/couchbase-cxx-cache) into the tree BEFORE `npm pack`, so the sdist tarball
 # is self-sufficient for a from-source build (no network/CPM fetch needed later).
@@ -567,6 +635,7 @@ task_sdist() {
     local set_cpm_cache_args=()
     [[ "${CN_SET_CPM_CACHE:-ON}" == "ON" ]] && set_cpm_cache_args=(--set-cpm-cache)
     "${NPM_BIN}" run prebuild -- --configure "${set_cpm_cache_args[@]}"
+    _ca_bundle_sdist
 
     log "packing source distribution (npm pack)"
     "${NPM_BIN}" pack
@@ -845,8 +914,11 @@ task_prebuild() {
     local unit_key="${kind}-v${abi}-${node_platform}-${node_arch}-${ssl_suffix}"
 
     task__prebuild_repair "${built}" "${filename}"
+    _ca_bundle_env prebuild
+    local ca_facts
+    ca_facts="$(_ca_bundle_check_binary "prebuilds/${filename}.node" "${sdist_tgz}")" || exit 1
     # After the split, so the hashes recorded are the ones that ship.
-    _record_build_info "${unit_key}" "${napi}"
+    _record_build_info "${unit_key}" "${napi}" "${ca_facts}"
     log "prebuild: release:"; ls -alh prebuilds
     log "prebuild: debug:";   ls -alh prebuildsDebug
 }
@@ -1268,7 +1340,7 @@ task_package() {
     [[ "${pkg_name}" == "couchbase" ]] \
         || die "package: platform packages are only defined for package name 'couchbase' (got '${pkg_name}')"
 
-    local prebuild_dir="${PROJECT_ROOT}/prebuilds"
+    local prebuild_dir="${PROJECT_ROOT}/prebuilds" nf
     compgen -G "${prebuild_dir}/*.node" >/dev/null \
         || die "package: no *.node under ${prebuild_dir} (run prebuild, or copy its artifacts, first)"
 
@@ -1278,12 +1350,20 @@ task_package() {
         local have; have="$(_pkg_version)"
         [[ "${have}" == "${CBCI_VERSION}" ]] \
             || die "package: sdist is version ${have}, expected CBCI_VERSION=${CBCI_VERSION} (was the build run with COUCHBASE_VERSION=${CBCI_VERSION}?)"
-        local nf
         for nf in "${prebuild_dir}"/*.node; do
             [[ "$(basename "${nf}")" == "${pkg_name}-v${CBCI_VERSION}-"* ]] \
                 || die "package: prebuild $(basename "${nf}") is not version ${CBCI_VERSION}"
         done
     fi
+
+    # The release re-scan: every prebuild, electron included, against the bundle in the
+    # unpacked sdist, before anything is repacked or stashed for publish.
+    _ca_bundle_env package
+    local ca_bundle=""
+    [[ -f "$(_ca_bundle_file)" ]] && ca_bundle="$(_ca_bundle_file)"
+    for nf in "${prebuild_dir}"/*.node; do
+        _ca_bundle_check_binary "${nf}" "${ca_bundle}" >/dev/null || exit 1
+    done
 
     # Inherited verbatim so a platform package carries the same provenance as the main
     # package and cannot drift from it.

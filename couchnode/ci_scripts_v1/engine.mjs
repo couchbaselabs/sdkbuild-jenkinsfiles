@@ -335,10 +335,45 @@ function evalVersionEntry(entry, keyName, projectRoot, gates, report = true, dom
   return version;
 }
 
-/** Resolve every commit-gated version list against the SDK checkout.
+// Build flags that may be a dict carrying min_commit/drop_commit. Each resolves to a plain
+// bool, and its verdict lands in cfg[GATE_KEY][key] for validateConfig to read.
+const GATED_BUILD_FLAGS = ['ca_bundle_normalize'];
+// Gates only the sdist stage reads. The other stages build from a tarball with no git, so
+// an indeterminate verdict there is moot; `ca-bundle-env sdist` enforces it instead.
+const SDIST_ONLY_GATES = ['ca_bundle_normalize'];
+
+/** Resolve `build[key]` in place. A plain value is left as-is and recorded as ungated. */
+function resolveGatedFlag(build, key, projectRoot, gates, report) {
+  const val = build[key];
+  if (!isPlainObject(val)) {
+    gates[key] = 'ungated';
+    return;
+  }
+  let enabled = val.enabled === undefined ? true : Boolean(val.enabled);
+  for (const [kind, disableWhen] of [['min_commit', false], ['drop_commit', true]]) {
+    if (!val[kind]) continue;
+    const sha = String(val[kind]).trim();
+    const isAnc = isCommitAncestor(sha, projectRoot);
+    if (isAnc === null) {
+      const where = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
+      const msg = `build.${key}: ${kind} '${sha.slice(0, 7)}' could not be evaluated (no git repo, or sha absent, at ${where})`;
+      if (report) process.stderr.write(`[engine] WARNING: ${msg}\n`);
+      (gates.indeterminate ||= []).push({ domain: key, msg });
+    } else if (isAnc === disableWhen) {
+      if (report) {
+        process.stderr.write(`[engine] build.${key}: disabling ${key} (${kind} '${sha.slice(0, 7)}' `
+          + `${disableWhen ? 'is' : 'is not'} in HEAD history)\n`);
+      }
+      enabled = false;
+    }
+  }
+  build[key] = enabled;
+  gates[key] = enabled ? 'enabled' : 'disabled';
+}
+
+/** Resolve every commit-gated version list and build flag against the SDK checkout.
  *
- * `reportDomains` limits which domains narrate their decisions (null = all of them).
- * COUCHNODE gates versions only; there is no build-option gate here. */
+ * `reportDomains` limits which domains narrate their decisions (null = all of them). */
 export function resolveCommitGatedVersions(cfg, projectRoot, reportDomains = null) {
   const gates = (cfg[GATE_KEY] ||= {});
   const reports = (domain) => reportDomains === null || reportDomains.includes(domain);
@@ -365,6 +400,11 @@ export function resolveCommitGatedVersions(cfg, projectRoot, reportDomains = nul
   for (const r of Array.isArray(cfg.test?.runners) ? cfg.test.runners : []) {
     if (r && Array.isArray(r.node_versions)) {
       r.node_versions = resolveList(r.node_versions, `test.runners[${r.name}].node_versions`, 'runner_node_versions');
+    }
+  }
+  if (isPlainObject(cfg.build)) {
+    for (const key of GATED_BUILD_FLAGS) {
+      if (key in cfg.build) resolveGatedFlag(cfg.build, key, projectRoot, gates, reports(key));
     }
   }
   return cfg;
@@ -461,6 +501,49 @@ export function buildEnv(cfg, stage) {
     }
   }
   return out;
+}
+
+// Policy for ca_bundle_check.mjs, as CBCI_* pairs (tasks.sh consumes them, not prebuilds.js).
+// The sdist stage also gets the normalize switch; prebuild and package only check.
+const CA_BUNDLE_STAGES = ['sdist', 'prebuild', 'package'];
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+export function caBundleEnv(cfg, stage) {
+  if (!CA_BUNDLE_STAGES.includes(stage)) {
+    throw new Error(`ca-bundle-env: unknown stage: ${stage} (expected ${CA_BUNDLE_STAGES.join('|')})`);
+  }
+  const build = cfg.raw.build || {};
+  const policy = build.ca_bundle || {};
+  const out = {
+    CBCI_CA_MIN_CERTS: String(policy.min_certs ?? 100),
+    CBCI_CA_DENIED_SHA256: (policy.denied_sha256 || []).map((d) => String(d).trim().toLowerCase()).join(','),
+  };
+  if (policy.min_date) out.CBCI_CA_MIN_DATE = String(policy.min_date);
+  if (stage === 'sdist') out.CBCI_CA_BUNDLE_NORMALIZE = build.ca_bundle_normalize === true ? 'ON' : 'OFF';
+  return out;
+}
+
+/** Shape errors in build.ca_bundle. A typo here would silently weaken a release gate. */
+function caBundleErrors(policy) {
+  if (policy === undefined || policy === null) return [];
+  if (!isPlainObject(policy)) return ['build.ca_bundle must be a mapping'];
+  const errors = [];
+  // YAML may hand back an unquoted date as a Date; the engine only accepts the string form.
+  const minDate = policy.min_date;
+  if (minDate !== undefined && minDate !== null
+      && !(typeof minDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(minDate) && !Number.isNaN(Date.parse(minDate)))) {
+    errors.push(`build.ca_bundle.min_date must be a quoted "YYYY-MM-DD" (got ${JSON.stringify(minDate)})`);
+  }
+  const minCerts = policy.min_certs;
+  if (minCerts !== undefined && minCerts !== null && !(Number.isInteger(minCerts) && minCerts >= 0)) {
+    errors.push(`build.ca_bundle.min_certs must be a non-negative integer (got ${JSON.stringify(minCerts)})`);
+  }
+  for (const d of policy.denied_sha256 || []) {
+    if (!SHA256_HEX.test(String(d).trim().toLowerCase())) {
+      errors.push(`build.ca_bundle.denied_sha256: not a sha256 fingerprint: '${d}'`);
+    }
+  }
+  return errors;
 }
 
 /** Per-unit prebuild selector env.
@@ -1207,9 +1290,10 @@ export function validateConfig(cfg) {
     electron_versions: 'ELECTRON_VERSIONS',
   };
   for (const rec of gates.indeterminate || []) {
-    const pinned = Boolean((process.env[PIN_VAR[rec.domain]] || '').trim());
+    const pinned = Boolean(PIN_VAR[rec.domain] && (process.env[PIN_VAR[rec.domain]] || '').trim());
     const suffix = pinned ? ' (superseded by an explicit override)' : '';
-    (pinned ? warnings : errors).push(`commit gate could not be evaluated: ${rec.msg}${suffix}`);
+    const advisory = pinned || SDIST_ONLY_GATES.includes(rec.domain);
+    (advisory ? warnings : errors).push(`commit gate could not be evaluated: ${rec.msg}${suffix}`);
   }
 
   if (!support.node_versions || support.node_versions.length === 0) {
@@ -1270,6 +1354,7 @@ export function validateConfig(cfg) {
   if (ssl === 'openssl' && !build.openssl_version) {
     warnings.push('build.ssl=openssl but build.openssl_version is unset');
   }
+  errors.push(...caBundleErrors(build.ca_bundle));
 
   // --- test runners ----------------------------------------------------------
   const runners = configuredRunners(cfg);
@@ -1499,7 +1584,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|napi-version|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
+    'prebuild-select-env|ca-bundle-env <sdist|prebuild|package>|napi-version|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
   );
 }
 
@@ -1516,7 +1601,10 @@ export function main(argv = process.argv.slice(2)) {
     return 1;
   }
 
-  const cfg = loadConfig(values.config, GATE_REPORT_DOMAINS[cmd] || []);
+  // The sdist is the one stage with git that reads the normalize gate, so it narrates it.
+  const reportDomains = cmd === 'ca-bundle-env' && positionals[1] === 'sdist'
+    ? SDIST_ONLY_GATES : GATE_REPORT_DOMAINS[cmd] || [];
+  const cfg = loadConfig(values.config, reportDomains);
 
   try {
     return dispatch(cmd, positionals, cfg);
@@ -1556,6 +1644,18 @@ function dispatch(cmd, positionals, cfg) {
     case 'prebuild-select-env':
       emitLines(prebuildSelectEnv(cfg));
       break;
+    case 'ca-bundle-env': {
+      const stage = positionals[1];
+      // An unevaluated normalize gate would silently pack a bundle the core cannot parse.
+      const unresolved = stage === 'sdist'
+        ? (cfg.raw[GATE_KEY]?.indeterminate || []).filter((r) => SDIST_ONLY_GATES.includes(r.domain)) : [];
+      if (unresolved.length) {
+        for (const r of unresolved) process.stderr.write(`ERROR: commit gate could not be evaluated: ${r.msg}\n`);
+        return 1;
+      }
+      emitPairs(caBundleEnv(cfg, stage));
+      break;
+    }
     case 'napi-version': {
       const napi = projectNapiVersion();
       if (napi === null) {

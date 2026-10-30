@@ -427,8 +427,9 @@ function Emit-PrebuildIdentity {
 # Records ONE prebuild unit as buildInfo/<unit>.txt, where <unit> is the prebuild name
 # minus its version and is passed in by the caller. See tasks.sh's _build_info_unit for why
 # it is derived from the artifact name rather than from (platform, arch, runtime). $napi is
-# the compiled Node-API level, or n/a for electron.
-function Write-BuildInfo([string]$unit, [string]$napi) {
+# the compiled Node-API level, or n/a for electron. $caFacts is ca_bundle_check.mjs's
+# key=value output for the binary.
+function Write-BuildInfo([string]$unit, [string]$napi, [string[]]$caFacts = @()) {
     if (-not $unit -or -not $napi) { Die 'build-info: Write-BuildInfo needs a unit name and a napi level' }
     $platform = if ($env:CBCI_BUILD_PLATFORM) { $env:CBCI_BUILD_PLATFORM } else { 'windows' }
     $arch = if ($env:CBCI_BUILD_ARCH) { $env:CBCI_BUILD_ARCH } else { (Node-Arch) }
@@ -461,11 +462,27 @@ function Write-BuildInfo([string]$unit, [string]$napi) {
     $lines += Emit-CommonIdentity
     $lines += Emit-WindowsToolchain
     $lines += Emit-PrebuildIdentity
+    $lines += @($caFacts | Where-Object { $_ })
 
     # -Encoding ascii, not the PowerShell 5.1 default: that default is UTF-16LE with a BOM,
     # which the linux agent's sed/grep read as binary when it packs and summarises these.
     Set-Content -Path $info -Value $lines -Encoding ascii
     foreach ($l in $lines) { Log "  build-info: $l" }
+}
+
+# --- CA bundle -----------------------------------------------------------------
+
+# Windows half of tasks.sh's _ca_bundle_check_binary: check one built .node against the
+# bundle in the sdist tarball and return its key=value facts for the build record.
+function Test-CaBundleBinary([string]$node, [string]$sdistTgz) {
+    $caEnv = & $NODE_BIN $ENGINE ca-bundle-env prebuild
+    if ($LASTEXITCODE -ne 0) { Die 'failed to resolve ca-bundle-env prebuild' }
+    Import-EnvPairs $caEnv
+    $checkArgs = @((Join-Path $SCRIPT_DIR 'ca_bundle_check.mjs'), 'binary', $node)
+    if ($sdistTgz) { $checkArgs += @('--sdist', $sdistTgz) } else { Log "ca-bundle: no sdist, $node is checked without it" }
+    $facts = @(& $NODE_BIN @checkArgs)
+    if ($LASTEXITCODE -ne 0) { Die "ca-bundle: $(Split-Path -Leaf $node) failed the policy" }
+    return $facts
 }
 
 # --- stages --------------------------------------------------------------
@@ -682,8 +699,9 @@ function Task-Prebuild {
     $env:CBCI_BUILD_TYPE = $configuredBuildType
 
     Task-PrebuildRepair $built $filename
+    $caFacts = Test-CaBundleBinary (Join-Path $PROJECT_ROOT "prebuilds/$filename.node") $sdistTgz.FullName
     # After the split, so the hashes recorded are the ones that ship.
-    Write-BuildInfo $unitKey $napi
+    Write-BuildInfo -unit $unitKey -napi $napi -caFacts $caFacts
     Log 'prebuild: release:'; Get-ChildItem prebuilds | Format-Table -AutoSize
     Log 'prebuild: debug:';   Get-ChildItem prebuildsDebug -ErrorAction SilentlyContinue | Format-Table -AutoSize
 }

@@ -56,6 +56,20 @@ build:
   build_type: RelWithDebInfo
   set_cpm_cache: true       # bake the C++ core's CPM cache (deps/couchbase-cxx-cache)
                             # into the sdist tarball before it's built into prebuilds
+  # The Mozilla CA bundle the C++ core embeds (ca_bundle_check.mjs). The sdist bakes whatever
+  # curl.se serves that day, so these are checked on the sdist's bundle, on every prebuild,
+  # and again at package. Fingerprints are SHA-256 of the DER cert; the name is only a comment.
+  ca_bundle:
+    min_date: "2026-10-20"  # oldest acceptable bundle; raise it after a distrust event
+    min_certs: 100          # catches a parser that silently embeds nothing (CXXCBC-1112)
+    denied_sha256:          # CBSE-24000: emSign roots Mozilla distrusted
+      - 86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b  # emSign ECC Root CA - G3
+      - 125609aa301da0a249b97a8239cb6a34216f44dcac9f3954b14292f2e8c8608f  # emSign Root CA - C1
+      - bc4d809b15189d78db3e1d8cf4f9726a795da1643ca5f1358e1ddb0edc0d7eb3  # emSign ECC Root CA - C3
+  # Strip the "# Fingerprint" lines curl added in Oct 2026; core < 1.5.1 parses zero certs
+  # without this. Add drop_commit = the SDK commit that bumps the core to >= 1.5.1.
+  ca_bundle_normalize:
+    enabled: true
   verbose_makefile: false
 
   # node_version: the Node the prebuild build runs cmake-js under. A FLOOR: the oldest Node

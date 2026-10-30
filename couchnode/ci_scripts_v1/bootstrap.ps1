@@ -44,6 +44,7 @@ $CBCI_MANIFEST = @(
     'jenkins.mjs'
     'tasks.sh'
     'tasks.ps1'
+    'ca_bundle_check.mjs'
     'ci-config.yaml'
     'package.json'
     'package-lock.json'
@@ -51,11 +52,12 @@ $CBCI_MANIFEST = @(
 
 # Expected sha256 (lowercase hex). Keep in sync with bootstrap.sh get_expected_hash().
 $CBCI_EXPECTED = @{
-    'engine.mjs'        = '57467cec3bb3a14a81f5cf8af53e437e2553a30e239f964cbc012545384c58de'
+    'engine.mjs'        = 'f25ab509cf1fdf0dc07a4e6650964f4422df559b6520d163b26e2e16c6e9b8b5'
     'jenkins.mjs'       = 'd414f0c1e4e0946d865257f153ddf4c3c3d1712bec50049b3321b4e60db3ddfe'
-    'tasks.sh'          = 'ad94542abd516a0adba02aaea7ac8c40570458904b5a9f47487f8a1d59019b49'
-    'tasks.ps1'         = '909c8d1a83b6489374f2c833f148189921417744441a5c4cc3694223307d9dac'
-    'ci-config.yaml'    = '9c64bcac9286e6db3d3ad082d149b50d5c586457ba836e9cbdd7836895a1b920'
+    'tasks.sh'          = '474e72611a97f1ecc6021a29295e999bc36d43506169e38ad701f1884e50f0f5'
+    'tasks.ps1'         = 'c926df0eba0f2bf3338da02e78dd36e7136a3be94dce1caef196165b0424e6dd'
+    'ca_bundle_check.mjs' = '3d4623515c065d711c865154a19a661fddf2e003e17bfebf503eb8dc16359bd9'
+    'ci-config.yaml'    = '72075999d0e3d6fbf79d75e1a51e5310bdb09abc8a2334d464696b88770ecef0'
     'package.json'      = '723bd7b31c52ee5afc5dcca12b0a4f8c9209ff2d8801ead2355d846eb936206d'
     'package-lock.json' = '8930ae2b212bdabb240935d44acfd1b5c869d09b8311e76ab45e035f10a64372'
 }
