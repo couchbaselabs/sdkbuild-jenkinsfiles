@@ -835,6 +835,12 @@ task_prebuild() {
     local sdist_tgz
     sdist_tgz="$(ls ./*.tgz 2>/dev/null | head -1)" || true
     [[ -n "${sdist_tgz}" ]] || die "prebuild: no *.tgz found under ${PROJECT_ROOT} (unstash the sdist first?)"
+    # The sdist stage's cmake tree was configured against curl's raw CA bundle, and cmake-js
+    # skips configure when one exists, so drop it before building from the unpacked sdist.
+    if [[ -f "${PROJECT_ROOT:?}/build/CMakeCache.txt" ]]; then
+        log "prebuild: removing stale cmake tree ${PROJECT_ROOT}/build"
+        rm -rf "${PROJECT_ROOT:?}/build"
+    fi
     log "prebuild: unpacking ${sdist_tgz}"
     tar -xzf "${sdist_tgz}" --strip-components=1
     _assert_sdist_unpacked "${PROJECT_ROOT}"
@@ -982,6 +988,11 @@ _validate_registry_install() {
             # YARN_* env outranks every .yarnrc.yml, including a stale one in the agent's home.
             export YARN_NPM_REGISTRY_SERVER="${CBCI_VALIDATE_REGISTRY}"
             export YARN_NODE_LINKER="${CBCI_VALIDATE_YARN_LINKER}"
+            # Yarn 4 quarantines versions younger than npmMinimalAgeGate (1d) and verify runs
+            # right after publish. Yarn 3 rejects the unknown setting, so 4+ only.
+            if (( $(yarn --version | cut -d. -f1) >= 4 )); then
+                export YARN_NPM_MINIMAL_AGE_GATE=0
+            fi
             [[ -n "${CBCI_VALIDATE_REGISTRY_HTTP_HOST}" ]] \
                 && export YARN_UNSAFE_HTTP_WHITELIST="${CBCI_VALIDATE_REGISTRY_HTTP_HOST}"
             # Berry has no --ignore-scripts flag; enableScripts is the equivalent.
@@ -1481,11 +1492,13 @@ task_docs() {
     log "docs: loading ${prebuild}"
     _clear_node_modules
     "${NPM_BIN}" ci --ignore-scripts
+    # Start from an empty build/ so typedoc can only load the prebuild copied below.
+    rm -rf "${PROJECT_ROOT:?}/build"
     mkdir -p build/Release
     cp "${prebuild}" build/Release/
     "${NPM_BIN}" run build-docs
     [[ -d docs ]] || die "docs: 'npm run build-docs' produced no docs/ directory"
-    rm -rf build
+    rm -rf "${PROJECT_ROOT:?}/build"
     log "docs: ready at ${PROJECT_ROOT}/docs"
 }
 
@@ -1535,6 +1548,57 @@ task_publish() {
     log "publish: done"
 }
 
+# True once the registry serves NAME@VER the way an install sees it: listed in the
+# abbreviated packument npm and yarn read, and its tarball fetchable.
+_registry_serves() {
+    local name="$1" ver="$2" registry="$3" tarball
+    tarball="$(curl -fs -H 'Accept: application/vnd.npm.install-v1+json' "${registry%/}/${name/\//%2f}" \
+        | "${NODE_BIN}" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+            let v; try { v=JSON.parse(s).versions?.[process.argv[1]] } catch {}
+            if(!v) process.exit(1); console.log(v.dist.tarball)})' "${ver}")" \
+        || return 1
+    curl -fsI -o /dev/null "${tarball}"
+}
+
+# --- wait-published: block until every package `publish` sent is installable.
+#
+# npm 11 publishes asynchronously, and the registry CDN can serve a cached 404 for a few
+# minutes after that, so an install started straight after `publish` can miss the version.
+task_wait_published() {
+    cd "${PROJECT_ROOT}"
+    local registry; registry="$("${NPM_BIN}" config get registry)"
+    local timeout="${CBCI_PUBLISH_WAIT_SECS:-900}" interval=20
+    local -a pending=()
+    local d
+    for d in "${PROJECT_ROOT}"/prebuilds/*/; do
+        [[ -f "${d}/package.json" ]] || continue
+        pending+=("$("${NODE_BIN}" -p "const p=require('${d}/package.json'); p.name+' '+p.version")")
+    done
+    local tarball; tarball="$(ls "${PROJECT_ROOT}"/sdist/*.tgz 2>/dev/null | head -1 || true)"
+    [[ -n "${tarball}" ]] || die "wait-published: no tarball under sdist/"
+    pending+=("$(tar -xOzf "${tarball}" package/package.json \
+        | "${NODE_BIN}" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const p=JSON.parse(s); console.log(p.name+" "+p.version)})')")
+
+    local start=${SECONDS} entry
+    while true; do
+        local -a still=()
+        for entry in "${pending[@]}"; do
+            # shellcheck disable=SC2086
+            if _registry_serves ${entry} "${registry}"; then
+                log "wait-published: ${entry/ /@} is live"
+            else
+                still+=("${entry}")
+            fi
+        done
+        (( ${#still[@]} == 0 )) && { log "wait-published: all packages live on ${registry}"; return 0; }
+        pending=("${still[@]}")
+        (( SECONDS - start >= timeout )) \
+            && die "wait-published: not live after ${timeout}s: ${pending[*]/ /@}"
+        log "wait-published: waiting on ${#pending[@]} package(s), $(( SECONDS - start ))s elapsed"
+        sleep "${interval}"
+    done
+}
+
 # --- dispatch ----------------------------------------------------------------
 
 main() {
@@ -1561,6 +1625,7 @@ main() {
         package)                   task_package "$@" ;;
         docs)                      task_docs "$@" ;;
         publish)                   task_publish "$@" ;;
+        wait-published)            task_wait_published "$@" ;;
         _prebuild_repair)          task__prebuild_repair "$@" ;;
         build-info-pack)           task_build_info_pack "$@" ;;
         *) die "unknown stage: ${stage}" ;;

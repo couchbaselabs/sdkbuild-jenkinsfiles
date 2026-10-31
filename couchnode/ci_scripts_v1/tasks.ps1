@@ -627,6 +627,13 @@ function Task-Prebuild {
     # against the ambient runtime before we set the real target).
     $sdistTgz = Get-ChildItem './*.tgz' -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $sdistTgz) { Die "prebuild: no *.tgz found under $PROJECT_ROOT (unstash the sdist first?)" }
+    # The sdist stage's cmake tree was configured against curl's raw CA bundle, and cmake-js
+    # skips configure when one exists, so drop it before building from the unpacked sdist.
+    $staleBuild = Join-Path $PROJECT_ROOT 'build'
+    if (Test-Path (Join-Path $staleBuild 'CMakeCache.txt')) {
+        Log "prebuild: removing stale cmake tree $staleBuild"
+        Remove-Item -Recurse -Force $staleBuild
+    }
     Log "prebuild: unpacking $($sdistTgz.Name)"
     Unpack-Tarball $sdistTgz.FullName
     Clear-NodeModules
@@ -776,6 +783,11 @@ function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
             # YARN_* env outranks every .yarnrc.yml, including a stale one in the agent's home.
             Set-ScopedEnv 'YARN_NPM_REGISTRY_SERVER' $env:CBCI_VALIDATE_REGISTRY
             Set-ScopedEnv 'YARN_NODE_LINKER' $env:CBCI_VALIDATE_YARN_LINKER
+            # Yarn 4 quarantines versions younger than npmMinimalAgeGate (1d) and verify runs
+            # right after publish. Yarn 3 rejects the unknown setting, so 4+ only.
+            if ([int](((& yarn --version) -join '').Split('.')[0]) -ge 4) {
+                Set-ScopedEnv 'YARN_NPM_MINIMAL_AGE_GATE' '0'
+            }
             if ($env:CBCI_VALIDATE_REGISTRY_HTTP_HOST) {
                 Set-ScopedEnv 'YARN_UNSAFE_HTTP_WHITELIST' $env:CBCI_VALIDATE_REGISTRY_HTTP_HOST
             }

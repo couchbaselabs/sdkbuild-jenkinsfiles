@@ -74,8 +74,8 @@ get_expected_hash() {
     case "${name}" in
         "engine.mjs")         echo "f25ab509cf1fdf0dc07a4e6650964f4422df559b6520d163b26e2e16c6e9b8b5" ;;
         "jenkins.mjs")        echo "d414f0c1e4e0946d865257f153ddf4c3c3d1712bec50049b3321b4e60db3ddfe" ;;
-        "tasks.sh")           echo "bfd8817d60ac7a393c9144f30ef956e81125017ce9e19765cdd6c7b808d281c0" ;;
-        "tasks.ps1")          echo "c926df0eba0f2bf3338da02e78dd36e7136a3be94dce1caef196165b0424e6dd" ;;
+        "tasks.sh")           echo "20b445c58fb2ee2dfe78d5d54ef948c9774441b24d24f8dde479838ba0ec5d75" ;;
+        "tasks.ps1")          echo "99110c397b3181c87523a272488ee6f08199f4d28d666c7868f7d2c8222e95a5" ;;
         "ca_bundle_check.mjs") echo "3d4623515c065d711c865154a19a661fddf2e003e17bfebf503eb8dc16359bd9" ;;
         "ci-config.yaml")     echo "72075999d0e3d6fbf79d75e1a51e5310bdb09abc8a2334d464696b88770ecef0" ;;
         "package.json")       echo "723bd7b31c52ee5afc5dcca12b0a4f8c9209ff2d8801ead2355d846eb936206d" ;;
