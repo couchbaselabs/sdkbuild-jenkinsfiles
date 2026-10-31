@@ -67,9 +67,10 @@ build:
       - 125609aa301da0a249b97a8239cb6a34216f44dcac9f3954b14292f2e8c8608f  # emSign Root CA - C1
       - bc4d809b15189d78db3e1d8cf4f9726a795da1643ca5f1358e1ddb0edc0d7eb3  # emSign ECC Root CA - C3
   # Strip the "# Fingerprint" lines curl added in Oct 2026; core < 1.5.1 parses zero certs
-  # without this. Add drop_commit = the SDK commit that bumps the core to >= 1.5.1.
+  # without this. drop_commit = the SDK commit that bumps the core to 1.5.1.
   ca_bundle_normalize:
     enabled: true
+    drop_commit: "c241e92ba44de4ef401c2e110a3707b2d6030d20"
   verbose_makefile: false
 
   # node_version: the Node the prebuild build runs cmake-js under. A FLOOR: the oldest Node

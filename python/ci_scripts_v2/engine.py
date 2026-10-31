@@ -251,9 +251,8 @@ GATE_REPORT_DOMAINS: Dict[str, tuple] = {
     "build-env": ("abi3",),
 }
 
-# Gates only the sdist stage consumes. The sdist node has the checkout, so `ca-bundle-env
-# --stage sdist` enforces them there; elsewhere (validate-config on a node with no checkout,
-# the wheel nodes, publish) an indeterminate verdict decides nothing and is only a warning.
+# Gates only the sdist stage consumes. An indeterminate verdict leaves the flag on, which is
+# always safe (a release branch's clone never has the master sha), so it is never fatal.
 _SDIST_ONLY_GATES = ("ca_bundle_normalize",)
 
 
@@ -276,6 +275,8 @@ def _narrate_indeterminate(msg: str, domain: str) -> None:
     node that builds from an sdist, and shouting there makes a green build look broken."""
     if _gate_pinned(domain):
         print(f"[engine] {msg} (superseded by an explicit override)", file=sys.stderr)
+    elif domain in _SDIST_ONLY_GATES:
+        print(f"[engine] {msg}; leaving {domain} on", file=sys.stderr)
     else:
         print(f"[engine] WARNING: {msg}", file=sys.stderr)
 
@@ -1377,7 +1378,8 @@ def validate_config(cfg: Config) -> tuple:
     # source-building pipeline could inherit by accident.
     gates = cfg.raw.get(_GATE_KEY, {})
     for domain, msg, pinned in _gate_findings(cfg):
-        (warnings if pinned or domain in _SDIST_ONLY_GATES else errors).append(msg)
+        if domain not in _SDIST_ONLY_GATES:
+            (warnings if pinned else errors).append(msg)
 
     # ABI3=true against a checkout the gate says predates abi3 support would build the coarse
     # abi3 plan on an SDK that cannot honor it: one wheel per platform, built only on the
@@ -1990,7 +1992,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         enforce_gates(cfg, args.cmd)
         _emit_pairs(build_env(cfg, args.stage))
     elif args.cmd == "ca-bundle-env":
-        enforce_gates(cfg, args.cmd, report_domains)
         _emit_pairs(ca_bundle_env(cfg, args.stage))
     elif args.cmd == "wheel-env":
         enforce_gates(cfg, args.cmd)

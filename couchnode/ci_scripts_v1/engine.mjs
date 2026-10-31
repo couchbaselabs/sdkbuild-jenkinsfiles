@@ -338,8 +338,8 @@ function evalVersionEntry(entry, keyName, projectRoot, gates, report = true, dom
 // Build flags that may be a dict carrying min_commit/drop_commit. Each resolves to a plain
 // bool, and its verdict lands in cfg[GATE_KEY][key] for validateConfig to read.
 const GATED_BUILD_FLAGS = ['ca_bundle_normalize'];
-// Gates only the sdist stage reads. The other stages build from a tarball with no git, so
-// an indeterminate verdict there is moot; `ca-bundle-env sdist` enforces it instead.
+// Gates only the sdist stage reads. An indeterminate verdict leaves the flag on, which is
+// always safe (a release branch's clone never has the master sha), so it is never fatal.
 const SDIST_ONLY_GATES = ['ca_bundle_normalize'];
 
 /** Resolve `build[key]` in place. A plain value is left as-is and recorded as ungated. */
@@ -357,7 +357,10 @@ function resolveGatedFlag(build, key, projectRoot, gates, report) {
     if (isAnc === null) {
       const where = projectRoot || process.env.CBCI_PROJECT_ROOT || process.cwd();
       const msg = `build.${key}: ${kind} '${sha.slice(0, 7)}' could not be evaluated (no git repo, or sha absent, at ${where})`;
-      if (report) process.stderr.write(`[engine] WARNING: ${msg}\n`);
+      if (report) {
+        process.stderr.write(SDIST_ONLY_GATES.includes(key)
+          ? `[engine] ${msg}; leaving ${key} on\n` : `[engine] WARNING: ${msg}\n`);
+      }
       (gates.indeterminate ||= []).push({ domain: key, msg });
     } else if (isAnc === disableWhen) {
       if (report) {
@@ -1290,10 +1293,10 @@ export function validateConfig(cfg) {
     electron_versions: 'ELECTRON_VERSIONS',
   };
   for (const rec of gates.indeterminate || []) {
+    if (SDIST_ONLY_GATES.includes(rec.domain)) continue;
     const pinned = Boolean(PIN_VAR[rec.domain] && (process.env[PIN_VAR[rec.domain]] || '').trim());
     const suffix = pinned ? ' (superseded by an explicit override)' : '';
-    const advisory = pinned || SDIST_ONLY_GATES.includes(rec.domain);
-    (advisory ? warnings : errors).push(`commit gate could not be evaluated: ${rec.msg}${suffix}`);
+    (pinned ? warnings : errors).push(`commit gate could not be evaluated: ${rec.msg}${suffix}`);
   }
 
   if (!support.node_versions || support.node_versions.length === 0) {
@@ -1644,18 +1647,9 @@ function dispatch(cmd, positionals, cfg) {
     case 'prebuild-select-env':
       emitLines(prebuildSelectEnv(cfg));
       break;
-    case 'ca-bundle-env': {
-      const stage = positionals[1];
-      // An unevaluated normalize gate would silently pack a bundle the core cannot parse.
-      const unresolved = stage === 'sdist'
-        ? (cfg.raw[GATE_KEY]?.indeterminate || []).filter((r) => SDIST_ONLY_GATES.includes(r.domain)) : [];
-      if (unresolved.length) {
-        for (const r of unresolved) process.stderr.write(`ERROR: commit gate could not be evaluated: ${r.msg}\n`);
-        return 1;
-      }
-      emitPairs(caBundleEnv(cfg, stage));
+    case 'ca-bundle-env':
+      emitPairs(caBundleEnv(cfg, positionals[1]));
       break;
-    }
     case 'napi-version': {
       const napi = projectNapiVersion();
       if (napi === null) {
