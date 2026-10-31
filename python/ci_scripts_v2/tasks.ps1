@@ -196,18 +196,19 @@ function Invoke-Wheel {
         }
     }
 
+    # Find target sdist if available
+    $target = "."
+    $sdistArgs = @()
+    if (Test-Path "dist") {
+        $sdist = Get-ChildItem "dist\*.tar.gz" | Select-Object -First 1
+        if ($sdist) { $target = $sdist.FullName; $sdistArgs = @("--from-sdist") }
+    }
+
     # Read project build env (like PYCBC_USE_OPENSSL, PYCBC_BUILD_TYPE)
-    Import-EngineEnvPairs (& $Python $Engine build-env wheel)
+    Import-EngineEnvPairs (& $Python $Engine build-env wheel @sdistArgs)
 
     & $Python -m pip install --upgrade pip
     & $Python -m pip install cibuildwheel
-
-    # Find target sdist if available
-    $target = "."
-    if (Test-Path "dist") {
-        $sdist = Get-ChildItem "dist\*.tar.gz" | Select-Object -First 1
-        if ($sdist) { $target = $sdist.FullName }
-    }
 
     Write-Log "target = $target"
     & $Python -m cibuildwheel --output-dir wheelhouse/dist $target
@@ -530,17 +531,18 @@ function Invoke-WheelNative {
 
     # Export the same PYCBC_* knobs the engine resolves (PYCBC_USE_OPENSSL,
     # PYCBC_BUILD_TYPE=RelWithDebInfo, ...) so the native build matches the planned config.
-    $buildEnvLines = & $Python $Engine build-env wheel
+    # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
+    $target = "."
+    $sdistArgs = @()
+    if (Test-Path "dist") {
+        $sdist = Get-ChildItem "dist\*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($sdist) { $target = $sdist.FullName; $sdistArgs = @("--from-sdist") }
+    }
+
+    $buildEnvLines = & $Python $Engine build-env wheel @sdistArgs
     if ($LASTEXITCODE -ne 0) { Stop-Task "wheel-native: build-env wheel failed" }
     Import-EngineEnvPairs $buildEnvLines
     Set-BuildBase
-
-    # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
-    $target = "."
-    if (Test-Path "dist") {
-        $sdist = Get-ChildItem "dist\*.tar.gz" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($sdist) { $target = $sdist.FullName }
-    }
 
     & $Python -m pip install --upgrade pip
     & $Python -m pip install wheel

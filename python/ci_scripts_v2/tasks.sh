@@ -1362,10 +1362,16 @@ task_wheel() {
     "${PYTHON}" -m pip install --upgrade pip
     "${PYTHON}" -m pip install "cibuildwheel${CBCI_CIBUILDWHEEL_VERSION:+==${CBCI_CIBUILDWHEEL_VERSION}}"
 
+    # Artifact isolation: build from the sdist (CPM cache baked in) when present.
+    local target="." sdist
+    sdist="$(ls dist/*.tar.gz 2>/dev/null | head -1 || true)"
+    [[ -n "${sdist}" ]] && target="${sdist}"
+
     # Build knobs the build reads (PYCBC_*). Space-free, so reuse verbatim as
     # CIBW_ENVIRONMENT to carry them INTO the build.
     local cibw_environment
-    cibw_environment="$("${PYTHON}" "${ENGINE}" build-env wheel)" || die "build-env wheel failed"
+    cibw_environment="$("${PYTHON}" "${ENGINE}" build-env wheel ${sdist:+--from-sdist})" \
+        || die "build-env wheel failed"
 
     # CIBW_* selectors (values may contain spaces -> read line by line).
     local k v
@@ -1430,11 +1436,6 @@ task_wheel() {
     [[ -n "${CBCI_MANYLINUX_AARCH64_IMAGE:-}" ]] && export CIBW_MANYLINUX_AARCH64_IMAGE="${CBCI_MANYLINUX_AARCH64_IMAGE}"
     [[ -n "${CBCI_MUSLLINUX_X86_64_IMAGE:-}" ]]  && export CIBW_MUSLLINUX_X86_64_IMAGE="${CBCI_MUSLLINUX_X86_64_IMAGE}"
 
-    # Artifact isolation: build from the sdist (CPM cache baked in) when present.
-    local target="." sdist
-    sdist="$(ls dist/*.tar.gz 2>/dev/null | head -1 || true)"
-    [[ -n "${sdist}" ]] && target="${sdist}"
-
     log "running cibuildwheel (target=${target})"
     log "  CIBW_BUILD=${CIBW_BUILD:-} CIBW_SKIP=${CIBW_SKIP:-} CIBW_ARCHS=${CIBW_ARCHS:-auto}"
     log "  CIBW_ENVIRONMENT=${CIBW_ENVIRONMENT}"
@@ -1480,16 +1481,17 @@ task_wheel_native() {
 
     # Export the SAME PYCBC_* knobs the cibuildwheel path passes via CIBW_ENVIRONMENT, so
     # the native build is configured identically (PYCBC_USE_OPENSSL, PYCBC_BUILD_TYPE, ...).
-    local build_env
-    build_env="$("${PYTHON}" "${ENGINE}" build-env wheel)" || die "wheel-native: build-env wheel failed"
-    log "wheel-native: build-env: ${build_env}"
-    # shellcheck disable=SC2086,SC2163  # intentional word-split of space-free KEY=VALUE pairs
-    export ${build_env}
-
     # Build from the sdist (CPM cache baked in) when present, else the cwd checkout.
     local target="." sdist
     sdist="$(ls dist/*.tar.gz 2>/dev/null | head -1 || true)"
     [[ -n "${sdist}" ]] && target="${sdist}"
+
+    local build_env
+    build_env="$("${PYTHON}" "${ENGINE}" build-env wheel ${sdist:+--from-sdist})" \
+        || die "wheel-native: build-env wheel failed"
+    log "wheel-native: build-env: ${build_env}"
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of space-free KEY=VALUE pairs
+    export ${build_env}
 
     local bdist; bdist="$(mktemp -d)"
     local -a pipargs=( "${target}" --no-deps -w "${bdist}" )

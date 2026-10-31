@@ -1039,10 +1039,11 @@ _STAGE_BUILD_KEYS = {
 }
 
 
-def build_env(cfg: Config, stage: str) -> Dict[str, str]:
+def build_env(cfg: Config, stage: str, from_sdist: bool = False) -> Dict[str, str]:
     """Emit `{PREFIX}_*` env that setup.py / CMake read for the given stage.
 
     Values are space-free so callers can `export $(engine.py build-env <stage>)`.
+    `from_sdist` turns the CPM bake off, so the wheel uses the cache the sdist ships.
     """
     if stage not in _STAGE_BUILD_KEYS:
         print(f"ERROR: build-env: unknown stage: {stage}", file=sys.stderr)
@@ -1058,7 +1059,9 @@ def build_env(cfg: Config, stage: str) -> Dict[str, str]:
     out: Dict[str, str] = {}
     for key in _STAGE_BUILD_KEYS[stage]:
         if key == "set_cpm_cache":
-            out[f"{prefix}_SET_CPM_CACHE"] = "ON" if build.get("set_cpm_cache", True) else "OFF"
+            # ON makes setup.py delete and re-download the cache, discarding the sdist's bundle.
+            bake = build.get("set_cpm_cache", True) and not from_sdist
+            out[f"{prefix}_SET_CPM_CACHE"] = "ON" if bake else "OFF"
         elif key == "build_type":
             out[f"{prefix}_BUILD_TYPE"] = str(build.get("build_type", "RelWithDebInfo"))
         elif key == "use_openssl":
@@ -1949,6 +1952,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     p_build_env = sub.add_parser("build-env", help="emit {PREFIX}_* build knobs as KEY=VALUE pairs")
     p_build_env.add_argument("stage", choices=("sdist", "wheel"), help="build stage")
+    p_build_env.add_argument("--from-sdist", action="store_true",
+                             help="the wheel builds from an sdist: use its CPM cache, don't re-bake")
 
     sub.add_parser("wheel-env", help="emit CIBW_* selector knobs (one KEY=VALUE per line)")
 
@@ -1990,7 +1995,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         _emit_pairs(publish_env(cfg))
     elif args.cmd == "build-env":
         enforce_gates(cfg, args.cmd)
-        _emit_pairs(build_env(cfg, args.stage))
+        _emit_pairs(build_env(cfg, args.stage, from_sdist=args.from_sdist))
     elif args.cmd == "ca-bundle-env":
         _emit_pairs(ca_bundle_env(cfg, args.stage))
     elif args.cmd == "wheel-env":
