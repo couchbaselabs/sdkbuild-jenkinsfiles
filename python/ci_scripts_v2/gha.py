@@ -25,6 +25,9 @@ what runs on GHA today. The `build_wheel` and `validate_wheel` stages the legacy
 emitted for the compiled clients are NOT ported: those clients build on Jenkins, so the
 code would ship unexercised. `matrices` says so rather than emitting a half-matrix, and
 the two stages are a bounded addition for whoever moves a compiled client to GHA.
+Two requirements carry over from Jenkins for that move: run `tasks.sh sdist` in a git
+checkout of the SDK (it tags the version and `git apply`s the CA interim patch), and set
+CBCI_IS_RELEASE=true on every release job, or the sdist stage patches the release source.
 
 CLI:
     python3 gha.py matrices                 # emit the stage_matrices JSON the workflows consume

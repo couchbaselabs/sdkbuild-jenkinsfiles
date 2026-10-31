@@ -227,10 +227,14 @@ _ca_bundle_env() {
     export ${ca_env}
 }
 
-# sdist: strip what the old core parser rejects (when the gate says so), then check the
-# bundle that is about to be packed.
+# sdist: apply the interim CMake fix (non-release only), strip what the old core parser
+# rejects (when the gate says so), then check the bundle that is about to be packed.
 _ca_bundle_sdist() {
     _ca_bundle_env sdist
+    if [[ "${CBCI_CA_INTERIM_PATCH:-OFF}" == "ON" ]]; then
+        "${PYTHON}" "${SCRIPT_DIR}/ca_bundle_check.py" interim-patch "${PROJECT_ROOT}" >/dev/null \
+            || die "ca-bundle: the interim patch failed"
+    fi
     local bundle; bundle="$(_ca_bundle_file)"
     if [[ ! -f "${bundle}" ]]; then
         # Without the CPM cache the core downloads its own bundle at wheel build time, so
@@ -259,6 +263,10 @@ _ca_bundle_check_wheels() {
     local dir="$1" facts_out="${2:-}" stage="${3:-wheel}"
     _ca_bundle_env "${stage}"
     local sdist; sdist="$(ls "${PROJECT_ROOT}"/dist/*.tar.gz 2>/dev/null | head -1 || true)"
+    # Only the sdist shows whether the wheels came from CI-patched source.
+    if [[ -z "${sdist}" && "${stage}" == "publish" ]]; then
+        die "ca-bundle: publish needs the sdist in dist/ to check the wheels' source"
+    fi
     [[ -z "${sdist}" ]] && log "ca-bundle: no sdist in dist/, wheels are checked without it"
     if [[ -n "${facts_out}" ]]; then rm -f "${facts_out}"; fi
     local whl facts found=0

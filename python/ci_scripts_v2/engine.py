@@ -1090,7 +1090,8 @@ def build_env(cfg: Config, stage: str, from_sdist: bool = False) -> Dict[str, st
 
 
 # Policy for ca_bundle_check.py, as CBCI_* pairs (tasks.sh consumes them, not setup.py).
-# The sdist stage also gets the normalize switch; the wheel and publish stages only check.
+# The sdist stage also gets the normalize and interim-patch switches; the wheel and publish
+# stages only check. Publish is always a release; the others are when CBCI_IS_RELEASE=true.
 _CA_BUNDLE_STAGES = ("sdist", "wheel", "publish")
 _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
@@ -1108,8 +1109,11 @@ def ca_bundle_env(cfg: Config, stage: str) -> Dict[str, str]:
     }
     if policy.get("min_date"):
         out["CBCI_CA_MIN_DATE"] = str(policy["min_date"])
+    release = stage == "publish" or (os.environ.get("CBCI_IS_RELEASE") or "").strip().lower() == "true"
+    out["CBCI_CA_RELEASE"] = "ON" if release else "OFF"
     if stage == "sdist":
         out["CBCI_CA_BUNDLE_NORMALIZE"] = "ON" if build.get("ca_bundle_normalize", False) else "OFF"
+        out["CBCI_CA_INTERIM_PATCH"] = "ON" if policy.get("interim_patch", False) else "OFF"
     return out
 
 
@@ -1133,6 +1137,9 @@ def _ca_bundle_errors(policy: Any) -> List[str]:
     for d in policy.get("denied_sha256") or []:
         if not _SHA256_HEX.match(str(d).strip().lower()):
             errors.append(f"build.ca_bundle.denied_sha256: not a sha256 fingerprint: '{d}'")
+    interim = policy.get("interim_patch")
+    if interim is not None and not isinstance(interim, bool):
+        errors.append(f"build.ca_bundle.interim_patch must be true or false (got '{interim}')")
     return errors
 
 

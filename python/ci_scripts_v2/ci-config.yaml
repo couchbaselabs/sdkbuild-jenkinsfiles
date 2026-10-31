@@ -57,6 +57,9 @@ build:
       - 86a1ecba089c4a8d3bbe2734c612ba341d813e043cf9e8a862cd5c57a36bbe6b  # emSign ECC Root CA - G3
       - 125609aa301da0a249b97a8239cb6a34216f44dcac9f3954b14292f2e8c8608f  # emSign Root CA - C1
       - bc4d809b15189d78db3e1d8cf4f9726a795da1643ca5f1358e1ddb0edc0d7eb3  # emSign ECC Root CA - C3
+    # PYCBC-2044: apply the CMake fix to non-release sdists until it lands. Remove once the
+    # fix is on master and every release branch CI still builds.
+    interim_patch: true
   # Strip the "# Fingerprint" lines curl added in Oct 2026; core < 1.5.1 parses zero certs
   # without this. Add drop_commit = the SDK commit that bumps the core to >= 1.5.1.
   ca_bundle_normalize:
