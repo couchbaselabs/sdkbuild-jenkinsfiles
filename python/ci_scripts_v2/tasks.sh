@@ -1349,6 +1349,15 @@ task_wheel() {
         return
     fi
 
+    # Only task_sdist normalizes the CA bundle, so fail now rather than after a full build.
+    if ! ls dist/*.tar.gz >/dev/null 2>&1; then
+        local sdist_ca_env
+        sdist_ca_env="$("${PYTHON}" "${ENGINE}" ca-bundle-env sdist)" || die "failed to resolve ca-bundle-env sdist"
+        if [[ " ${sdist_ca_env} " == *" CBCI_CA_BUNDLE_NORMALIZE=ON "* ]]; then
+            die "wheel: this checkout needs a normalized CA bundle and dist/ has no sdist; run 'tasks.sh sdist' first"
+        fi
+    fi
+
     log "installing cibuildwheel"
     "${PYTHON}" -m pip install --upgrade pip
     "${PYTHON}" -m pip install "cibuildwheel${CBCI_CIBUILDWHEEL_VERSION:+==${CBCI_CIBUILDWHEEL_VERSION}}"
