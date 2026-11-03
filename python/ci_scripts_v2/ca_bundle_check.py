@@ -83,27 +83,18 @@ _INTERIM_PATCH = b'''\
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -218,14 +218,13 @@ endif()
+@@ -218,7 +218,10 @@ endif()
  message(STATUS "USE_STATIC_STDLIB=${USE_STATIC_STDLIB}")
 
  option(DOWNLOAD_MOZILLA_CA_BUNDLE "Allow C++ client to download and embed Mozilla certificates" TRUE)
 -if(DOWNLOAD_MOZILLA_CA_BUNDLE)
--  set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE
--      ON
--      CACHE BOOL "" FORCE)
 +# OFF still embeds a bundle already in EMBED_MOZILLA_CA_BUNDLE_ROOT (the sdist's CPM cache).
 +set(_pycbc_ca_root "${COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE_ROOT}")
 +if(DOWNLOAD_MOZILLA_CA_BUNDLE
 +   OR (EXISTS "${_pycbc_ca_root}/mozilla-ca-bundle.crt" AND EXISTS "${_pycbc_ca_root}/mozilla-ca-bundle.sha256"))
-+  set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE ON CACHE BOOL "" FORCE)
- else()
--  set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE
--      OFF
--      CACHE BOOL "" FORCE)
-+  set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE OFF CACHE BOOL "" FORCE)
- endif()
- message(STATUS "DOWNLOAD_MOZILLA_CA_BUNDLE=${DOWNLOAD_MOZILLA_CA_BUNDLE}")
-
+   set(COUCHBASE_CXX_CLIENT_EMBED_MOZILLA_CA_BUNDLE
+       ON
+       CACHE BOOL "" FORCE)
 '''.replace(b"\n\n", b"\n \n")  # blank context lines need their space; kept out of the source
 # Appended to a patched CMakeLists.txt, which the sdist packs. --release looks for it.
 _INTERIM_MARKER = b"# cbci-interim-patch: "
