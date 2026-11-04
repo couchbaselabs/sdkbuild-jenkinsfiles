@@ -1801,7 +1801,7 @@ task_test() {
         venvroot="$(mktemp -d)"; venv="${venvroot}/venv"
         _make_clean_venv "${venv}"; vpy="${venv}/bin/python"
         _install_built_artifact "${vpy}" "${itype}"
-        # Test deps that engine.py filtered out of the repo's dev-requirements.
+        # The checkout's test deps, as engine.py test-setup resolved them.
         "${vpy}" -m pip install -r "${test_root}/requirements-test.txt"
 
         # Run each unit/integration command FROM the test tree, with the venv's bin first on PATH so

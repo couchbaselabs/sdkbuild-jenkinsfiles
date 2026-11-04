@@ -1496,11 +1496,16 @@ PROJECT_TEST_LAYOUT = {
         # change. TEMPORARY: master has renamed tests_v2 to `tests`; delete this key once no
         # change based before that rename still needs building.
         "extra_test_dirs": ["tests_v2"],
+        # A checkout that has `test_requirements` is installed from it as is. Otherwise CI
+        # picks `reqs` out of `dev_requirements`.
+        "test_requirements": "test_requirements.txt",
         "dev_requirements": "dev_requirements.txt",
         # pytest-xdist is INSTALLED, not switched on: `-n` comes from the per-api opts, and
-        # the suites differ in whether they tolerate it.
+        # the suites differ in whether they tolerate it. It is optional because the release
+        # branches do not pin it.
         "reqs": ["pytest", "pytest-asyncio", "pytest-rerunfailures", "pytest-xdist", "requests",
                  "Faker", "faker-vehicle", "Twisted"],
+        "optional_reqs": ["pytest-xdist"],
         "test_ini": "operational",
     },
     "PYCBCC": {
@@ -1719,26 +1724,71 @@ def _build_test_config_ini(prefix: str, cfg: Config) -> str:
     ])
 
 
-def _build_requirements_test(root: str, dev_req_name: str, reqs: List[str]) -> str:
-    """Filter the repo's dev-requirements file down to the test deps `reqs`, preserving
-    each matched line's version pin."""
-    path = os.path.join(root, dev_req_name)
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"dev requirements file not found: {path}")
-    with open(path, "r") as f:
-        lines = [ln.strip() for ln in f if ln.strip() and not ln.startswith("#")]
+def _read_requirements(path: str, seen: Optional[Set[str]] = None) -> List[str]:
+    """Requirement lines of `path` with its `-r` includes expanded in place.
 
-    sep = re.compile(r"[=~><!]")
-    matched: List[str] = []
-    for req in reqs:
-        for line in lines:
-            tok0 = sep.split(line)[0]
-            # don't let bare "pytest" swallow "pytest-asyncio" (and vice-versa)
-            if not ("-" not in req and "-" in tok0) and tok0.startswith(req):
-                matched.append(line)
+    Comments, blank lines and other pip options (`-c`, `--index-url`) are dropped: the
+    result is written to a different directory, where a relative path would not resolve.
+    """
+    path = os.path.abspath(path)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"requirements file not found: {path}")
+    seen = set() if seen is None else seen
+    if path in seen:
+        return []
+    seen.add(path)
+
+    include = re.compile(r"^(?:-r|--requirement)(?:\s+|=)(\S+)$")
+    lines: List[str] = []
+    with open(path, "r") as f:
+        for raw in f:
+            line = raw.split(" #", 1)[0].strip()
+            if not line or line.startswith("#"):
+                continue
+            m = include.match(line)
+            if m:
+                lines += _read_requirements(
+                    os.path.join(os.path.dirname(path), m.group(1)), seen)
+            elif not line.startswith("-"):
+                lines.append(line)
+    return lines
+
+
+def _build_requirements_test(root: str, layout: Dict[str, Any]) -> str:
+    """The test deps for the checkout at `root`, as a self-contained requirements file.
+
+    When the checkout has the layout's `test_requirements` file, that file (includes
+    expanded) is the answer. Otherwise each of `reqs` is picked out of `dev_requirements`
+    with its version pin. A req that matches nothing fails the build unless it is listed in
+    `optional_reqs`, so a pin that moves somewhere CI does not look surfaces here instead of
+    as an ImportError at collection.
+    """
+    test_req = layout.get("test_requirements")
+    if test_req and os.path.isfile(os.path.join(root, test_req)):
+        lines = _read_requirements(os.path.join(root, test_req))
+        return "\n".join(list(dict.fromkeys(lines)) + [""])
+
+    lines = _read_requirements(os.path.join(root, layout["dev_requirements"]))
+    reqs = layout.get("reqs", [])
     if not reqs:
-        matched = lines
-    return "\n".join(matched + [""])
+        return "\n".join(list(dict.fromkeys(lines)) + [""])
+
+    sep = re.compile(r"[=~><!;\[ ]")
+
+    def norm(name: str) -> str:
+        return re.sub(r"[-_.]+", "-", name).lower()
+
+    matched: List[str] = []
+    missing: List[str] = []
+    for req in reqs:
+        hits = [ln for ln in lines if norm(sep.split(ln)[0]) == norm(req)]
+        if not hits and req not in layout.get("optional_reqs", []):
+            missing.append(req)
+        matched += hits
+    if missing:
+        raise ValueError(f"{layout['dev_requirements']} (with its -r includes) does not pin: "
+                         + ", ".join(missing))
+    return "\n".join(list(dict.fromkeys(matched)) + [""])
 
 
 def _copy_py_tree(src_dir: str, dst_dir: str, only_py: bool) -> None:
@@ -1843,7 +1893,7 @@ def test_setup(cfg: Config, output_path: str) -> None:
                 with open(os.path.join(extra_dir, "test_config.ini"), "w") as f:
                     f.write(_build_test_config_ini(prefix, cfg))
         with open(os.path.join(test_root, "requirements-test.txt"), "w") as f:
-            f.write(_build_requirements_test(root, layout["dev_requirements"], layout["reqs"]))
+            f.write(_build_requirements_test(root, layout))
 
         # A tree from an earlier run has to go before the swap, or os.rename fails on a
         # non-empty destination. Doing it here, after every step above has succeeded, keeps
