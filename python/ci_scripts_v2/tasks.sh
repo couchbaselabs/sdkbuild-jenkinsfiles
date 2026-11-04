@@ -1941,19 +1941,39 @@ task_docs() {
     [[ -n "${sphinx_reqs}" && -f "${PROJECT_ROOT}/${sphinx_reqs}" ]] \
         || die "docs: no sphinx requirements file (looked for sphinx_requirements.txt, requirements-sphinx.txt; override with CBCI_SPHINX_REQUIREMENTS)"
 
-    log "docs: installing sphinx dependencies from ${sphinx_reqs}"
+    local docs_env generator
+    docs_env="$("${PYTHON}" "${ENGINE}" docs-env)" || die "failed to resolve docs-env"
+    generator="${docs_env#CBCI_DOCS_GENERATOR=}"
+
+    # docgen's requirements file pulls in the sphinx one and covers what the documented
+    # modules import; nothing is added here beyond what the checkout declares.
+    local reqs=(-r "${sphinx_reqs}")
+    if [[ "${generator}" == "docgen" ]]; then
+        reqs=(-r tools/docgen/tools_requirements.txt)
+    fi
+    log "docs: installing dependencies: ${reqs[*]}"
     if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
-        uv pip install -r "${sphinx_reqs}"
+        uv pip install "${reqs[@]}"
     else
-        "${py}" -m pip install -r "${sphinx_reqs}"
+        "${py}" -m pip install "${reqs[@]}"
     fi
 
-    log "docs: building documentation with sphinx"
     mkdir -p sphinx
-    if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
-        uv run sphinx-build -M html ./docs ./sphinx
+    if [[ "${generator}" == "docgen" ]]; then
+        # HTML lands in sphinx/html, where the sphinx-build path puts it too.
+        log "docs: building documentation with docgen (strict)"
+        if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
+            uv run python -m tools.docgen build --out ./sphinx || die "docs: docgen build failed"
+        else
+            "${py}" -m tools.docgen build --out ./sphinx || die "docs: docgen build failed"
+        fi
     else
-        sphinx-build -M html ./docs ./sphinx
+        log "docs: building documentation with sphinx"
+        if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
+            uv run sphinx-build -M html ./docs ./sphinx
+        else
+            sphinx-build -M html ./docs ./sphinx
+        fi
     fi
 
     rm -rf "${unpackdir}"

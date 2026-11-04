@@ -1018,6 +1018,39 @@ def _resolve_publish_dry_run(cfg: Config) -> bool:
     return bool(cfg.raw.get("publish", {}).get("publish_dry_run", False))
 
 
+_DOCS_GENERATORS = ("auto", "docgen", "sphinx")
+_DOCGEN_MARKER_DEFAULT = "tools/docgen/__main__.py"
+
+
+def _docs_generator_setting(cfg: Config) -> str:
+    """CBCI_DOCS_GENERATOR (env) wins over ci-config docs.generator. Lowercased, unvalidated."""
+    env = (os.environ.get("CBCI_DOCS_GENERATOR") or "").strip()
+    return (env or str((cfg.raw.get("docs") or {}).get("generator", "auto"))).strip().lower()
+
+
+def docs_env(cfg: Config, project_root: Optional[str] = None) -> Dict[str, str]:
+    """How the docs stage builds the HTML: `docgen` (the SDK's `python -m tools.docgen build`,
+    strict) or `sphinx` (a plain sphinx-build of ./docs).
+
+    `auto` picks docgen when the checkout has `docs.docgen_when_exists`. Keyed on a file rather
+    than a commit gate, like test.pytest.layouts, so a patchset that adds docgen uses it before
+    its sha exists and maintenance branches keep sphinx. Forcing docgen on a checkout without
+    the marker is an error, not a silent fallback.
+    """
+    setting = _docs_generator_setting(cfg)
+    if setting not in _DOCS_GENERATORS:
+        raise ValueError(f"docs.generator must be one of {'|'.join(_DOCS_GENERATORS)} (got '{setting}')")
+    marker = str((cfg.raw.get("docs") or {}).get("docgen_when_exists") or _DOCGEN_MARKER_DEFAULT)
+    root = project_root or _project_root()
+    present = os.path.exists(os.path.join(root, marker))
+    if setting == "docgen" and not present:
+        raise ValueError(f"docs.generator=docgen, but {marker} is not in the checkout at {root}")
+    generator = setting if setting != "auto" else ("docgen" if present else "sphinx")
+    print(f"[engine] docs generator: {generator} (setting {setting}; {marker} "
+          f"{'present' if present else 'absent'})", file=sys.stderr)
+    return {"CBCI_DOCS_GENERATOR": generator}
+
+
 def publish_env(cfg: Config) -> Dict[str, str]:
     """Facts tasks.sh needs to drive `publish` (twine check/upload to PyPI/Test PyPI).
 
@@ -1408,6 +1441,11 @@ def validate_config(cfg: Config) -> tuple:
             if not (isinstance(layout, dict) and isinstance(layout.get("name"), str)
                     and isinstance(layout.get("when_exists"), str)):
                 errors.append(f"{scope}.layouts[{i}] needs string 'name' and 'when_exists' keys")
+
+    # --- docs generator --------------------------------------------------------
+    if _docs_generator_setting(cfg) not in _DOCS_GENERATORS:
+        errors.append(f"docs.generator must be one of {'|'.join(_DOCS_GENERATORS)} "
+                      f"(got '{_docs_generator_setting(cfg)}')")
 
     # --- abi3 floor coherence -------------------------------------------------
     if build.get("abi3", False) and not pure_python:
@@ -1953,6 +1991,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub.add_parser("validate-env", help="emit CBCI_VALIDATE_* facts for the validate stage")
     sub.add_parser("validate-smoke", help="emit the validate smoke script (stdlib-only Python)")
     sub.add_parser("publish-env", help="emit CBCI_PUBLISH_* facts for the publish stage")
+    sub.add_parser("docs-env", help="emit CBCI_DOCS_GENERATOR (docgen|sphinx) for the docs stage")
 
     p_ca = sub.add_parser("ca-bundle-env", help="emit the CA bundle policy (CBCI_CA_*) as KEY=VALUE pairs")
     p_ca.add_argument("stage", choices=_CA_BUNDLE_STAGES, help="the stage consuming the policy")
@@ -2000,6 +2039,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         sys.stdout.write(VALIDATE_SMOKE)
     elif args.cmd == "publish-env":
         _emit_pairs(publish_env(cfg))
+    elif args.cmd == "docs-env":
+        try:
+            _emit_pairs(docs_env(cfg))
+        except ValueError as ex:
+            print(f"ERROR: docs-env: {ex}", file=sys.stderr)
+            return 1
     elif args.cmd == "build-env":
         enforce_gates(cfg, args.cmd)
         _emit_pairs(build_env(cfg, args.stage, from_sdist=args.from_sdist))

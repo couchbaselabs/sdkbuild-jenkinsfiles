@@ -139,6 +139,15 @@ test:
 
   skip_cbdino: true
 
+# --- docs ----------------------------------------------------------------------
+# `auto` builds with the SDK's docgen (`python -m tools.docgen build`: checks the generated
+# reference pages, then a nitpicky Sphinx build that fails on any warning) when the checkout
+# has `docgen_when_exists`, and with a plain sphinx-build otherwise. `docgen` or `sphinx`
+# forces one; CBCI_DOCS_GENERATOR overrides for a single run.
+docs:
+  generator: auto
+  docgen_when_exists: tools/docgen/__main__.py
+
 # --- publish defaults --------------------------------------------------------
 publish:
   publish_pypi: true

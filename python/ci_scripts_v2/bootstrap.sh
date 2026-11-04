@@ -83,14 +83,14 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "08a313e6403a17352c5fafb1b9f63e0541ce6cf655aafd3cbb8285381c13a52f" ;;
+        "engine.py")           echo "6ec6905e8c00e3794219afeec17ea8064a60f0e9cd08dd7ff699756b732c74fe" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
         "gha.py")              echo "b020b95e96d6b949737b45d75469be05669240ff911d2850ee0c3c41985e03d7" ;;
-        "tasks.sh")            echo "3a83906a0bc1bd1e14031b59ab7903e94fd3f23debf0ee12d9d9eb831d2e4dc7" ;;
+        "tasks.sh")            echo "3f75f79785be327ca98f040d2e41c373eddf3b63d819f5ae6ba582777ca6fc1a" ;;
         "tasks.ps1")           echo "61d10991b3538fb7b721ba2a8e75a64cb032bda6477616fd2a759cdac9446f12" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ca_bundle_check.py")  echo "088591655371347fe07ce5ea6bc685b620276351b4dd715da0857bb151d4da14" ;;
-        "ci-config.yaml")      echo "357013b211ea0fd810d3ff78a393be12c11622690389435c2c496b7ec88c3c95" ;;
+        "ci-config.yaml")      echo "393767e666719a7884aecfa5e23a4938e238e19b1233d8db3d4d3f4dbd6f1b23" ;;
         "ci-config-pycbac.yaml") echo "d21b6752d9fe49a3769d62c89a00fd24b2f846db8b811dc16f96e1cd5ba9e82e" ;;
         *)                     echo "" ;;
     esac
