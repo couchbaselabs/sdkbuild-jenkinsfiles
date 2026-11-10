@@ -91,7 +91,7 @@ get_expected_hash() {
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ca_bundle_check.py")  echo "088591655371347fe07ce5ea6bc685b620276351b4dd715da0857bb151d4da14" ;;
         "ci-config.yaml")      echo "393767e666719a7884aecfa5e23a4938e238e19b1233d8db3d4d3f4dbd6f1b23" ;;
-        "ci-config-pycbac.yaml") echo "d21b6752d9fe49a3769d62c89a00fd24b2f846db8b811dc16f96e1cd5ba9e82e" ;;
+        "ci-config-pycbac.yaml") echo "87fc21eb283c2284d8af948070f8dd6008061b56141d3b883e0a0368883e86bf" ;;
         *)                     echo "" ;;
     esac
 }

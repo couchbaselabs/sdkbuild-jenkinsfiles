@@ -21,20 +21,19 @@ project: PYCBAC
 
 # --- support matrix ----------------------------------------------------------
 support:
-  # Mirrors the SDK's own declared support (pyproject requires-python >=3.10 and its
-  # Programming Language classifiers). No commit gates: this client has no abi3 migration
-  # or per-version C++ era to gate on, so plain version strings are the whole story.
+  # The versions CI tests. This can be narrower than pyproject's requires-python (3.10 is
+  # still declared there but no longer tested). No commit gates: this client has no abi3
+  # migration or per-version C++ era to gate on, so plain version strings are the whole story.
   python_versions:
-    - "3.10"
     - "3.11"
     - "3.12"
     - "3.13"
     - "3.14"
     - "3.15"
-  # 3.10 rather than the newest: the floor is what a universal wheel must keep working on,
-  # so single-node stages (sdist, docs, publish) run there by default. Matches the SDK's
-  # own CBCI_DEFAULT_PYTHON.
-  default_python: "3.10"
+  # The tested floor rather than the newest: the floor is what a universal wheel must keep
+  # working on, so single-node stages (sdist, docs, publish) run there by default. Must
+  # match the SDK workflows' CBCI_DEFAULT_PYTHON (gha.py fails the run otherwise).
+  default_python: "3.11"
 
   architectures: ["x86_64", "arm64"]
 
@@ -44,9 +43,10 @@ support:
   # The build axis does NOT use these, since a pure-Python project builds exactly one
   # py3-none-any wheel (see engine.build_plan). They drive validate/test only, which is
   # where the fan-out earns its keep: one wheel is precisely the reason to prove it
-  # installs and imports on every platform it claims.
+  # installs and imports on every platform it claims. No macos on x86_64: Intel macs are
+  # not tested.
   platforms:
-    x86_64: ["linux", "alpine", "macos", "windows"]
+    x86_64: ["linux", "alpine", "windows"]
     arm64:  ["linux", "macos"]
 
 # --- build defaults ----------------------------------------------------------
