@@ -1292,6 +1292,12 @@ def wheel_env(cfg: Config) -> Dict[str, str]:
     if arch:
         out["CIBW_ARCHS"] = _cibw_arch(platform, arch)
 
+    # cibuildwheel reads this from the host env and derives the wheel's platform tag from it.
+    if platform == "macos" and arch:
+        target = build.get("macos_deployment_target", {}).get(_cibw_arch(platform, arch))
+        if target:
+            out["MACOSX_DEPLOYMENT_TARGET"] = str(target)
+
     out["CIBW_BUILD_FRONTEND"] = "build[uv]" if _resolve_use_uv(cfg) else "pip"
     return out
 
@@ -1416,7 +1422,8 @@ def validate_config(cfg: Config) -> tuple:
     pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
     if pure_python:
         for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc",
-                    "ca_bundle", "ca_bundle_normalize", "archive_debug_symbols"):
+                    "ca_bundle", "ca_bundle_normalize", "archive_debug_symbols",
+                    "macos_deployment_target"):
             if key in build:
                 warnings.append(
                     f"build.{key} is set, but this project is pure Python and reads none of "
@@ -1432,6 +1439,14 @@ def validate_config(cfg: Config) -> tuple:
         if archive not in _ARCHIVE_DEBUG_VALUES:
             errors.append(f"build.archive_debug_symbols must be "
                           f"{'|'.join(_ARCHIVE_DEBUG_VALUES)} (got '{archive}')")
+        targets = build.get("macos_deployment_target", {})
+        if not isinstance(targets, dict) or not set(targets) <= {"x86_64", "arm64"}:
+            errors.append("build.macos_deployment_target must map x86_64 / arm64 to a version")
+        else:
+            for arch_key, value in targets.items():
+                if not re.fullmatch(r"\d+\.\d+", str(value)):
+                    errors.append(f"build.macos_deployment_target.{arch_key} must be "
+                                  f"MAJOR.MINOR (got '{value}')")
 
     # --- commit gates ---------------------------------------------------------
     # An unevaluatable gate is fatal, not advisory: it fails by leaving the entry in place,

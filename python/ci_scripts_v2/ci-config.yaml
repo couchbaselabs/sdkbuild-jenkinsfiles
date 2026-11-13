@@ -47,6 +47,11 @@ build:
   # precedes abi3's min_commit, so a checkout with abi3 never still carries 3.9.
   abi3_floor: "3.10"
   set_cpm_cache: true       # bake C++ core CPM cache into the sdist
+  # Oldest macOS a wheel supports, per arch. cibuildwheel's x86_64 default (10.9) has no
+  # std::filesystem, so the C++ core's dependencies cannot configure.
+  macos_deployment_target:
+    x86_64: "10.15"
+    arm64: "11.0"
   # Keep wheelhouse/dist_debug: auto (abi3 releases only) | true | false.
   # Env override: CBCI_ARCHIVE_DEBUG_SYMBOLS.
   archive_debug_symbols: auto
