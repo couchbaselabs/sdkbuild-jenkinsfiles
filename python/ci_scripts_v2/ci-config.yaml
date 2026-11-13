@@ -47,6 +47,9 @@ build:
   # precedes abi3's min_commit, so a checkout with abi3 never still carries 3.9.
   abi3_floor: "3.10"
   set_cpm_cache: true       # bake C++ core CPM cache into the sdist
+  # Keep wheelhouse/dist_debug: auto (abi3 releases only) | true | false.
+  # Env override: CBCI_ARCHIVE_DEBUG_SYMBOLS.
+  archive_debug_symbols: auto
   # The Mozilla CA bundle the C++ core embeds (ca_bundle_check.py). The sdist bakes whatever
   # curl.se serves that day, so these are checked on the sdist's bundle, on every wheel, and
   # again at publish. Fingerprints are SHA-256 of the DER cert; the name is only a comment.

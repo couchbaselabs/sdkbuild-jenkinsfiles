@@ -386,8 +386,9 @@ def _norm_arch(arch: str) -> str:
     return "aarch64" if arch in ("arm64", "aarch64") else "x86_64"
 
 
-def _build_cell(unit: Dict[str, Any]) -> Dict[str, Any]:
-    """One `build_wheel` cell: the neutral unit plus runner, image and artifact name.
+def _build_cell(unit: Dict[str, Any], archive_debug: bool) -> Dict[str, Any]:
+    """One `build_wheel` cell: the neutral unit plus runner, image, artifact name and
+    whether to upload debug symbols.
 
     `arch` stays neutral (not Windows' AMD64): it becomes CBCI_BUILD_ARCH. alpine builds in
     a musllinux container on the linux runner.
@@ -402,6 +403,7 @@ def _build_cell(unit: Dict[str, Any]) -> Dict[str, Any]:
         cell["image"] = f"couchbase/pycbc-ci-{family}_{norm}:local"
         cell["image_var"] = f"CBCI_{(libc or '').upper()}_{norm.upper()}_IMAGE"
     cell["artifact"] = "-".join(p for p in ("wheel", platform, libc, arch, unit.get("python")) if p)
+    cell["archive_debug"] = archive_debug
     return cell
 
 
@@ -423,7 +425,8 @@ def _compiled_stages(cfg: engine.Config) -> Dict[str, Any]:
     """
     plan = engine.build_plan(cfg)
     abi3 = bool((cfg.raw.get("build", {}) or {}).get("abi3", False))
-    builds = [_build_cell(u) for u in plan["build"]["units"]]
+    archive_debug = engine.archive_debug_symbols(cfg)
+    builds = [_build_cell(u, archive_debug) for u in plan["build"]["units"]]
     by_key = {(c["platform"], c["arch"], c.get("libc"), c.get("python")): c["artifact"] for c in builds}
     checks = []
     for u in plan["validate"]["units"]:

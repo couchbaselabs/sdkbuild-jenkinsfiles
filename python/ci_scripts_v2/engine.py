@@ -688,6 +688,30 @@ def _resolve_verbose_makefile(cfg: Config) -> bool:
     return bool(cfg.raw.get("build", {}).get("verbose_makefile", False))
 
 
+_ARCHIVE_DEBUG_VALUES = ("auto", "true", "false")
+
+
+def _archive_debug_setting(cfg: Config) -> str:
+    """CBCI_ARCHIVE_DEBUG_SYMBOLS (env, empty = unset) wins over build.archive_debug_symbols."""
+    env = (os.environ.get("CBCI_ARCHIVE_DEBUG_SYMBOLS") or "").strip()
+    raw = env or cfg.raw.get("build", {}).get("archive_debug_symbols", "auto")
+    return str(raw).strip().lower()
+
+
+def archive_debug_symbols(cfg: Config) -> bool:
+    """Whether a build keeps its debug symbols. `auto` keeps them only for an abi3 release,
+    where one set covers every python; per-python sets run to ~10 GB."""
+    value = _archive_debug_setting(cfg)
+    if value not in _ARCHIVE_DEBUG_VALUES:
+        print(f"ERROR: invalid archive_debug_symbols: {value!r} "
+              f"(expected one of: {', '.join(_ARCHIVE_DEBUG_VALUES)})", file=sys.stderr)
+        sys.exit(1)
+    if value == "auto":
+        release = (os.environ.get("CBCI_IS_RELEASE") or "").strip().lower() == "true"
+        return release and bool(cfg.raw.get("build", {}).get("abi3", False))
+    return value == "true"
+
+
 # SDK log levels (PYCBC_LOG_LEVEL / the couchbase C++ core, which owns 'trace').
 _VALID_TEST_LOG_LEVELS = ("trace", "debug", "info", "warning", "error", "critical")
 
@@ -1392,7 +1416,7 @@ def validate_config(cfg: Config) -> tuple:
     pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
     if pure_python:
         for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc",
-                    "ca_bundle", "ca_bundle_normalize"):
+                    "ca_bundle", "ca_bundle_normalize", "archive_debug_symbols"):
             if key in build:
                 warnings.append(
                     f"build.{key} is set, but this project is pure Python and reads none of "
@@ -1404,6 +1428,10 @@ def validate_config(cfg: Config) -> tuple:
         if ssl == "openssl" and not build.get("openssl_version"):
             warnings.append("build.ssl=openssl but build.openssl_version is unset")
         errors.extend(_ca_bundle_errors(build.get("ca_bundle")))
+        archive = str(build.get("archive_debug_symbols", "auto")).strip().lower()
+        if archive not in _ARCHIVE_DEBUG_VALUES:
+            errors.append(f"build.archive_debug_symbols must be "
+                          f"{'|'.join(_ARCHIVE_DEBUG_VALUES)} (got '{archive}')")
 
     # --- commit gates ---------------------------------------------------------
     # An unevaluatable gate is fatal, not advisory: it fails by leaving the entry in place,
