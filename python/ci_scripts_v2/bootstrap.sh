@@ -83,9 +83,9 @@ get_sha256() {
 get_expected_hash() {
     local name="$1"
     case "${name}" in
-        "engine.py")           echo "fc58fd908f71d69e5f3791e57556696ac6174f83778de4d4d460ef6ef8a3da1e" ;;
+        "engine.py")           echo "0072799ce22291ea1f414aa843eceace9396a3968a9968f54dbd10648a91dea3" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
-        "gha.py")              echo "b020b95e96d6b949737b45d75469be05669240ff911d2850ee0c3c41985e03d7" ;;
+        "gha.py")              echo "2f5468182586994a148833eab1495d6657c5a32848547c78bb82539fee9ee5eb" ;;
         "tasks.sh")            echo "fb423e79ab6040c06a38d5c24c09b93211446f2f66d6f020e64a3e824ae4bdc0" ;;
         "tasks.ps1")           echo "61d10991b3538fb7b721ba2a8e75a64cb032bda6477616fd2a759cdac9446f12" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;

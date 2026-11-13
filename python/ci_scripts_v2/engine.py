@@ -1260,14 +1260,10 @@ def wheel_env(cfg: Config) -> Dict[str, str]:
     elif pyvers:
         out["CIBW_BUILD"] = " ".join(_py_tag(v) for v in pyvers)
 
-    # CIBW_SKIP: never PyPy; restrict libc flavor on linux.
-    skips = ["pp*"]
+    # CIBW_SKIP: libc flavor only. No `pp*`: CIBW_BUILD is CPython-only, and cibuildwheel
+    # warns on a selector that matches nothing.
     if platform in ("linux", "alpine", ""):
-        if platform == "alpine" or libc == "musllinux":
-            skips.append("*-manylinux*")
-        else:
-            skips.append("*-musllinux*")
-    out["CIBW_SKIP"] = " ".join(skips)
+        out["CIBW_SKIP"] = "*-manylinux*" if platform == "alpine" or libc == "musllinux" else "*-musllinux*"
 
     if arch:
         out["CIBW_ARCHS"] = _cibw_arch(platform, arch)

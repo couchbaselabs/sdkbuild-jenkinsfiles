@@ -20,14 +20,10 @@ later job reads its own slice out of it:
 Everything that is WORK rather than plan goes to `./tasks.sh <stage>` exactly as it does
 from the Jenkins groovy. This file shapes jobs; it never runs a build or a test.
 
-SCOPE: pure-Python projects (PYCBAC / Operational Insights) only, which is the whole of
-what runs on GHA today. The `build_wheel` and `validate_wheel` stages the legacy pygha.py
-emitted for the compiled clients are NOT ported: those clients build on Jenkins, so the
-code would ship unexercised. `matrices` says so rather than emitting a half-matrix, and
-the two stages are a bounded addition for whoever moves a compiled client to GHA.
-Two requirements carry over from Jenkins for that move: run `tasks.sh sdist` in a git
-checkout of the SDK (it tags the version and `git apply`s the CA interim patch), and set
-CBCI_IS_RELEASE=true on every release job, or the sdist stage patches the release source.
+SCOPE: pure-Python projects (PYCBAC) get `test_unit` / `test_integration`; compiled
+clients (PYCBC) get `build_wheel` / `validate_wheel`. Compiled test stages come with the
+workflow that consumes them. For release builds, run `tasks.sh sdist` in a git checkout
+and set CBCI_IS_RELEASE=true on every release job.
 
 CLI:
     python3 gha.py matrices                 # emit the stage_matrices JSON the workflows consume
@@ -382,33 +378,76 @@ def _test_integration(cfg: engine.Config) -> Dict[str, Any]:
     return matrix
 
 
-def _reject_compiled(cfg: engine.Config) -> None:
-    """Refuse a compiled project with a sentence instead of a half-matrix.
+# Must match the families `tasks.sh image` derives, so the tag it builds is the one consumed.
+_LIBC_FAMILY = {"manylinux": "manylinux2014", "musllinux": "musllinux_1_2"}
 
-    The mirror of jenkins.py's `_reject_pure_python`. The stages this adapter emits are the
-    ones a pure-Python project needs (one universal wheel, then prove it installs and passes
-    everywhere); a compiled client additionally needs `build_wheel` and `validate_wheel`,
-    with cibuildwheel selectors and manylinux/musllinux images. Those clients build on
-    Jenkins today, so writing that path here would ship code no pipeline runs.
+
+def _norm_arch(arch: str) -> str:
+    return "aarch64" if arch in ("arm64", "aarch64") else "x86_64"
+
+
+def _build_cell(unit: Dict[str, Any]) -> Dict[str, Any]:
+    """One `build_wheel` cell: the neutral unit plus runner, image and artifact name.
+
+    `arch` stays neutral (not Windows' AMD64): it becomes CBCI_BUILD_ARCH. alpine builds in
+    a musllinux container on the linux runner.
     """
-    project = engine.resolve_project(cfg)
-    if project in engine.PURE_PYTHON_PROJECTS:
-        return
-    raise SystemExit(
-        f"gha.py: project {project} is not pure-Python. This adapter emits the test_unit and "
-        "test_integration stages only; a compiled client also needs build_wheel and "
-        "validate_wheel (cibuildwheel selectors, manylinux/musllinux images), which are "
-        "deliberately not implemented here because the compiled clients build on Jenkins. "
-        "Add them alongside a pipeline that exercises them."
-    )
+    platform, arch, libc = unit["platform"], unit["arch"], unit.get("libc")
+    cell: Dict[str, Any] = {"os": _runner("linux" if platform == "alpine" else platform, arch)}
+    cell.update({k: unit[k] for k in ("platform", "arch", "libc", "abi3", "python", "build_python")
+                 if k in unit})
+    family = _LIBC_FAMILY.get(libc or "")
+    if family:
+        norm = _norm_arch(arch)
+        cell["image"] = f"couchbase/pycbc-ci-{family}_{norm}:local"
+        cell["image_var"] = f"CBCI_{(libc or '').upper()}_{norm.upper()}_IMAGE"
+    cell["artifact"] = "-".join(p for p in ("wheel", platform, libc, arch, unit.get("python")) if p)
+    return cell
+
+
+def _check_cell(unit: Dict[str, Any]) -> Dict[str, Any]:
+    """One `validate_wheel` cell: the neutral validate unit plus its runner."""
+    platform, arch = unit["platform"], unit["arch"]
+    cell: Dict[str, Any] = {"os": _runner("linux" if platform == "alpine" else platform, arch)}
+    cell.update({k: unit[k] for k in ("platform", "arch", "libc", "python", "install_type")
+                 if k in unit})
+    return cell
+
+
+def _compiled_stages(cfg: engine.Config) -> Dict[str, Any]:
+    """`build_wheel` and `validate_wheel` as `include` lists, each with a has_* flag
+    (an empty matrix is a workflow error).
+
+    Wheel-install validate cells carry `wheel_artifact`, the build cell that made their
+    wheel. alpine validate cells need a musl container, which the workflow supplies.
+    """
+    plan = engine.build_plan(cfg)
+    abi3 = bool((cfg.raw.get("build", {}) or {}).get("abi3", False))
+    builds = [_build_cell(u) for u in plan["build"]["units"]]
+    by_key = {(c["platform"], c["arch"], c.get("libc"), c.get("python")): c["artifact"] for c in builds}
+    checks = []
+    for u in plan["validate"]["units"]:
+        cell = _check_cell(u)
+        key = (u["platform"], u["arch"], u.get("libc"), None if abi3 else u.get("python"))
+        artifact = by_key.get(key)
+        if artifact is None:
+            _fail(f"validate cell {cell} has no build unit producing its wheel")
+        if u.get("install_type") == "wheel":
+            cell["wheel_artifact"] = artifact
+        checks.append(cell)
+    return {
+        "build_wheel": {"include": builds, "has_build_wheel": bool(builds)},
+        "validate_wheel": {"include": checks, "has_validate_wheel": bool(checks)},
+    }
 
 
 def matrices(config_path: Optional[str] = None) -> Dict[str, Any]:
     """The `stage_matrices` blob the workflows consume, one key per stage."""
     cfg = engine.load_config(config_path)
-    _reject_compiled(cfg)
     _check_default_python(cfg)
-    return {"test_unit": _test_unit(cfg), "test_integration": _test_integration(cfg)}
+    if engine.resolve_project(cfg) in engine.PURE_PYTHON_PROJECTS:
+        return {"test_unit": _test_unit(cfg), "test_integration": _test_integration(cfg)}
+    return _compiled_stages(cfg)
 
 
 # ---------------------------------------------------------------------------
