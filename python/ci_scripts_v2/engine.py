@@ -482,6 +482,120 @@ def _resolve_commit_gated_versions(cfg: Dict[str, Any], project_root: Optional[s
     return cfg
 
 
+# The python floor is the one version bound the SDK enforces: pip will not install below
+# `requires-python`, and setup.py rejects a Py_LIMITED_API level below it. So it is read from
+# the checkout rather than commit-gated, which also covers a change still in review, whose sha
+# no gate can name yet. Nothing enforces a ceiling, so newer versions stay commit-gated in
+# support.python_versions.
+_PYTHON_FLOOR_KEY = "python_floor"
+
+
+def _floor_from_specifier(spec: str) -> Optional[str]:
+    """'>=3.11' (or '>=3.11.2,<4', '~=3.11') -> '3.11'. None when no lower bound is named."""
+    for clause in spec.split(","):
+        clause = clause.strip()
+        for op in (">=", "~="):
+            if clause.startswith(op):
+                parts = clause[len(op):].strip().split(".")
+                if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                    return f"{int(parts[0])}.{int(parts[1])}"
+    return None
+
+
+def _pyproject_requires_python(path: str) -> Optional[str]:
+    try:
+        import tomllib  # type: ignore[import-not-found]
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[import-not-found,no-redef]
+        except ImportError:
+            return None
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except (OSError, ValueError):
+        return None
+    value = (data.get("project") or {}).get("requires-python")
+    return value if isinstance(value, str) else None
+
+
+def _setup_py_requires_python(path: str) -> Optional[str]:
+    """The literal `python_requires=` keyword of a call in setup.py. Parsed, not executed."""
+    import ast
+    try:
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), path)
+    except (OSError, SyntaxError, ValueError):
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            for kw in node.keywords:
+                if (kw.arg == "python_requires" and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)):
+                    return kw.value.value
+    return None
+
+
+def checkout_python_floor(project_root: Optional[str] = None) -> Optional[tuple]:
+    """(floor, source) from the SDK checkout's requires-python, or None when it cannot be read."""
+    root = _gate_repo_dir(project_root)
+    for name, reader in (("pyproject.toml", _pyproject_requires_python),
+                         ("setup.py", _setup_py_requires_python)):
+        path = os.path.join(root, name)
+        if not os.path.isfile(path):
+            continue
+        spec = reader(path)
+        floor = _floor_from_specifier(spec) if spec else None
+        if floor:
+            return floor, f"{name} requires-python '{spec}'"
+    return None
+
+
+def _apply_python_floor(cfg: Dict[str, Any], project_root: Optional[str] = None,
+                        report: bool = True) -> Dict[str, Any]:
+    """Drop support.python_versions below the floor and record it for abi3_floor().
+
+    PYTHON_FLOOR (env) wins over the checkout. Adapters pass the planning node's floor down
+    that way to nodes that build from an sdist and have no checkout to read.
+    """
+    gates: Dict[str, Any] = cfg.setdefault(_GATE_KEY, {})
+    pinned = (os.environ.get("PYTHON_FLOOR") or "").strip()
+    if pinned:
+        if _floor_from_specifier(f">={pinned}") != pinned:
+            print(f"ERROR: PYTHON_FLOOR must be MAJOR.MINOR (got '{pinned}')", file=sys.stderr)
+            sys.exit(1)
+        floor, source = pinned, "PYTHON_FLOOR"
+    else:
+        found = checkout_python_floor(project_root)
+        if not found:
+            if report:
+                print(f"[engine] python floor: no requires-python readable at "
+                      f"{_gate_repo_dir(project_root)}; using build.abi3_floor", file=sys.stderr)
+            return cfg
+        floor, source = found
+    gates[_PYTHON_FLOOR_KEY] = {"floor": floor, "source": source}
+
+    support = cfg.get("support", {})
+    if isinstance(support, dict) and isinstance(support.get("python_versions"), list):
+        floor_t = _ver_tuple(floor)
+        kept: List[str] = []
+        for v in support["python_versions"]:
+            try:
+                below = _ver_tuple(v) < floor_t
+            except ValueError:
+                below = False
+            if below:
+                if report:
+                    print(f"[engine] python_versions: omitting '{v}' (below the python floor "
+                          f"{floor} from {source})", file=sys.stderr)
+            else:
+                kept.append(v)
+        support["python_versions"] = kept
+    if report:
+        print(f"[engine] python floor: {floor} (from {source})", file=sys.stderr)
+    return cfg
+
+
 def _default_config_path() -> str:
     """The config file next to this module for the project named by CBCI_PROJECT_TYPE.
 
@@ -512,9 +626,12 @@ def load_config(config_path: Optional[str] = None,
     # Order is load-bearing. The override merges FIRST so a gating dict supplied through
     # CBCI_CONFIG_OVERRIDE is actually resolved (an unresolved dict is truthy, which reads as
     # abi3=on). Gating runs SECOND so promoted vars, which validate against the support
-    # matrix, see plain version strings. Promoted vars run LAST: they outrank both.
+    # matrix, see plain version strings. The python floor runs THIRD, so PYTHON_VERSIONS
+    # cannot ask for a version the checkout refuses. Promoted vars run LAST: they outrank all.
     cfg = _apply_config_override(cfg)
     cfg = _resolve_commit_gated_versions(cfg, report_domains=report_domains)
+    report_floor = report_domains is None or any(d in report_domains for d in ("python_versions", "abi3"))
+    cfg = _apply_python_floor(cfg, report=report_floor)
     cfg = _apply_promoted_vars(cfg)
     return Config(raw=cfg)
 
@@ -1215,21 +1332,23 @@ def _min_python(versions: List[str]) -> str:
     return min(versions, key=lambda v: tuple(int(x) for x in v.split(".")))
 
 
-# Fallback only. The real home is `build.abi3_floor` in ci-config.yaml, alongside the rest
-# of the support matrix, so raising the floor is a reviewable config change and a second
-# project (PYCBCC) can carry its own.
+# Last resort, behind the checkout's requires-python and `build.abi3_floor`.
 DEFAULT_ABI3_FLOOR = "3.10"
 
 
 def abi3_floor(cfg: Config) -> str:
-    """The (major.minor) CPython floor for abi3 builds, from `build.abi3_floor`.
+    """The (major.minor) CPython floor for abi3 builds.
 
-    ONE value drives all three things that would otherwise drift apart: the interpreter
-    cibuildwheel builds on (CIBW_BUILD), the Py_LIMITED_API level the C extension compiles
-    against, and the wheel's cpXY-abi3 tag. The SDK range-checks what we send, so a value
-    it cannot honor fails the build rather than producing a wheel tagged for a floor it
-    was never compiled against.
+    The python floor (PYTHON_FLOOR, else the checkout's requires-python) when known, else
+    `build.abi3_floor`. ONE value drives all three things that would otherwise drift apart:
+    the interpreter cibuildwheel builds on (CIBW_BUILD), the Py_LIMITED_API level the C
+    extension compiles against, and the wheel's cpXY-abi3 tag. The SDK range-checks what we
+    send, so a value it cannot honor fails the build rather than producing a wheel tagged for
+    a floor it was never compiled against.
     """
+    known = (cfg.raw.get(_GATE_KEY) or {}).get(_PYTHON_FLOOR_KEY)
+    if isinstance(known, dict) and known.get("floor"):
+        return str(known["floor"])
     return str(cfg.raw.get("build", {}).get("abi3_floor") or DEFAULT_ABI3_FLOOR)
 
 
@@ -1291,6 +1410,12 @@ def wheel_env(cfg: Config) -> Dict[str, str]:
 
     if arch:
         out["CIBW_ARCHS"] = _cibw_arch(platform, arch)
+
+    # cibuildwheel reads this from the host env and derives the wheel's platform tag from it.
+    if platform == "macos" and arch:
+        target = build.get("macos_deployment_target", {}).get(_cibw_arch(platform, arch))
+        if target:
+            out["MACOSX_DEPLOYMENT_TARGET"] = str(target)
 
     out["CIBW_BUILD_FRONTEND"] = "build[uv]" if _resolve_use_uv(cfg) else "pip"
     return out
@@ -1402,6 +1527,17 @@ def validate_config(cfg: Config) -> tuple:
 
     if not support.get("python_versions"):
         errors.append("support.python_versions is empty (an override may have dropped everything)")
+    known_floor = (cfg.raw.get(_GATE_KEY) or {}).get(_PYTHON_FLOOR_KEY)
+    default_py = support.get("default_python")
+    if isinstance(known_floor, dict) and default_py:
+        try:
+            if _ver_tuple(default_py) < _ver_tuple(known_floor["floor"]):
+                errors.append(
+                    f"support.default_python {default_py} is below the python floor "
+                    f"{known_floor['floor']} ({known_floor['source']}); sdist and other "
+                    f"single-node stages would run on a python the SDK refuses")
+        except ValueError:
+            pass
     if not support.get("architectures"):
         errors.append("support.architectures is empty")
     for arch in support.get("architectures", []):
@@ -1416,7 +1552,8 @@ def validate_config(cfg: Config) -> tuple:
     pure_python = resolve_project(cfg) in PURE_PYTHON_PROJECTS
     if pure_python:
         for key in ("ssl", "openssl_version", "abi3", "abi3_floor", "set_cpm_cache", "libc",
-                    "ca_bundle", "ca_bundle_normalize", "archive_debug_symbols"):
+                    "ca_bundle", "ca_bundle_normalize", "archive_debug_symbols",
+                    "macos_deployment_target"):
             if key in build:
                 warnings.append(
                     f"build.{key} is set, but this project is pure Python and reads none of "
@@ -1432,6 +1569,14 @@ def validate_config(cfg: Config) -> tuple:
         if archive not in _ARCHIVE_DEBUG_VALUES:
             errors.append(f"build.archive_debug_symbols must be "
                           f"{'|'.join(_ARCHIVE_DEBUG_VALUES)} (got '{archive}')")
+        targets = build.get("macos_deployment_target", {})
+        if not isinstance(targets, dict) or not set(targets) <= {"x86_64", "arm64"}:
+            errors.append("build.macos_deployment_target must map x86_64 / arm64 to a version")
+        else:
+            for arch_key, value in targets.items():
+                if not re.fullmatch(r"\d+\.\d+", str(value)):
+                    errors.append(f"build.macos_deployment_target.{arch_key} must be "
+                                  f"MAJOR.MINOR (got '{value}')")
 
     # --- commit gates ---------------------------------------------------------
     # An unevaluatable gate is fatal, not advisory: it fails by leaving the entry in place,

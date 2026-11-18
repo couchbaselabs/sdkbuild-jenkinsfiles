@@ -42,11 +42,16 @@ build:
     enabled: true
     min_commit: "b0ce0a8fd33ebfcff328065c2fbc2520e77901f0"
   # Lowest CPython an abi3 wheel loads on. Drives the build interpreter, the Py_LIMITED_API
-  # level, and the wheel's cpXY-abi3 tag together, so they cannot drift. Keep it equal to the
-  # lowest entry in support.python_versions; validate-config checks that. 3.9's drop_commit
-  # precedes abi3's min_commit, so a checkout with abi3 never still carries 3.9.
+  # level, and the wheel's cpXY-abi3 tag together, so they cannot drift. Fallback only: the
+  # checkout's requires-python sets the floor when it can be read, and versions below it are
+  # dropped from support.python_versions, so raising the floor is an SDK change, not a CI one.
   abi3_floor: "3.10"
   set_cpm_cache: true       # bake C++ core CPM cache into the sdist
+  # Oldest macOS a wheel supports, per arch. cibuildwheel's x86_64 default (10.9) has no
+  # std::filesystem, so the C++ core's dependencies cannot configure.
+  macos_deployment_target:
+    x86_64: "10.15"
+    arm64: "11.0"
   # Keep wheelhouse/dist_debug: auto (abi3 releases only) | true | false.
   # Env override: CBCI_ARCHIVE_DEBUG_SYMBOLS.
   archive_debug_symbols: auto
