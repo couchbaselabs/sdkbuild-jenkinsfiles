@@ -2029,6 +2029,79 @@ task_publish() {
     log "publish: done (${index})"
 }
 
+# Block until every file under dist/ is listed on the simple index pip reads.
+#
+# PyPI can take a minute or more to list a release after twine returns, and until then
+# `pip install <pkg>==<version>` reports that the version does not exist. Same inputs as
+# `publish`; a no-op under CBCI_PUBLISH_DRY_RUN, since nothing was uploaded. The timeout is
+# CBCI_PUBLISH_WAIT_SECS (default 900).
+task_wait_published() {
+    load_project_env
+    cd "${PROJECT_ROOT}"
+
+    local out
+    out="$("${PYTHON}" "${ENGINE}" publish-env)" || die "failed to resolve publish-env"
+    # shellcheck disable=SC2086,SC2163  # intentional word-split of KEY=VALUE pairs
+    export ${out}
+
+    if [[ "${CBCI_PUBLISH_DRY_RUN:-false}" == "true" ]]; then
+        log "wait-published: CBCI_PUBLISH_DRY_RUN=true, nothing was uploaded, skipping"
+        return 0
+    fi
+
+    local index="${CBCI_PACKAGING_INDEX:-}" simple_url
+    case "$(printf '%s' "${index}" | tr '[:lower:]' '[:upper:]')" in
+        PYPI)      simple_url="https://pypi.org/simple" ;;
+        TEST_PYPI) simple_url="https://test.pypi.org/simple" ;;
+        *) die "wait-published: CBCI_PACKAGING_INDEX must be PYPI or TEST_PYPI (got '${index}')" ;;
+    esac
+
+    local -a files=()
+    while IFS= read -r -d '' f; do files+=("$(basename "${f}")"); done \
+        < <(find "${PROJECT_ROOT}/dist" -maxdepth 1 \( -name '*.whl' -o -name '*.tar.gz' \) -print0 2>/dev/null | sort -z)
+    [[ ${#files[@]} -gt 0 ]] || die "wait-published: no dist/*.whl or dist/*.tar.gz under ${PROJECT_ROOT}/dist"
+
+    log "wait-published: waiting for ${#files[@]} file(s) of ${CBCI_PUBLISH_PACKAGE} on ${simple_url}"
+    "${PYTHON}" - "${simple_url}" "${CBCI_PUBLISH_PACKAGE}" "${CBCI_PUBLISH_WAIT_SECS:-900}" "${files[@]}" <<'PY'
+import json, re, sys, time, urllib.error, urllib.request
+
+simple_url, package, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+pending = set(sys.argv[4:])
+# PEP 503 name normalization, which is the path the index serves the project at.
+url = f"{simple_url}/{re.sub(r'[-_.]+', '-', package).lower()}/"
+interval, start = 20, time.monotonic()
+
+def log(msg):
+    print(f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] [tasks] wait-published: {msg}", flush=True)
+
+while True:
+    # The JSON form of the same page pip fetches, with pip's own revalidation header, so
+    # this sees what the verify job's pip install will see.
+    req = urllib.request.Request(url, headers={
+        "Accept": "application/vnd.pypi.simple.v1+json",
+        "Cache-Control": "max-age=0",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            listed = {f["filename"] for f in json.load(resp).get("files", [])}
+        for name in sorted(pending & listed):
+            log(f"{name} is listed")
+        pending -= listed
+    except (urllib.error.URLError, OSError, ValueError) as err:
+        log(f"fetching {url} failed: {err}")
+    elapsed = int(time.monotonic() - start)
+    if not pending:
+        log(f"all files listed on {url} after {elapsed}s")
+        sys.exit(0)
+    if elapsed >= timeout:
+        print(f"[tasks] ERROR: wait-published: not listed after {timeout}s: {' '.join(sorted(pending))}",
+              file=sys.stderr)
+        sys.exit(1)
+    log(f"{len(pending)} file(s) not listed yet, {elapsed}s elapsed")
+    time.sleep(interval)
+PY
+}
+
 # --- dispatch ----------------------------------------------------------------
 
 main() {
@@ -2061,6 +2134,7 @@ main() {
         test)                      task_test "$@" ;;
         docs)                      task_docs "$@" ;;
         publish)                   task_publish "$@" ;;
+        wait-published)            task_wait_published "$@" ;;
         build-info-pack)           task_build_info_pack "$@" ;;
         # internal cibuildwheel hooks (invoked by cibuildwheel, not the pipeline)
         _wheel_before_all)         task__wheel_before_all "$@" ;;

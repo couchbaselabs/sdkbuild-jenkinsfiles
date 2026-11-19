@@ -86,7 +86,7 @@ get_expected_hash() {
         "engine.py")           echo "9d4012cbc34f05a37b87f0e1a32be2188e371a9cac164cb1eeaf16a7b9db166c" ;;
         "jenkins.py")          echo "edbd13b9171dcf583679e5fd661f4085f0a3ee0df0a8ff51600ddf52369a55f4" ;;
         "gha.py")              echo "153320b62d87d252acff5bb0cb693a1ffdb673f406b547826e2bcf8f72038d4e" ;;
-        "tasks.sh")            echo "fb423e79ab6040c06a38d5c24c09b93211446f2f66d6f020e64a3e824ae4bdc0" ;;
+        "tasks.sh")            echo "3a4aa4d9ef00dca4122e9085cfbc0052268844873a91fb993ae26c71f3372052" ;;
         "tasks.ps1")           echo "61d10991b3538fb7b721ba2a8e75a64cb032bda6477616fd2a759cdac9446f12" ;;
         "auditwheel_patch.py") echo "402f0b8270a7f8acd4790d12cc96257190c1f8209eff2d7d3f450d661d58bef5" ;;
         "ca_bundle_check.py")  echo "088591655371347fe07ce5ea6bc685b620276351b4dd715da0857bb151d4da14" ;;
