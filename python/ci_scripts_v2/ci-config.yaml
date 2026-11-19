@@ -19,6 +19,7 @@ support:
     - "3.12"
     - "3.13"
     - { version: "3.14", min_commit: "adb6e09573d2047d3736f35aa1762e0f0d4adf55" }
+    - { version: "3.15", min_commit: "55d1a47317e53a01c6f03bd4ade4cbc684d0cdad" }
   default_python: "3.11"
 
   architectures: ["x86_64", "arm64"]
