@@ -995,6 +995,96 @@ export function validateSmokeScript() {
   return `'use strict';\n(${validateSmoke.toString()})();\n`;
 }
 
+/* Registry-mode post-install check that this host's platform package landed. Emitted and
+ * run like validateSmoke (same constraints: plain CommonJS, Node 16+, pure ASCII).
+ *
+ * npm skips an optional dependency it cannot resolve without an error, and install.js then
+ * falls back to a source build, so a registry edge still serving the platform package's
+ * old listing passes the install step. Exit codes:
+ *   0  landed, or the installed package lists no platform package for this host
+ *   3  missing, and the registry this agent sees does not list that version yet (retry)
+ *   4  missing although the registry lists it (a real failure)
+ *   1  anything else */
+function validatePlatformPackage() {
+  const path = require('path');
+  const { createRequire } = require('module');
+  const env = process.env;
+
+  function fetchListing(url) {
+    const client = url.startsWith('http://') ? require('http') : require('https');
+    return new Promise((resolve, reject) => {
+      // npm's own Accept, so this asks the CDN for the same cached object npm reads.
+      const headers = { Accept: 'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*' };
+      const req = client.get(url, { headers }, (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+        res.on('data', (d) => { body += d; });
+        res.on('end', () => {
+          if (res.statusCode !== 200) { reject(new Error(`GET ${url} returned HTTP ${res.statusCode}`)); return; }
+          try { resolve(JSON.parse(body)); } catch (err) { reject(err); }
+        });
+        res.on('error', reject);
+      });
+      req.setTimeout(30000, () => req.destroy(new Error(`GET ${url} timed out`)));
+      req.on('error', reject);
+    });
+  }
+
+  async function main() {
+    const mod = env.CBCI_VALIDATE_PACKAGE_NAME || 'couchbase';
+    const req = createRequire(path.join(process.cwd(), 'package.json'));
+    const mainJson = req.resolve(`${mod}/package.json`);
+    const pkg = require(mainJson);
+
+    let platform = process.platform;
+    if (platform === 'linux') {
+      const report = typeof process.report?.getReport === 'function' ? process.report.getReport() : null;
+      if (!report?.header?.glibcVersionRuntime) platform = 'linuxmusl';
+    }
+    const name = `@${mod}/${mod}-${platform}-${process.arch}-napi`;
+    const version = (pkg.optionalDependencies || {})[name];
+    if (!version) {
+      console.log(`[validate] ${mod}@${pkg.version} lists no ${name}; no platform package to check`);
+      return 0;
+    }
+    try {
+      // Resolved from the main package, so Yarn PnP allows it as that package's dependency.
+      createRequire(mainJson).resolve(name);
+      console.log(`[validate] platform package ${name}@${version} installed`);
+      return 0;
+    } catch {
+      // fall through: not installed
+    }
+
+    const registry = (env.CBCI_VALIDATE_REGISTRY || 'https://registry.npmjs.org/').replace(/\/+$/, '');
+    let listed;
+    try {
+      const doc = await fetchListing(`${registry}/${name.replace('/', '%2f')}`);
+      listed = Boolean(doc.versions && doc.versions[version]);
+    } catch (err) {
+      console.error(`[validate] cannot read the ${name} listing (${err.message}); treating it as not there yet`);
+      listed = false;
+    }
+    if (listed) {
+      console.error(`[validate] ${name}@${version} is on ${registry} but was not installed; `
+        + 'install.js would fall back to a source build');
+      return 4;
+    }
+    console.error(`[validate] ${name}@${version} not on this agent's view of ${registry} yet`);
+    return 3;
+  }
+
+  main().then((rc) => process.exit(rc), (err) => {
+    console.error('[validate] platform package check failed:', err);
+    process.exit(1);
+  });
+}
+
+/** Source of the registry-mode platform package check, as a standalone CommonJS script. */
+export function validatePlatformPackageScript() {
+  return `'use strict';\n(${validatePlatformPackage.toString()})();\n`;
+}
+
 function resolvePublishDryRun(cfg) {
   const env = process.env.CBCI_PUBLISH_DRY_RUN;
   if (env !== undefined) return asBool(env);
@@ -1587,7 +1677,7 @@ function emitLines(pairs) {
 function usage() {
   process.stderr.write(
     'usage: engine.mjs [--config <path>] <plan|validate-config|project-env|build-env <stage>|' +
-    'prebuild-select-env|ca-bundle-env <sdist|prebuild|package>|napi-version|validate-env|validate-smoke|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
+    'prebuild-select-env|ca-bundle-env <sdist|prebuild|package>|napi-version|validate-env|validate-smoke|validate-platform-package|publish-env|test-cmds|test-junit|test-junit-env|test-tier|requires-java>\n'
   );
 }
 
@@ -1669,6 +1759,9 @@ function dispatch(cmd, positionals, cfg) {
       break;
     case 'validate-smoke':
       process.stdout.write(validateSmokeScript());
+      break;
+    case 'validate-platform-package':
+      process.stdout.write(validatePlatformPackageScript());
       break;
     case 'publish-env':
       emitPairs(publishEnv(cfg));

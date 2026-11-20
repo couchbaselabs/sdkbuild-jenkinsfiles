@@ -761,10 +761,12 @@ function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
         'npm' {
             # [string[]] up front: an @() built in an if/else can unwrap to a String, and
             # += would then concatenate instead of append.
-            [string[]]$npmArgs = @('install', '--save')
+            # --prefer-online: npm keeps a package listing for its max-age (300s) and would
+            # otherwise answer a retry from that copy.
+            [string[]]$npmArgs = @('install', '--save', '--prefer-online')
             if ($itype -eq 'sdist') { $npmArgs += '--omit=optional' }
             if ($ignoreScripts) { $npmArgs += '--ignore-scripts' }
-            Invoke-Checked $NPM_BIN ($npmArgs + $spec)
+            Invoke-RegistryInstallRetrying -itype $itype -exe $NPM_BIN -exeArgs ($npmArgs + $spec)
             # Join-String is absent on PowerShell 5.1, so the listing is collapsed with -join.
             $listing = (& $NPM_BIN @('list', '--depth=1') 2>&1) -join "`n"
             Write-Host $listing
@@ -794,7 +796,7 @@ function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
             # Berry has no --ignore-scripts flag; enableScripts is the equivalent.
             if ($ignoreScripts) { Set-ScopedEnv 'YARN_ENABLE_SCRIPTS' 'false' }
             Log "validate: yarn nodeLinker=$($env:CBCI_VALIDATE_YARN_LINKER)"
-            Invoke-Checked 'yarn' @('add', $spec)
+            Invoke-RegistryInstallRetrying -itype $itype -exe 'yarn' -exeArgs @('add', $spec)
             & yarn info $env:CBCI_VALIDATE_PACKAGE_NAME | Out-Host
         }
         'yarn-classic' {
@@ -805,10 +807,65 @@ function Invoke-ValidateRegistryInstall([string]$itype, [string]$root) {
             # and Berry only warn.
             if ($env:CBCI_VALIDATE_IGNORE_ENGINES -eq 'true') { $yarnArgs += '--ignore-engines' }
             if ($ignoreScripts) { $yarnArgs += '--ignore-scripts' }
-            Invoke-Checked 'yarn' $yarnArgs
+            Invoke-RegistryInstallRetrying -itype $itype -exe 'yarn' -exeArgs $yarnArgs
             & yarn list --depth=1 | Out-Host
         }
         default { Die "validate: unknown package manager: $pm (npm|yarn|yarn-classic)" }
+    }
+}
+
+# A registry install in the current project dir, retried while this agent is served a copy
+# of the package listing that predates the release. Mirrors tasks.sh's
+# _registry_install_retrying, which explains what is retried and why.
+function Invoke-RegistryInstallRetrying([string]$itype, [string]$exe, [string[]]$exeArgs) {
+    # Local to this function: under "Stop", PowerShell 5.1 turns a native command's
+    # redirected stderr into a terminating error before the exit code can be read.
+    $ErrorActionPreference = 'Continue'
+    $waitSecs = 480
+    if (-not [string]::IsNullOrWhiteSpace($env:CBCI_INDEX_WAIT_SECS)) { $waitSecs = [int]$env:CBCI_INDEX_WAIT_SECS }
+    $interval = 30
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    # npm (ETARGET), yarn classic, Yarn Berry (YN0082). Platform packages share the version.
+    $notFound = "No matching version found for|Couldn't find any versions for|No candidates found"
+    while ($true) {
+        $lines = @(& $exe @exeArgs 2>&1 | ForEach-Object { "$_" })
+        $rc = $LASTEXITCODE
+        $lines | Out-Host
+        if ($rc -eq 0) {
+            if ($itype -ne 'prebuild') { return }
+            $checkJs = & $NODE_BIN $ENGINE validate-platform-package
+            if ($LASTEXITCODE -ne 0) { Die 'validate: failed to emit the platform package check' }
+            # A file, never `node -e`, for the same reasons as the smoke script.
+            $check = Join-Path (Get-Location) '__cbci_validate_platform.cjs'
+            [System.IO.File]::WriteAllText($check, ($checkJs -join "`n"), (New-Object System.Text.UTF8Encoding $false))
+            if ($env:CBCI_VALIDATE_PACKAGE_MANAGER -eq 'yarn') {
+                & yarn node $check | Out-Host
+            } else {
+                & $NODE_BIN $check | Out-Host
+            }
+            $checkRc = $LASTEXITCODE
+            Remove-Item -Force $check
+            if ($checkRc -eq 0) { return }
+            if ($checkRc -eq 4) { Die 'validate: the platform package is on the registry but did not install (see above)' }
+            if ($checkRc -ne 3) { Die "validate: platform package check failed (exit $checkRc)" }
+            $reason = 'the platform package'
+        } else {
+            $hit = @($lines | Where-Object { $_ -match $notFound -and $_.Contains($env:CBCI_VERSION) })
+            if ($hit.Count -eq 0) {
+                Die "validate: $($env:CBCI_VALIDATE_PACKAGE_MANAGER) install failed for a reason other than a missing version (see above)"
+            }
+            $reason = $env:CBCI_VERSION
+        }
+        $elapsed = [int]$clock.Elapsed.TotalSeconds
+        if ($elapsed -ge $waitSecs) { Die "validate: the registry this agent sees still does not list $reason after ${waitSecs}s" }
+        Log "validate: $reason not on this agent's view of the registry yet, retrying in ${interval}s (${elapsed}s elapsed)"
+        Start-Sleep -Seconds $interval
+        # Start over from the bare project: a half-written node_modules or lockfile would pin
+        # the next attempt to what this one resolved.
+        foreach ($p in @('node_modules', '.yarn', '.pnp.cjs', '.pnp.loader.mjs', 'package-lock.json')) {
+            Remove-Item -Recurse -Force $p -ErrorAction SilentlyContinue
+        }
+        if (Test-Path 'yarn.lock') { Set-Content -Path 'yarn.lock' -Value $null -NoNewline }
     }
 }
 

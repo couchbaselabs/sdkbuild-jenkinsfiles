@@ -966,20 +966,15 @@ _validate_registry_install() {
     log "validate: ${pm} install ${spec} from ${CBCI_VALIDATE_REGISTRY} (ignore_scripts=${ignore_scripts})"
     # npm and yarn classic both read npm_config_registry; it outranks any ~/.npmrc.
     export npm_config_registry="${CBCI_VALIDATE_REGISTRY}"
+    local -a cmd
     case "${pm}" in
         npm)
-            local args=(install --save)
-            [[ "${itype}" == "sdist" ]] && args+=(--omit=optional)
-            [[ "${ignore_scripts}" == "true" ]] && args+=(--ignore-scripts)
-            "${NPM_BIN}" "${args[@]}" "${spec}"
-            "${NPM_BIN}" list --depth=1 || true
-            # An --omit=optional install that still resolved a platform package would be
-            # testing the prebuild path twice and reporting the source path as covered.
-            # Checked on disk: npm list names every withheld optional as UNMET.
-            if [[ "${itype}" == "sdist" ]] \
-               && compgen -G "node_modules/@${CBCI_VALIDATE_PACKAGE_NAME}/*" >/dev/null; then
-                die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
-            fi
+            # --prefer-online: npm keeps a package listing for its max-age (300s) and would
+            # otherwise answer a retry from that copy.
+            cmd=("${NPM_BIN}" install --save --prefer-online)
+            [[ "${itype}" == "sdist" ]] && cmd+=(--omit=optional)
+            [[ "${ignore_scripts}" == "true" ]] && cmd+=(--ignore-scripts)
+            cmd+=("${spec}")
             ;;
         yarn)
             _validate_setup_yarn "${root}"
@@ -998,24 +993,96 @@ _validate_registry_install() {
             # Berry has no --ignore-scripts flag; enableScripts is the equivalent.
             [[ "${ignore_scripts}" == "true" ]] && export YARN_ENABLE_SCRIPTS=false
             log "validate: yarn nodeLinker=${CBCI_VALIDATE_YARN_LINKER}"
-            yarn add "${spec}"
-            yarn info "${CBCI_VALIDATE_PACKAGE_NAME}" || true
+            cmd=(yarn add "${spec}")
             ;;
         yarn-classic)
             _validate_setup_yarn "${root}"
             touch yarn.lock
-            local args=(add "${spec}" --registry "${CBCI_VALIDATE_REGISTRY}")
+            cmd=(yarn add "${spec}" --registry "${CBCI_VALIDATE_REGISTRY}")
             # Classic fails outright on an engines mismatch (cmake-js's floor) where npm
             # and Berry only warn.
-            [[ "${CBCI_VALIDATE_IGNORE_ENGINES}" == "true" ]] && args+=(--ignore-engines)
-            [[ "${ignore_scripts}" == "true" ]] && args+=(--ignore-scripts)
-            yarn "${args[@]}"
-            yarn list --depth=1 || true
+            [[ "${CBCI_VALIDATE_IGNORE_ENGINES}" == "true" ]] && cmd+=(--ignore-engines)
+            [[ "${ignore_scripts}" == "true" ]] && cmd+=(--ignore-scripts)
             ;;
         *)
             die "validate: unknown package manager: ${pm} (npm|yarn|yarn-classic)"
             ;;
     esac
+
+    _registry_install_retrying "${itype}" "${cmd[@]}"
+
+    case "${pm}" in
+        npm)
+            "${NPM_BIN}" list --depth=1 || true
+            # An --omit=optional install that still resolved a platform package would be
+            # testing the prebuild path twice and reporting the source path as covered.
+            # Checked on disk: npm list names every withheld optional as UNMET.
+            if [[ "${itype}" == "sdist" ]] \
+               && compgen -G "node_modules/@${CBCI_VALIDATE_PACKAGE_NAME}/*" >/dev/null; then
+                die "validate: --omit=optional still pulled a platform package; the from-source path was not exercised"
+            fi
+            ;;
+        yarn)         yarn info "${CBCI_VALIDATE_PACKAGE_NAME}" || true ;;
+        yarn-classic) yarn list --depth=1 || true ;;
+    esac
+}
+
+# Runs a registry install ("$2"...) in the current project dir, retried while this agent is
+# served a copy of the package listing that predates the release. The registry CDN does not
+# refresh every edge at once, so for a few minutes after publish some agents resolve the
+# release and others do not; wait-published only proves the release node's view.
+# Retried, until CBCI_INDEX_WAIT_SECS (default 480, 0 disables):
+#   - the package manager reports that the pinned version does not exist;
+#   - (prebuild) the platform package did not land and the registry this agent sees does
+#     not list it yet. npm skips an unresolvable optional dependency without an error.
+# Anything else fails at once. Mirrored by Invoke-RegistryInstallRetrying in tasks.ps1.
+_registry_install_retrying() {
+    local itype="$1"; shift
+    local wait_secs="${CBCI_INDEX_WAIT_SECS:-480}" interval=30 start="${SECONDS}" out reason rc
+    local check="__cbci_validate_platform.cjs"
+    out="$(mktemp)"
+    while true; do
+        if "$@" 2>&1 | tee "${out}"; then
+            [[ "${itype}" == "prebuild" ]] || { rm -f "${out}"; return 0; }
+            "${NODE_BIN}" "${ENGINE}" validate-platform-package > "${check}" \
+                || die "validate: failed to emit the platform package check"
+            rc=0
+            if [[ "${CBCI_VALIDATE_PACKAGE_MANAGER}" == "yarn" ]]; then
+                yarn node "${check}" || rc=$?
+            else
+                "${NODE_BIN}" "${check}" || rc=$?
+            fi
+            rm -f "${check}"
+            case "${rc}" in
+                0) rm -f "${out}"; return 0 ;;
+                3) reason="the platform package" ;;
+                4) rm -f "${out}"; die "validate: the platform package is on the registry but did not install (see above)" ;;
+                *) rm -f "${out}"; die "validate: platform package check failed (exit ${rc})" ;;
+            esac
+        elif _registry_version_missing "${out}"; then
+            reason="${CBCI_VERSION}"
+        else
+            rm -f "${out}"
+            die "validate: ${CBCI_VALIDATE_PACKAGE_MANAGER} install failed for a reason other than a missing version (see above)"
+        fi
+        if (( SECONDS - start >= wait_secs )); then
+            rm -f "${out}"
+            die "validate: the registry this agent sees still does not list ${reason} after ${wait_secs}s"
+        fi
+        log "validate: ${reason} not on this agent's view of the registry yet, retrying in ${interval}s ($(( SECONDS - start ))s elapsed)"
+        sleep "${interval}"
+        # Start over from the bare project: a half-written node_modules or lockfile would pin
+        # the next attempt to what this one resolved.
+        rm -rf node_modules .yarn .pnp.cjs .pnp.loader.mjs package-lock.json
+        [[ -f yarn.lock ]] && : > yarn.lock
+    done
+}
+
+# True when an install log ($1) says a CBCI_VERSION package does not exist, in the words of
+# npm (ETARGET), yarn classic, or Yarn Berry (YN0082). Platform packages share the version.
+_registry_version_missing() {
+    grep -E "No matching version found for|Couldn't find any versions for|No candidates found" "$1" \
+        | grep -qF "${CBCI_VERSION}"
 }
 
 _validate_one() {
@@ -1552,7 +1619,7 @@ task_publish() {
 # abbreviated packument npm and yarn read, and its tarball fetchable.
 _registry_serves() {
     local name="$1" ver="$2" registry="$3" tarball
-    tarball="$(curl -fs -H 'Accept: application/vnd.npm.install-v1+json' "${registry%/}/${name/\//%2f}" \
+    tarball="$(curl -fs -H 'Accept: application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*' "${registry%/}/${name/\//%2f}" \
         | "${NODE_BIN}" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
             let v; try { v=JSON.parse(s).versions?.[process.argv[1]] } catch {}
             if(!v) process.exit(1); console.log(v.dist.tarball)})' "${ver}")" \
@@ -1564,6 +1631,8 @@ _registry_serves() {
 #
 # npm 11 publishes asynchronously, and the registry CDN can serve a cached 404 for a few
 # minutes after that, so an install started straight after `publish` can miss the version.
+# Passing proves only that THIS host is served a fresh listing; each verify cell still
+# retries on its own (_registry_install_retrying).
 task_wait_published() {
     cd "${PROJECT_ROOT}"
     local registry; registry="$("${NPM_BIN}" config get registry)"
