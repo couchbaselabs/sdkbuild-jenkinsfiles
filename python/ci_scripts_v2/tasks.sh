@@ -1609,9 +1609,45 @@ _install_built_artifact() {
     fi
     if [[ "${CBCI_USE_UV:-false}" == "true" ]]; then
         uv pip install --python "${vpy}" "${src[@]}"
+    elif [[ -n "${index}" && -n "${CBCI_VERSION:-}" ]]; then
+        _pip_install_pinned_from_index "${vpy}" "${CBCI_VERSION}" "${src[@]}"
     else
         "${vpy}" -m pip install "${src[@]}"
     fi
+}
+
+# pip install of a pinned release from an index, retried while this agent is served a copy
+# of the index page that predates the release. PyPI's CDN does not refresh every edge at
+# once, so for a few minutes after upload some agents resolve the release and others do not.
+# Retries only when pip's "(from versions: ...)" list lacks $2; a version that is listed
+# but still unmatched (no compatible wheel) fails at once. CBCI_INDEX_WAIT_SECS bounds the
+# wait (default 480, 0 disables). Mirrored by Install-SdkPackage in tasks.ps1.
+_pip_install_pinned_from_index() {
+    local vpy="$1" version="$2"; shift 2
+    local wait_secs="${CBCI_INDEX_WAIT_SECS:-480}" interval=30 start="${SECONDS}" out listed
+    out="$(mktemp)"
+    while true; do
+        # --no-cache-dir: a long-lived agent's pip HTTP cache is one more stale copy.
+        if "${vpy}" -m pip install --no-cache-dir "$@" 2>&1 | tee "${out}"; then
+            rm -f "${out}"
+            return 0
+        fi
+        listed="$(sed -n 's/^ERROR: Could not find a version that satisfies the requirement .*(from versions: \(.*\))$/\1/p' "${out}" | head -1)"
+        if [[ -z "${listed}" ]] && ! grep -q '^ERROR: Could not find a version that satisfies the requirement' "${out}"; then
+            rm -f "${out}"
+            die "install: pip failed for a reason other than a missing version (see above)"
+        fi
+        if [[ ", ${listed}, " == *", ${version}, "* ]]; then
+            rm -f "${out}"
+            die "install: ${version} is on the index but no distribution matches this platform"
+        fi
+        if (( SECONDS - start >= wait_secs )); then
+            rm -f "${out}"
+            die "install: the index this agent sees still does not list ${version} after ${wait_secs}s"
+        fi
+        log "install: ${version} not on this agent's view of the index yet, retrying in ${interval}s ($(( SECONDS - start ))s elapsed)"
+        sleep "${interval}"
+    done
 }
 
 # The GoCAVES binary for this OS/arch, cached under the CI-core dir by version, so it
@@ -2034,7 +2070,8 @@ task_publish() {
 # PyPI can take a minute or more to list a release after twine returns, and until then
 # `pip install <pkg>==<version>` reports that the version does not exist. Same inputs as
 # `publish`; a no-op under CBCI_PUBLISH_DRY_RUN, since nothing was uploaded. The timeout is
-# CBCI_PUBLISH_WAIT_SECS (default 900).
+# CBCI_PUBLISH_WAIT_SECS (default 900). Passing proves only that THIS host is served a
+# fresh page; each verify cell still retries on its own (_pip_install_pinned_from_index).
 task_wait_published() {
     load_project_env
     cd "${PROJECT_ROOT}"
@@ -2075,15 +2112,20 @@ def log(msg):
     print(f"[{time.strftime('%Y-%m-%dT%H:%M:%S%z')}] [tasks] wait-published: {msg}", flush=True)
 
 while True:
-    # The JSON form of the same page pip fetches, with pip's own revalidation header, so
-    # this sees what the verify job's pip install will see.
+    # pip's own Accept and revalidation headers: the CDN keys its cache on Accept, so any
+    # other value can be served a different copy than the one pip gets.
     req = urllib.request.Request(url, headers={
-        "Accept": "application/vnd.pypi.simple.v1+json",
+        "Accept": "application/vnd.pypi.simple.v1+json, "
+                  "application/vnd.pypi.simple.v1+html; q=0.1, text/html; q=0.01",
         "Cache-Control": "max-age=0",
     })
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
-            listed = {f["filename"] for f in json.load(resp).get("files", [])}
+            body = resp.read().decode("utf-8")
+            if "json" in resp.headers.get("Content-Type", ""):
+                listed = {f["filename"] for f in json.loads(body).get("files", [])}
+            else:
+                listed = set(re.findall(r'<a [^>]*>([^<]+)</a>', body))
         for name in sorted(pending & listed):
             log(f"{name} is listed")
         pending -= listed

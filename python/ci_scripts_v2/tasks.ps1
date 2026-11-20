@@ -156,7 +156,42 @@ function Install-SdkPackage($vpy) {
     }
     $pipArgs += $spec
     Write-Log "index install ($index) = $spec"
-    & $vpy -m pip install @pipArgs
+    if ([string]::IsNullOrWhiteSpace($env:CBCI_VERSION)) {
+        & $vpy -m pip install @pipArgs
+        return
+    }
+    Install-PinnedFromIndex -vpy $vpy -version $env:CBCI_VERSION -pipArgs $pipArgs
+}
+
+# pip install of a pinned release from an index, retried while this agent is served a copy
+# of the index page that predates the release. Mirrors _pip_install_pinned_from_index in
+# tasks.sh: retries only when pip's "(from versions: ...)" list lacks the version, fails at
+# once otherwise, bounded by CBCI_INDEX_WAIT_SECS (default 480, 0 disables).
+function Install-PinnedFromIndex($vpy, $version, $pipArgs) {
+    # Local to this function: under "Stop", PowerShell 5.1 turns pip's redirected stderr into
+    # a terminating error before the exit code can be read.
+    $ErrorActionPreference = "Continue"
+    $waitSecs = 480
+    if (-not [string]::IsNullOrWhiteSpace($env:CBCI_INDEX_WAIT_SECS)) { $waitSecs = [int]$env:CBCI_INDEX_WAIT_SECS }
+    $interval = 30
+    $clock = [System.Diagnostics.Stopwatch]::StartNew()
+    $notFound = '^ERROR: Could not find a version that satisfies the requirement .*\(from versions: (.*)\)$'
+    while ($true) {
+        # --no-cache-dir: a long-lived agent's pip HTTP cache is one more stale copy.
+        $lines = @(& $vpy -m pip install --no-cache-dir @pipArgs 2>&1 | ForEach-Object { "$_" })
+        $rc = $LASTEXITCODE
+        $lines | Out-Host
+        if ($rc -eq 0) { return }
+        $hit = @($lines | Where-Object { $_ -match $notFound } | Select-Object -First 1)
+        if ($hit.Count -eq 0) { Stop-Task "install: pip failed for a reason other than a missing version (see above)" }
+        $null = $hit[0] -match $notFound
+        $listed = @($Matches[1] -split ',\s*')
+        if ($listed -contains $version) { Stop-Task "install: $version is on the index but no distribution matches this platform" }
+        $elapsed = [int]$clock.Elapsed.TotalSeconds
+        if ($elapsed -ge $waitSecs) { Stop-Task "install: the index this agent sees still does not list $version after ${waitSecs}s" }
+        Write-Log "install: $version not on this agent's view of the index yet, retrying in ${interval}s (${elapsed}s elapsed)"
+        Start-Sleep -Seconds $interval
+    }
 }
 
 function Invoke-DisplayInfo {
